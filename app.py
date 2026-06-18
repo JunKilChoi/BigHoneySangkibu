@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v6"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v7"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -117,6 +117,40 @@ def apply_name_review_edits(base_df: pd.DataFrame, review_df: pd.DataFrame) -> p
                     result.at[idx, col] = review_map[sid][col]
 
     return sort_students_df(result)
+
+
+
+def mask_student_name(name, mask_char="○") -> str:
+    """
+    학생 이름을 개인정보 보호용으로 블라인드 처리한다.
+    - 1글자: ○
+    - 2글자: 홍○
+    - 3글자: 홍○동
+    - 4글자 이상: 홍○○동
+    공백은 제거하지 않고 전체 문자열 기준으로 처리한다.
+    """
+    text = clean_text(name)
+    if not text:
+        return ""
+
+    chars = list(text)
+    length = len(chars)
+
+    if length == 1:
+        return mask_char
+    if length == 2:
+        return chars[0] + mask_char
+
+    return chars[0] + (mask_char * (length - 2)) + chars[-1]
+
+
+def mask_student_names_in_df(df: pd.DataFrame, mask_char="○") -> pd.DataFrame:
+    result = df.copy()
+    if "성명" not in result.columns:
+        return result
+
+    result["성명"] = result["성명"].apply(lambda x: mask_student_name(x, mask_char=mask_char))
+    return result
 
 
 def json_safe(obj):
@@ -455,7 +489,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v6",
+        "version": "patched-20260618-v7",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1163,7 +1197,7 @@ with tab2:
 
     st.divider()
     st.markdown("#### 현재 학생 명단")
-    st.caption("이 표가 최종 명단입니다. 여기서 직접 수정한 뒤 '현재 학생 명단 저장'을 누르면 이후 모든 입력 화면에 반영됩니다.")
+    st.caption("이 표가 최종 명단입니다. 여기서 직접 수정한 뒤 '현재 학생 명단 저장'을 누르면 이후 모든 입력 화면에 반영됩니다. API 입력 전 개인정보 보호가 필요하면 저장 후 '이름 블라인드 처리'를 누르세요.")
 
     editable_students = st.session_state.students.copy()
 
@@ -1199,7 +1233,7 @@ with tab2:
         },
     )
 
-    col_save, col_sort = st.columns([1, 1])
+    col_save, col_sort, col_mask = st.columns([1, 1, 1])
 
     with col_save:
         if st.button("현재 학생 명단 저장", type="primary"):
@@ -1225,6 +1259,15 @@ with tab2:
             st.session_state.students = sort_students_df(st.session_state.students)
             st.success("현재 학생 명단을 정렬했습니다.")
             st.rerun()
+
+    with col_mask:
+        if st.button("이름 블라인드 처리", help="현재 학생 명단의 성명을 홍○동, 홍○, 홍○○동 형식으로 바꿉니다."):
+            if st.session_state.students.empty:
+                st.warning("블라인드 처리할 학생 명단이 없습니다.")
+            else:
+                st.session_state.students = mask_student_names_in_df(st.session_state.students, mask_char="○")
+                st.warning("학생 이름을 블라인드 처리했습니다. 원래 이름으로 되돌리려면 암호화 전 저장한 JSON 또는 나이스 파일을 다시 불러와야 합니다.")
+                st.rerun()
 
     if not st.session_state.students.empty:
         review_current = st.session_state.students[st.session_state.students["성명"].map(needs_name_review)]
