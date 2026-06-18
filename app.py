@@ -242,27 +242,7 @@ def parse_neis_excel(uploaded_file):
 
     return pd.DataFrame(columns=["student_id", "학년", "반", "번호", "성명"]), None
 
-def json_safe(obj):
-    if isinstance(obj, dict):
-        return {str(k): json_safe(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [json_safe(v) for v in obj]
-    if isinstance(obj, tuple):
-        return [json_safe(v) for v in obj]
 
-    try:
-        if pd.isna(obj):
-            return ""
-    except Exception:
-        pass
-
-    if hasattr(obj, "item"):
-        try:
-            return obj.item()
-        except Exception:
-            return str(obj)
-
-    return obj
 def project_to_json():
     data = {
         "settings": st.session_state.settings,
@@ -274,7 +254,8 @@ def project_to_json():
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
     }
-    return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
+    return json.dumps(data, ensure_ascii=False, indent=2)
+
 
 def load_project_json(uploaded_file):
     data = json.load(uploaded_file)
@@ -287,7 +268,7 @@ def load_project_json(uploaded_file):
 
 
 def get_items_for_assessment(assessment_id):
-    return [it for it in st.session_state.items if it["assessment_id"] == assessment_id]
+    return [it for it in st.session_state.items if it.get("assessment_id", "") == assessment_id]
 
 
 def get_assessment_name(assessment_id):
@@ -376,20 +357,20 @@ def build_student_material(student):
 
         if item["type"] == "rubric":
             if level or teacher_comment:
-                grouped[item["assessment_id"]].append(
+                grouped[item.get("assessment_id", "")].append(
                     f"- {item['name']}: 성취수준 {level} / 교사의 평가: {teacher_comment}"
                 )
 
         elif item["type"] == "comment":
             if comment:
-                grouped[item["assessment_id"]].append(f"- {item['name']}: {comment}")
+                grouped[item.get("assessment_id", "")].append(f"- {item['name']}: {comment}")
 
         elif item["type"] == "rubric_plus":
             if level or teacher_comment or comment:
                 text = f"- {item['name']}: 성취수준 {level} / 교사의 평가: {teacher_comment}"
                 if comment:
                     text += f" / 추가 코멘트: {comment}"
-                grouped[item["assessment_id"]].append(text)
+                grouped[item.get("assessment_id", "")].append(text)
 
     count = 1
     for a in st.session_state.assessments:
@@ -540,7 +521,7 @@ def export_excel():
     item_rows = []
     for item in st.session_state.items:
         row = item.copy()
-        row["assessment_name"] = get_assessment_name(item["assessment_id"])
+        row["assessment_name"] = get_assessment_name(item.get("assessment_id", ""))
         row["levels"] = ", ".join(item.get("levels", []))
         row["rubrics"] = "\n".join(
             [f"{k}: {v}" for k, v in item.get("rubrics", {}).items()]
@@ -558,7 +539,7 @@ def export_excel():
                     "반": stu.get("반", ""),
                     "번호": stu.get("번호", ""),
                     "성명": stu.get("성명", ""),
-                    "수행평가": get_assessment_name(item["assessment_id"]),
+                    "수행평가": get_assessment_name(item.get("assessment_id", "")),
                     "기록항목": item["name"],
                     "기록방식": item["type"],
                     "성취수준": rec.get("level", ""),
