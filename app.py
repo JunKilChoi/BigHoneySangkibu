@@ -242,7 +242,27 @@ def parse_neis_excel(uploaded_file):
 
     return pd.DataFrame(columns=["student_id", "학년", "반", "번호", "성명"]), None
 
+def json_safe(obj):
+    if isinstance(obj, dict):
+        return {str(k): json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [json_safe(v) for v in obj]
+    if isinstance(obj, tuple):
+        return [json_safe(v) for v in obj]
 
+    try:
+        if pd.isna(obj):
+            return ""
+    except Exception:
+        pass
+
+    if hasattr(obj, "item"):
+        try:
+            return obj.item()
+        except Exception:
+            return str(obj)
+
+    return obj
 def project_to_json():
     data = {
         "settings": st.session_state.settings,
@@ -254,8 +274,7 @@ def project_to_json():
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
     }
-    return json.dumps(data, ensure_ascii=False, indent=2)
-
+return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
 def load_project_json(uploaded_file):
     data = json.load(uploaded_file)
