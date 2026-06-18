@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v3"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v4"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -403,7 +403,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v3",
+        "version": "patched-20260618-v4",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -496,6 +496,68 @@ def item_type_from_kor(label):
         "개별 코멘트형": "comment",
         "성취도 + 추가 코멘트형": "rubric_plus",
     }.get(label, "rubric")
+
+
+
+def default_level_code(index):
+    default_codes = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
+    if 0 <= index < len(default_codes):
+        return default_codes[index]
+    return str(index + 1)
+
+
+def render_rubric_input_block(prefix, current_levels=None, current_rubrics=None):
+    """
+    성취수준 개수를 1~10개 중 선택하고, 개수에 맞춰
+    성취수준 코드와 교사의 평가 문구를 각각 입력받는다.
+    """
+    current_levels = current_levels if isinstance(current_levels, list) else []
+    current_rubrics = current_rubrics if isinstance(current_rubrics, dict) else {}
+
+    default_count = len(current_levels) if current_levels else 5
+    default_count = max(1, min(10, int(default_count)))
+
+    level_count = st.selectbox(
+        "성취수준 개수",
+        options=list(range(1, 11)),
+        index=default_count - 1,
+        key=f"{prefix}_level_count",
+    )
+
+    st.markdown("**성취수준 코드와 성취 수준별 교사의 평가 문구**")
+
+    levels = []
+    rubrics = {}
+
+    for idx in range(level_count):
+        existing_code = current_levels[idx] if idx < len(current_levels) else default_level_code(idx)
+        existing_text = current_rubrics.get(existing_code, "")
+
+        col_code, col_text = st.columns([1, 5])
+        with col_code:
+            code = st.text_input(
+                f"{idx + 1}번 코드",
+                value=existing_code,
+                key=f"{prefix}_code_{idx}",
+                label_visibility="collapsed",
+                placeholder="A",
+            )
+        with col_text:
+            comment = st.text_area(
+                f"{idx + 1}번 평가 문구",
+                value=existing_text,
+                key=f"{prefix}_comment_{idx}",
+                height=80,
+                label_visibility="collapsed",
+                placeholder="내용을 입력하세요. 교사가 평가한 내용을 입력해야 합니다.",
+            )
+
+        code = clean_text(code)
+        if code:
+            levels.append(code)
+            rubrics[code] = clean_text(comment)
+
+    return levels, rubrics
 
 
 # =========================
@@ -1145,18 +1207,21 @@ with tab3:
             )
             item_type = item_type_from_kor(item_type_label)
 
-            levels_text = ""
-            rubrics_text = ""
+            levels = []
+            rubrics = {}
 
             # 폼 밖에서 선택하게 하여 '개별 코멘트형' 선택 즉시 성취수준 입력칸이 사라지도록 함
             if item_type != "comment":
-                levels_text = st.text_input("성취수준 코드", value="A,B,C,D,E", key=f"new_item_levels_{aid}")
-                rubrics_text = st.text_area(
-                    "성취수준별 교사의 평가 문구",
-                    value="A=우수한 수준으로 수행함\nB=대체로 적절하게 수행함\nC=일부 보완이 필요함\nD=기본적인 참여가 이루어짐\nE=지속적인 보완이 필요함",
-                    height=140,
-                    key=f"new_item_rubrics_{aid}",
-                    help="A=문구 또는 A:문구 형식으로 입력합니다.",
+                levels, rubrics = render_rubric_input_block(
+                    prefix=f"new_item_rubric_{aid}",
+                    current_levels=["A", "B", "C", "D", "E"],
+                    current_rubrics={
+                        "A": "우수한 수준으로 수행함",
+                        "B": "대체로 적절하게 수행함",
+                        "C": "일부 보완이 필요함",
+                        "D": "기본적인 참여가 이루어짐",
+                        "E": "지속적인 보완이 필요함",
+                    },
                 )
 
             item_order = st.number_input(
@@ -1173,8 +1238,6 @@ with tab3:
                 else:
                     if item_type == "comment":
                         levels, rubrics = [], {}
-                    else:
-                        levels, rubrics = parse_rubric_text(levels_text, rubrics_text)
 
                     st.session_state["items"].append(
                         {
@@ -1235,20 +1298,13 @@ with tab3:
 
                     # 개별 코멘트형이면 성취수준 코드/루브릭 칸을 즉시 숨김
                     if item.get("type") in ["rubric", "rubric_plus"]:
-                        levels_text2 = st.text_input(
-                            "성취수준 코드",
-                            value=", ".join(item.get("levels", [])),
-                            key=f"item_levels_{item_id}",
-                        )
-                        rubrics_text2 = st.text_area(
-                            "루브릭 문구",
-                            value="\n".join([f"{k}={v}" for k, v in item.get("rubrics", {}).items()]),
-                            key=f"item_rubrics_{item_id}",
-                            height=120,
+                        levels, rubrics = render_rubric_input_block(
+                            prefix=f"edit_item_rubric_{item_id}",
+                            current_levels=item.get("levels", []),
+                            current_rubrics=item.get("rubrics", {}),
                         )
 
                         if st.button("루브릭 수정 저장", key=f"save_rubric_{item_id}"):
-                            levels, rubrics = parse_rubric_text(levels_text2, rubrics_text2)
                             item["levels"] = levels
                             item["rubrics"] = rubrics
                             st.success("루브릭을 저장했습니다.")
