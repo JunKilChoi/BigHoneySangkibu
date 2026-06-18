@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v15-pretty-drag"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v15-gray-drag-pretty-drag"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -488,7 +488,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v15-pretty-drag",
+        "version": "patched-20260618-v15-gray-drag-pretty-drag",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -586,17 +586,19 @@ def apply_item_drag_order(assessment_id, sorted_labels, label_to_item_id):
 def sortable_style():
     """
     streamlit-sortables 드래그 박스 디자인.
-    streamlit-sortables의 custom_style은 multi_containers=True 구조에서 가장 안정적으로 적용된다.
+    전체 색감을 회색 계열로 통일해 과한 색 대비를 줄인다.
     """
     return """
     .sortable-component {
         box-sizing: border-box;
         width: 100%;
         padding: 14px;
-        border-radius: 18px;
-        border: 1px solid rgba(15, 23, 42, 0.10);
-        background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
-        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 30px rgba(15, 23, 42, 0.06);
+        border-radius: 16px;
+        border: 1px solid #D1D5DB;
+        background: #F9FAFB;
+        box-shadow:
+            0 1px 2px rgba(17, 24, 39, 0.05),
+            0 8px 24px rgba(17, 24, 39, 0.05);
     }
 
     .sortable-container {
@@ -618,29 +620,34 @@ def sortable_style():
     .sortable-item {
         position: relative;
         box-sizing: border-box;
-        min-height: 48px;
+        min-height: 50px;
         margin: 8px 0;
-        padding: 13px 16px 13px 48px;
-        border-radius: 14px;
-        border: 1px solid rgba(148, 163, 184, 0.40);
+        padding: 13px 16px 13px 50px;
+        border-radius: 12px;
+        border: 1px solid #D1D5DB;
         background: #FFFFFF;
         color: #111827 !important;
         font-size: 15px;
-        font-weight: 700;
-        line-height: 1.4;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 18px rgba(15, 23, 42, 0.04);
+        font-weight: 650;
+        line-height: 1.45;
+        letter-spacing: -0.01em;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05);
         cursor: grab;
         user-select: none;
-        transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+        transition:
+            transform 0.12s ease,
+            border-color 0.12s ease,
+            box-shadow 0.12s ease,
+            background 0.12s ease;
     }
 
     .sortable-item::before {
         content: "⋮⋮";
         position: absolute;
-        left: 17px;
+        left: 18px;
         top: 50%;
         transform: translateY(-50%);
-        color: #94A3B8;
+        color: #9CA3AF;
         font-size: 18px;
         font-weight: 800;
         letter-spacing: -4px;
@@ -648,18 +655,23 @@ def sortable_style():
 
     .sortable-item:hover {
         transform: translateY(-1px);
-        border-color: rgba(59, 130, 246, 0.60);
-        background: #F8FBFF;
+        border-color: #9CA3AF;
+        background: #F3F4F6;
         color: #111827 !important;
-        box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08), 0 14px 32px rgba(37, 99, 235, 0.10);
+        box-shadow:
+            0 2px 4px rgba(17, 24, 39, 0.08),
+            0 10px 22px rgba(17, 24, 39, 0.08);
     }
 
     .sortable-item:active {
         cursor: grabbing;
         transform: scale(0.995);
-        border-color: rgba(37, 99, 235, 0.85);
+        border-color: #6B7280;
+        background: #E5E7EB;
         color: #111827 !important;
-        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.14), 0 18px 42px rgba(15, 23, 42, 0.12);
+        box-shadow:
+            0 4px 10px rgba(17, 24, 39, 0.10),
+            0 14px 28px rgba(17, 24, 39, 0.12);
     }
     """
 
