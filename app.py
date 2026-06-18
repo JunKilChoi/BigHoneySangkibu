@@ -19,7 +19,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618"
 
 
 # =========================
@@ -243,6 +243,31 @@ def parse_neis_excel(uploaded_file):
     return pd.DataFrame(columns=["student_id", "학년", "반", "번호", "성명"]), None
 
 
+
+def json_safe(obj):
+    """JSON 저장 전에 pandas/numpy 자료형을 안전한 기본 자료형으로 바꾼다."""
+    if isinstance(obj, dict):
+        return {str(k): json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [json_safe(v) for v in obj]
+    if isinstance(obj, tuple):
+        return [json_safe(v) for v in obj]
+
+    try:
+        if pd.isna(obj):
+            return ""
+    except Exception:
+        pass
+
+    if hasattr(obj, "item"):
+        try:
+            return obj.item()
+        except Exception:
+            return str(obj)
+
+    return obj
+
+
 def project_to_json():
     data = {
         "settings": st.session_state.settings,
@@ -254,7 +279,7 @@ def project_to_json():
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
     }
-    return json.dumps(data, ensure_ascii=False, indent=2)
+    return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
 
 def load_project_json(uploaded_file):
@@ -265,10 +290,11 @@ def load_project_json(uploaded_file):
     st.session_state.items = data.get("items", [])
     st.session_state.records = data.get("records", {})
     st.session_state.results = data.get("results", {})
+    sanitize_state()
 
 
 def get_items_for_assessment(assessment_id):
-    return [it for it in st.session_state.items if it.get("assessment_id", "") == assessment_id]
+    return [it for it in st.session_state.items if isinstance(it, dict) and it.get("assessment_id", "") == assessment_id]
 
 
 def get_assessment_name(assessment_id):
@@ -658,10 +684,70 @@ def load_sample_data():
     st.session_state.results = {}
 
 
+
+def sanitize_state():
+    """
+    예전 버전에서 만들어진 불완전한 수행평가/기록항목 데이터가 세션에 남아 있어도
+    앱이 죽지 않도록 기본 키를 보정하고, 복구 불가능한 항목은 제거한다.
+    """
+    # 수행평가 보정
+    clean_assessments = []
+    for a in st.session_state.get("assessments", []):
+        if not isinstance(a, dict):
+            continue
+        if not a.get("assessment_id"):
+            a["assessment_id"] = make_id("assess")
+        a["name"] = a.get("name") or "이름 없는 수행평가"
+        a["area"] = a.get("area", "")
+        a["description"] = a.get("description", "")
+        a["order"] = a.get("order", len(clean_assessments) + 1)
+        a["use"] = a.get("use", True)
+        clean_assessments.append(a)
+
+    st.session_state.assessments = clean_assessments
+    valid_assessment_ids = {a["assessment_id"] for a in clean_assessments}
+
+    # 기록 항목 보정
+    clean_items = []
+    for it in st.session_state.get("items", []):
+        if not isinstance(it, dict):
+            continue
+        if not it.get("assessment_id") or it.get("assessment_id") not in valid_assessment_ids:
+            continue
+        if not it.get("item_id"):
+            it["item_id"] = make_id("item")
+        it["name"] = it.get("name") or "이름 없는 기록 항목"
+        if it.get("type") not in ["rubric", "comment", "rubric_plus"]:
+            it["type"] = "rubric"
+        if not isinstance(it.get("levels", []), list):
+            it["levels"] = []
+        if not isinstance(it.get("rubrics", {}), dict):
+            it["rubrics"] = {}
+        it["order"] = it.get("order", len(clean_items) + 1)
+        clean_items.append(it)
+
+    st.session_state.items = clean_items
+    valid_item_ids = {it["item_id"] for it in clean_items}
+
+    # 깨진 records 제거
+    clean_records = {}
+    for k, v in st.session_state.get("records", {}).items():
+        if "::" not in str(k):
+            continue
+        item_id = str(k).split("::")[-1]
+        if item_id in valid_item_ids and isinstance(v, dict):
+            clean_records[k] = {
+                "level": clean_text(v.get("level", "")),
+                "comment": clean_text(v.get("comment", "")),
+            }
+    st.session_state.records = clean_records
+
+
 # =========================
 # 앱 시작
 # =========================
 init_state()
+sanitize_state()
 
 st.title(APP_TITLE)
 st.caption(APP_SUBTITLE)
@@ -1026,9 +1112,9 @@ with tab4:
             selected_assess_ids = [a["assessment_id"] for a in assessments if a["name"] == selected_assess_name]
 
         selected_items = [
-            it for it in st.session_state.items if it.get("assessment_id", "") in selected_assess_ids
+            it for it in st.session_state.items if isinstance(it, dict) and it.get("assessment_id", "") in selected_assess_ids
         ]
-        selected_items = sorted(selected_items, key=lambda x: (get_assessment_name(x["assessment_id"]), x.get("order", 999)))
+        selected_items = sorted(selected_items, key=lambda x: (get_assessment_name(x.get("assessment_id", "")), x.get("order", 999)))
 
         data_rows = []
         for _, stu in students.iterrows():
@@ -1041,7 +1127,7 @@ with tab4:
             }
             for item in selected_items:
                 rec = get_record(stu["student_id"], item["item_id"])
-                base_col = f"{get_assessment_name(item['assessment_id'])} - {item['name']}"
+                base_col = f"{get_assessment_name(item.get('assessment_id', ''))} - {item['name']}"
 
                 if item["type"] == "rubric":
                     row[base_col] = rec.get("level", "")
@@ -1057,7 +1143,7 @@ with tab4:
 
         column_config = {}
         for item in selected_items:
-            base_col = f"{get_assessment_name(item['assessment_id'])} - {item['name']}"
+            base_col = f"{get_assessment_name(item.get('assessment_id', ''))} - {item['name']}"
             if item["type"] == "rubric":
                 column_config[base_col] = st.column_config.SelectboxColumn(
                     base_col,
@@ -1097,7 +1183,7 @@ with tab4:
             for _, row in edited_df.iterrows():
                 sid = row["student_id"]
                 for item in selected_items:
-                    base_col = f"{get_assessment_name(item['assessment_id'])} - {item['name']}"
+                    base_col = f"{get_assessment_name(item.get('assessment_id', ''))} - {item['name']}"
 
                     if item["type"] == "rubric":
                         set_record(sid, item["item_id"], level=row.get(base_col, ""), comment="")
