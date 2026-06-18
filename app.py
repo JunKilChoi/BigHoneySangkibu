@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v11"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v12"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -483,7 +483,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v11",
+        "version": "patched-20260618-v12",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1283,27 +1283,13 @@ with tab3:
 
     st.markdown(
         """
-        이 화면은 **수행평가 → 기록 항목 → 성취수준/개별 코멘트**의 위계로 구성됩니다.  
-        즉, **수행평가가 큰 폴더**이고, 그 안에 **학생별로 입력할 기록 항목**을 넣는 구조입니다.
-        """
-    )
-
-    st.markdown(
-        """
-        ```text
-        📁 수행평가
-           ├─ 🧾 기록 항목 1
-           │    └─ 성취수준 코드 / 평가 문구 / 학생별 코멘트
-           ├─ 🧾 기록 항목 2
-           │    └─ 성취수준 코드 / 평가 문구 / 학생별 코멘트
-           └─ 🧾 기록 항목 3
-                └─ 성취수준 코드 / 평가 문구 / 학생별 코멘트
-        ```
+        이 화면은 **수행평가**를 먼저 만들고, 각 수행평가 안에 학생별로 입력할 **기록 항목**을 넣는 구조입니다.  
+        기록 항목 안에는 필요에 따라 **성취수준 코드, 평가 문구, 개별 코멘트**를 설정합니다.
         """
     )
 
     with st.expander("➕ 새 수행평가 추가", expanded=True):
-        st.caption("먼저 상위 단위인 수행평가를 만들고, 그 안에 하위 기록 항목을 추가합니다.")
+        st.caption("먼저 상위 단위인 수행평가를 만들고, 그 안에 기록 항목을 추가합니다.")
 
         with st.form("add_assessment_form"):
             col1, col2 = st.columns([2, 1])
@@ -1433,7 +1419,7 @@ with tab3:
                         st.success("수행평가를 삭제했습니다.")
                         st.rerun()
 
-            st.markdown("#### └─ 🧾 하위 기록 항목")
+            st.markdown("#### 🧾 기록 항목")
 
             with st.expander("➕ 이 수행평가에 기록 항목 추가", expanded=(item_count == 0)):
                 st.caption("기록 항목은 학생별 입력표의 실제 입력 칸이 됩니다.")
@@ -1508,12 +1494,7 @@ with tab3:
 
                     with st.container(border=True):
                         st.markdown(
-                            f"""
-                            ##### ↳ 🧾 기록 항목 {item_index}. {item.get('name', '이름 없는 기록 항목')}
-                            **상위 수행평가:** {assessment.get('name', '')} &nbsp;&nbsp;|&nbsp;&nbsp;
-                            **기록 방식:** {item_type_label} &nbsp;&nbsp;|&nbsp;&nbsp;
-                            **성취수준:** {level_count}개
-                            """
+                            f"##### 🧾 기록 항목 {item_index}. {item.get('name', '이름 없는 기록 항목')}"
                         )
 
                         col1, col2, col3 = st.columns([2.2, 1.6, 1])
@@ -1565,22 +1546,21 @@ with tab3:
                                 st.rerun()
 
                         if item.get("type") in ["rubric", "rubric_plus"]:
-                            with st.expander("└─ 성취수준 코드와 평가 문구 수정", expanded=False):
-                                levels, rubrics = render_rubric_input_block(
-                                    prefix=f"edit_item_rubric_{item_id}",
-                                    current_levels=item.get("levels", []),
-                                    current_rubrics=item.get("rubrics", {}),
-                                )
+                            levels, rubrics = render_rubric_input_block(
+                                prefix=f"edit_item_rubric_{item_id}",
+                                current_levels=item.get("levels", []),
+                                current_rubrics=item.get("rubrics", {}),
+                            )
 
-                                if st.button("성취수준/평가 문구 저장", key=f"save_rubric_{item_id}"):
-                                    item["levels"] = levels
-                                    item["rubrics"] = rubrics
-                                    st.success("성취수준과 평가 문구를 저장했습니다.")
-                                    st.rerun()
+                            if st.button("성취수준/평가 문구 저장", key=f"save_rubric_{item_id}"):
+                                item["levels"] = levels
+                                item["rubrics"] = rubrics
+                                st.success("성취수준과 평가 문구를 저장했습니다.")
+                                st.rerun()
                         else:
-                            st.info("└─ 개별 코멘트형 항목입니다. 학생별 기록 입력 화면에서 학생별 서술형 코멘트를 입력합니다.")
+                            st.info("개별 코멘트형 항목입니다. 학생별 기록 입력 화면에서 학생별 서술형 코멘트를 입력합니다.")
             else:
-                st.info("아직 이 수행평가에 등록된 기록 항목이 없습니다. 위의 '기록 항목 추가'를 눌러 하위 항목을 추가하세요.")
+                st.info("아직 이 수행평가에 등록된 기록 항목이 없습니다. 위의 '기록 항목 추가'를 눌러 항목을 추가하세요.")
 
 
 
