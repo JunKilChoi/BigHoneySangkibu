@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v8"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v9"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -489,7 +489,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v8",
+        "version": "patched-20260618-v9",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1233,10 +1233,26 @@ with tab2:
         },
     )
 
-    col_save, col_sort, col_mask = st.columns([1, 1, 1])
+    # 버튼은 왼쪽부터 '다시 정렬 → 이름 블라인드 처리 → 저장' 순서로 붙여 배치한다.
+    col_sort, col_mask, col_save, col_blank = st.columns([1.25, 1.35, 1.25, 6.15])
+
+    with col_sort:
+        if st.button("다시 정렬"):
+            st.session_state.students = sort_students_df(st.session_state.students)
+            st.success("현재 학생 명단을 정렬했습니다.")
+            st.rerun()
+
+    with col_mask:
+        if st.button("🔒 이름 블라인드 처리", type="primary", help="현재 학생 명단의 성명을 홍*동, 홍*, 홍**동 형식으로 바꿉니다."):
+            if st.session_state.students.empty:
+                st.warning("블라인드 처리할 학생 명단이 없습니다.")
+            else:
+                st.session_state.students = mask_student_names_in_df(st.session_state.students, mask_char="*")
+                st.warning("학생 이름을 블라인드 처리했습니다. 원래 이름으로 되돌리려면 암호화 전 저장한 JSON 또는 나이스 파일을 다시 불러와야 합니다.")
+                st.rerun()
 
     with col_save:
-        if st.button("현재 학생 명단 저장", type="primary"):
+        if st.button("현재 명단 저장"):
             new_df = edited_students.copy()
 
             for col in ["student_id", "학년", "반", "번호", "성명"]:
@@ -1253,21 +1269,6 @@ with tab2:
             st.session_state.students = sort_students_df(new_df[["student_id", "학년", "반", "번호", "성명"]])
             st.success("현재 학생 명단을 저장했습니다.")
             st.rerun()
-
-    with col_sort:
-        if st.button("반/번호 순으로 다시 정렬"):
-            st.session_state.students = sort_students_df(st.session_state.students)
-            st.success("현재 학생 명단을 정렬했습니다.")
-            st.rerun()
-
-    with col_mask:
-        if st.button("🔒 이름 블라인드 처리", type="primary", help="현재 학생 명단의 성명을 홍*동, 홍*, 홍**동 형식으로 바꿉니다."):
-            if st.session_state.students.empty:
-                st.warning("블라인드 처리할 학생 명단이 없습니다.")
-            else:
-                st.session_state.students = mask_student_names_in_df(st.session_state.students, mask_char="*")
-                st.warning("학생 이름을 블라인드 처리했습니다. 원래 이름으로 되돌리려면 암호화 전 저장한 JSON 또는 나이스 파일을 다시 불러와야 합니다.")
-                st.rerun()
 
     if not st.session_state.students.empty:
         review_current = st.session_state.students[st.session_state.students["성명"].map(needs_name_review)]
