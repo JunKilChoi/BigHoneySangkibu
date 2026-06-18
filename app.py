@@ -54,7 +54,7 @@ def init_state():
         st.session_state.assessments = []
 
     if "items" not in st.session_state:
-        st.session_state.items = []
+        st.session_state["items"] = []
 
     if "records" not in st.session_state:
         # key = f"{student_id}::{item_id}"
@@ -273,7 +273,7 @@ def project_to_json():
         "settings": st.session_state.settings,
         "students": st.session_state.students.to_dict(orient="records"),
         "assessments": st.session_state.assessments,
-        "items": st.session_state.items,
+        "items": st.session_state["items"],
         "records": st.session_state.records,
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
@@ -287,14 +287,14 @@ def load_project_json(uploaded_file):
     st.session_state.settings = data.get("settings", st.session_state.settings)
     st.session_state.students = pd.DataFrame(data.get("students", []))
     st.session_state.assessments = data.get("assessments", [])
-    st.session_state.items = data.get("items", [])
+    st.session_state["items"] = data.get("items", [])
     st.session_state.records = data.get("records", {})
     st.session_state.results = data.get("results", {})
     sanitize_state()
 
 
 def get_items_for_assessment(assessment_id):
-    return [it for it in st.session_state.items if isinstance(it, dict) and it.get("assessment_id", "") == assessment_id]
+    return [it for it in st.session_state["items"] if isinstance(it, dict) and it.get("assessment_id", "") == assessment_id]
 
 
 def get_assessment_name(assessment_id):
@@ -372,7 +372,7 @@ def build_student_material(student):
     for a in st.session_state.assessments:
         grouped[a["assessment_id"]] = []
 
-    for item in st.session_state.items:
+    for item in st.session_state["items"]:
         rec = get_record(student_id, item["item_id"])
         level = rec.get("level", "")
         comment = rec.get("comment", "")
@@ -545,7 +545,7 @@ def export_excel():
 
     assessment_df = pd.DataFrame(st.session_state.assessments)
     item_rows = []
-    for item in st.session_state.items:
+    for item in st.session_state["items"]:
         row = item.copy()
         row["assessment_name"] = get_assessment_name(item.get("assessment_id", ""))
         row["levels"] = ", ".join(item.get("levels", []))
@@ -557,7 +557,7 @@ def export_excel():
 
     record_rows = []
     for _, stu in students.iterrows():
-        for item in st.session_state.items:
+        for item in st.session_state["items"]:
             rec = get_record(stu["student_id"], item["item_id"])
             record_rows.append(
                 {
@@ -633,7 +633,7 @@ def load_sample_data():
     item2 = make_id("item")
     item3 = make_id("item")
 
-    st.session_state.items = [
+    st.session_state["items"] = [
         {
             "item_id": item1,
             "assessment_id": a1,
@@ -726,7 +726,7 @@ def sanitize_state():
         it["order"] = it.get("order", len(clean_items) + 1)
         clean_items.append(it)
 
-    st.session_state.items = clean_items
+    st.session_state["items"] = clean_items
     valid_item_ids = {it["item_id"] for it in clean_items}
 
     # 깨진 records 제거
@@ -1016,7 +1016,7 @@ with tab3:
                         else:
                             levels, rubrics = parse_rubric_text(levels_text, rubrics_text)
 
-                        st.session_state.items.append(
+                        st.session_state["items"].append(
                             {
                                 "item_id": make_id("item"),
                                 "assessment_id": a["assessment_id"],
@@ -1059,8 +1059,8 @@ with tab3:
                             )
                         with c3:
                             if st.button("삭제", key=f"delete_item_{item['item_id']}"):
-                                st.session_state.items = [
-                                    x for x in st.session_state.items if x["item_id"] != item["item_id"]
+                                st.session_state["items"] = [
+                                    x for x in st.session_state["items"] if x["item_id"] != item["item_id"]
                                 ]
                                 # 관련 학생 기록도 삭제
                                 st.session_state.records = {
@@ -1098,7 +1098,7 @@ with tab4:
 
     if st.session_state.students.empty:
         st.warning("먼저 학생 명단을 업로드하거나 입력하세요.")
-    elif not st.session_state.items:
+    elif not st.session_state["items"]:
         st.warning("먼저 수행평가와 기록 항목을 추가하세요.")
     else:
         students = st.session_state.students.copy()
@@ -1112,7 +1112,7 @@ with tab4:
             selected_assess_ids = [a["assessment_id"] for a in assessments if a["name"] == selected_assess_name]
 
         selected_items = [
-            it for it in st.session_state.items if isinstance(it, dict) and it.get("assessment_id", "") in selected_assess_ids
+            it for it in st.session_state["items"] if isinstance(it, dict) and it.get("assessment_id", "") in selected_assess_ids
         ]
         selected_items = sorted(selected_items, key=lambda x: (get_assessment_name(x.get("assessment_id", "")), x.get("order", 999)))
 
