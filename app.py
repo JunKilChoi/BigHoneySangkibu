@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v9"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v10"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -83,20 +83,14 @@ def sort_students_df(df: pd.DataFrame) -> pd.DataFrame:
 
 def needs_name_review(name) -> bool:
     """
-    성명에 한글 외 문자가 포함된 경우 이름 확인이 필요하다고 표시한다.
-    예: 영문명, 한자명, 특수문자가 섞인 이름 등.
+    성명에 영어 알파벳이 포함된 경우에만 이름 확인 필요 학생으로 표시한다.
+    블라인드 처리 후 생기는 * 문자는 확인 대상에 포함하지 않는다.
     """
     text = clean_text(name)
     if not text:
         return False
 
-    # 공백, 가운데점, 하이픈, 괄호 정도는 이름 표기 보조기호로 허용
-    name_core = re.sub(r"[\s·ㆍ\-()（）]", "", text)
-
-    if not name_core:
-        return False
-
-    return re.fullmatch(r"[가-힣]+", name_core) is None
+    return re.search(r"[A-Za-z]", text) is not None
 
 
 def apply_name_review_edits(base_df: pd.DataFrame, review_df: pd.DataFrame) -> pd.DataFrame:
@@ -489,7 +483,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v9",
+        "version": "patched-20260618-v10",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1233,13 +1227,13 @@ with tab2:
         },
     )
 
-    # 버튼은 왼쪽부터 '다시 정렬 → 이름 블라인드 처리 → 저장' 순서로 붙여 배치한다.
-    col_sort, col_mask, col_save, col_blank = st.columns([1.25, 1.35, 1.25, 6.15])
+    # 버튼은 왼쪽부터 '반/번호 순대로 다시 정렬 → 이름 블라인드 처리 → 저장' 순서로 붙여 배치한다.
+    col_sort, col_mask, col_save, col_blank = st.columns([2.25, 2.25, 1.45, 4.05])
 
     with col_sort:
-        if st.button("다시 정렬"):
+        if st.button("반/번호 순대로 다시 정렬"):
             st.session_state.students = sort_students_df(st.session_state.students)
-            st.success("현재 학생 명단을 정렬했습니다.")
+            st.success("현재 학생 명단을 반/번호 순대로 정렬했습니다.")
             st.rerun()
 
     with col_mask:
@@ -1252,7 +1246,7 @@ with tab2:
                 st.rerun()
 
     with col_save:
-        if st.button("현재 명단 저장"):
+        if st.button("현재 명단 저장", type="primary"):
             new_df = edited_students.copy()
 
             for col in ["student_id", "학년", "반", "번호", "성명"]:
