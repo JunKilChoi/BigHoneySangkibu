@@ -12,7 +12,7 @@ import streamlit as st
 # 앱 기본 설정
 # =========================
 st.set_page_config(
-    page_title="BigHoneySangkibu",
+    page_title="BigHoney생기부",
     page_icon="🍯",
     layout="wide",
 )
