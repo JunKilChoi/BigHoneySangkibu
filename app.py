@@ -585,129 +585,127 @@ def apply_item_drag_order(assessment_id, sorted_labels, label_to_item_id):
 
 def sortable_style():
     """
-    streamlit-sortables 드래그 박스 디자인.
-    전체 색감을 회색 계열로 통일해 과한 색 대비를 줄인다.
+    streamlit-sortables 0.3.1 이상에서 사용하는 회색 계열 드래그 카드 디자인.
+    글씨색, 배경색, 테두리색을 모두 명시해 기본 빨간색/흰 글씨 스타일이 끼어들지 않게 한다.
     """
     return """
-    .sortable-component {
-        box-sizing: border-box;
-        width: 100%;
-        padding: 14px;
-        border-radius: 16px;
-        border: 1px solid #D1D5DB;
-        background: #F9FAFB;
-        box-shadow:
-            0 1px 2px rgba(17, 24, 39, 0.05),
-            0 8px 24px rgba(17, 24, 39, 0.05);
+    .sortable-component,
+    .sortable-component.vertical {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        padding: 12px !important;
+        border-radius: 14px !important;
+        border: 1px solid #D1D5DB !important;
+        background: #F9FAFB !important;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05) !important;
     }
 
     .sortable-container {
-        background: transparent;
-        border: 0;
-        padding: 0;
-        counter-reset: item;
+        box-sizing: border-box !important;
+        border: 0 !important;
+        border-radius: 12px !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
     }
 
     .sortable-container-header {
-        display: none;
+        display: none !important;
+        height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        color: #111827 !important;
     }
 
-    .sortable-container-body {
-        background: transparent;
-        padding: 0;
+    .sortable-container-body,
+    .sortable-container-boy {
+        background: transparent !important;
+        border: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
     }
 
     .sortable-item {
-        position: relative;
-        box-sizing: border-box;
-        min-height: 50px;
-        margin: 8px 0;
-        padding: 13px 16px 13px 50px;
-        border-radius: 12px;
-        border: 1px solid #D1D5DB;
-        background: #FFFFFF;
+        position: relative !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        align-items: center !important;
+        min-height: 48px !important;
+        margin: 8px 0 !important;
+        padding: 12px 16px 12px 48px !important;
+        border-radius: 12px !important;
+        border: 1px solid #D1D5DB !important;
+        background: #FFFFFF !important;
         color: #111827 !important;
-        font-size: 15px;
-        font-weight: 650;
-        line-height: 1.45;
-        letter-spacing: -0.01em;
-        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05);
-        cursor: grab;
-        user-select: none;
-        transition:
-            transform 0.12s ease,
-            border-color 0.12s ease,
-            box-shadow 0.12s ease,
-            background 0.12s ease;
+        font-size: 15px !important;
+        font-weight: 650 !important;
+        line-height: 1.45 !important;
+        letter-spacing: -0.01em !important;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05) !important;
+        cursor: grab !important;
+        user-select: none !important;
+        transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease !important;
     }
 
     .sortable-item::before {
-        content: "⋮⋮";
-        position: absolute;
-        left: 18px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #9CA3AF;
-        font-size: 18px;
-        font-weight: 800;
-        letter-spacing: -4px;
+        content: "⋮⋮" !important;
+        position: absolute !important;
+        left: 17px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        color: #9CA3AF !important;
+        font-size: 18px !important;
+        font-weight: 800 !important;
+        letter-spacing: -4px !important;
     }
 
     .sortable-item:hover {
-        transform: translateY(-1px);
-        border-color: #9CA3AF;
-        background: #F3F4F6;
+        transform: translateY(-1px) !important;
+        border-color: #9CA3AF !important;
+        background: #F3F4F6 !important;
         color: #111827 !important;
-        box-shadow:
-            0 2px 4px rgba(17, 24, 39, 0.08),
-            0 10px 22px rgba(17, 24, 39, 0.08);
+        box-shadow: 0 2px 8px rgba(17, 24, 39, 0.10) !important;
     }
 
     .sortable-item:active {
-        cursor: grabbing;
-        transform: scale(0.995);
-        border-color: #6B7280;
-        background: #E5E7EB;
+        cursor: grabbing !important;
+        transform: scale(0.995) !important;
+        border-color: #6B7280 !important;
+        background: #E5E7EB !important;
         color: #111827 !important;
-        box-shadow:
-            0 4px 10px rgba(17, 24, 39, 0.10),
-            0 14px 28px rgba(17, 24, 39, 0.12);
+        box-shadow: 0 4px 12px rgba(17, 24, 39, 0.12) !important;
     }
     """
 
 
 def sort_labels_with_pretty_box(labels, key, header="정렬"):
     """
-    streamlit-sortables를 안정적으로 호출한다.
-    - 예쁜 custom_style은 multi_containers=True 구조에서 적용한다.
-    - 현재 설치된 streamlit-sortables 버전이 custom_style을 거부하면 기본 정렬로 자동 fallback한다.
+    수행평가와 평가 요소에 공통으로 쓰는 드래그 정렬 함수.
+    회색 카드 스타일은 streamlit-sortables==0.3.1 이상에서만 안정적으로 적용된다.
     """
     if sort_items is None:
+        st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables==0.3.1을 추가해야 합니다.")
+        return labels
+
+    if len(labels) < 2:
         return labels
 
     try:
-        sorted_containers = sort_items(
-            [{"header": header, "items": labels}],
-            multi_containers=True,
+        return sort_items(
+            labels,
+            header=header,
+            direction="vertical",
             custom_style=sortable_style(),
             key=key,
         )
-        if (
-            isinstance(sorted_containers, list)
-            and sorted_containers
-            and isinstance(sorted_containers[0], dict)
-            and isinstance(sorted_containers[0].get("items"), list)
-        ):
-            return sorted_containers[0].get("items", labels)
-        return labels
     except TypeError:
-        # 일부 설치 환경에서는 custom_style 또는 multi_containers 인자 조합에서 TypeError가 발생할 수 있다.
-        # 이때 앱이 죽지 않도록 기본 드래그 정렬로 후퇴한다.
-        try:
-            return sort_items(labels, key=f"{key}_plain")
-        except Exception as e:
-            st.error(f"드래그 정렬 컴포넌트 오류: {e}")
-            return labels
+        st.error(
+            "현재 설치된 streamlit-sortables 버전이 custom_style을 지원하지 않습니다. "
+            "requirements.txt의 streamlit-sortables를 streamlit-sortables==0.3.1로 바꾼 뒤, Streamlit Cloud에서 Reboot app을 눌러주세요."
+        )
+        return labels
     except Exception as e:
         st.error(f"드래그 정렬 컴포넌트 오류: {e}")
         return labels
@@ -1752,7 +1750,7 @@ with tab3:
 
             if existing_items:
                 if len(existing_items) >= 2:
-                    with st.expander("평가 요소 순서 드래그 정렬", expanded=False):
+                    with st.expander("평가 요소 순서 드래그 정렬", expanded=True):
                         if sort_items is None:
                             st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables를 추가해야 합니다.")
                         else:
