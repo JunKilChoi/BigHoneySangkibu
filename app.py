@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v13"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v14"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -483,7 +483,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v13",
+        "version": "patched-20260618-v14",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -508,6 +508,68 @@ def get_items_for_assessment(assessment_id):
         for item in st.session_state["items"]
         if isinstance(item, dict) and item.get("assessment_id", "") == assessment_id
     ]
+
+
+
+def normalize_item_orders(assessment_id):
+    """
+    한 수행평가 안의 평가 요소 순서를 1, 2, 3...처럼 중복 없이 다시 정리한다.
+    이전 버전에서 같은 순서가 저장되어 있어도 자동으로 보정된다.
+    """
+    items = get_items_for_assessment(assessment_id)
+    items = sorted(
+        items,
+        key=lambda x: (
+            int(x.get("order", 999) or 999),
+            clean_text(x.get("name", "")),
+            clean_text(x.get("item_id", "")),
+        ),
+    )
+
+    for idx, item in enumerate(items, start=1):
+        item["order"] = idx
+
+
+def shift_item_orders_for_insert(assessment_id, insert_order):
+    """
+    새 평가 요소를 특정 순서에 끼워 넣을 때,
+    기존 평가 요소들의 순서를 뒤로 밀어 중복을 막는다.
+    """
+    normalize_item_orders(assessment_id)
+
+    for item in get_items_for_assessment(assessment_id):
+        current_order = int(item.get("order", 999) or 999)
+        if current_order >= int(insert_order):
+            item["order"] = current_order + 1
+
+
+def move_item_to_order(assessment_id, item_id, new_order):
+    """
+    기존 평가 요소의 순서를 바꿀 때,
+    같은 수행평가 안의 다른 평가 요소 순서도 함께 재배치한다.
+    """
+    items = sorted(
+        get_items_for_assessment(assessment_id),
+        key=lambda x: int(x.get("order", 999) or 999),
+    )
+
+    moving_item = None
+    remaining_items = []
+
+    for item in items:
+        if item.get("item_id", "") == item_id:
+            moving_item = item
+        else:
+            remaining_items.append(item)
+
+    if moving_item is None:
+        return
+
+    new_order = max(1, min(int(new_order), len(items)))
+    remaining_items.insert(new_order - 1, moving_item)
+
+    for idx, item in enumerate(remaining_items, start=1):
+        item["order"] = idx
 
 
 def get_assessment_name(assessment_id):
@@ -1289,7 +1351,7 @@ with tab3:
     )
 
     with st.expander("➕ 새 수행평가 추가", expanded=True):
-        st.caption("먼저 상위 단위인 수행평가를 만들고, 그 안에 평가 요소을 추가합니다.")
+        st.caption("먼저 상위 단위인 수행평가를 만들고, 그 안에 평가 요소를 추가합니다.")
 
         with st.form("add_assessment_form"):
             col1, col2 = st.columns([2, 1])
@@ -1343,6 +1405,7 @@ with tab3:
 
     for assess_index, assessment in enumerate(sorted_assessments, start=1):
         aid = assessment.get("assessment_id", "")
+        normalize_item_orders(aid)
         existing_items = sorted(
             get_items_for_assessment(aid),
             key=lambda x: int(x.get("order", 999) or 999),
@@ -1422,7 +1485,13 @@ with tab3:
             st.markdown("#### 🧾 평가 요소")
 
             with st.expander("➕ 이 수행평가에 평가 요소 추가", expanded=(item_count == 0)):
-                st.caption("평가 요소은 학생별 입력표의 실제 입력 칸이 됩니다.")
+                st.markdown(
+                    """
+                    수행평가 안에 존재하는 여러 관찰 및 평가 요소들을 추가해주세요.  
+                    A, B, C와 같은 **성취도 선택형**으로 개별화시킬 수도 있고, 개인마다 다른 관찰 내용을 적어주는 **개별 코멘트형**으로 더욱 구체적인 개별화가 가능합니다.  
+                    또한 이 두 가지를 융합한 **성취도 + 추가 코멘트형**도 가능합니다.
+                    """
+                )
 
                 item_name = st.text_input(
                     "평가 요소명",
@@ -1456,12 +1525,14 @@ with tab3:
                 else:
                     st.info("개별 코멘트형입니다. 성취수준 코드 없이 학생별 서술형 코멘트만 입력합니다.")
 
-                item_order = st.number_input(
-                    "항목 순서",
-                    min_value=1,
-                    value=len(get_items_for_assessment(aid)) + 1,
-                    step=1,
+                insert_order_options = list(range(1, item_count + 2))
+                item_order = st.selectbox(
+                    "평가 요소 순서",
+                    options=insert_order_options,
+                    index=len(insert_order_options) - 1,
+                    format_func=lambda x: f"{x}번째",
                     key=f"new_item_order_{aid}",
+                    help="선택한 순서에 새 평가 요소가 들어가고, 기존 요소들은 자동으로 뒤로 밀립니다.",
                 )
 
                 if st.button("이 수행평가에 평가 요소 추가", key=f"add_item_button_{aid}"):
@@ -1470,6 +1541,8 @@ with tab3:
                     else:
                         if item_type == "comment":
                             levels, rubrics = [], {}
+
+                        shift_item_orders_for_insert(aid, int(item_order))
 
                         st.session_state["items"].append(
                             {
@@ -1482,6 +1555,7 @@ with tab3:
                                 "order": int(item_order),
                             }
                         )
+                        normalize_item_orders(aid)
                         sanitize_state()
                         st.success("평가 요소를 추가했습니다.")
                         st.rerun()
@@ -1527,12 +1601,24 @@ with tab3:
                                     item["rubrics"] = {level: "" for level in item["levels"]}
 
                         with col3:
-                            item["order"] = st.number_input(
-                                "항목 순서",
-                                min_value=1,
-                                value=int(item.get("order", 1) or 1),
+                            order_options = list(range(1, len(existing_items) + 1))
+                            current_order = int(item.get("order", item_index) or item_index)
+                            if current_order not in order_options:
+                                current_order = item_index
+
+                            selected_order = st.selectbox(
+                                "평가 요소 순서",
+                                options=order_options,
+                                index=order_options.index(current_order),
+                                format_func=lambda x: f"{x}번째",
                                 key=f"item_order_{item_id}",
                             )
+
+                            if int(selected_order) != current_order:
+                                move_item_to_order(aid, item_id, int(selected_order))
+                                st.success("평가 요소 순서를 변경했습니다.")
+                                st.rerun()
+
                             if st.button("평가 요소 삭제", key=f"delete_item_{item_id}"):
                                 st.session_state["items"] = [
                                     x for x in st.session_state["items"]
@@ -1542,6 +1628,7 @@ with tab3:
                                     k: v for k, v in st.session_state.records.items()
                                     if not k.endswith(f"::{item_id}")
                                 }
+                                normalize_item_orders(aid)
                                 st.success("평가 요소를 삭제했습니다.")
                                 st.rerun()
 
