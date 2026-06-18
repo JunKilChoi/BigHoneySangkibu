@@ -1547,7 +1547,6 @@ with tab3:
 
                 sorted_labels = sort_items(
                     assessment_labels,
-                    direction="vertical",
                     custom_style=sortable_style(),
                     key="assessment_drag_sort",
                 )
@@ -1718,8 +1717,7 @@ with tab3:
 
                             sorted_item_labels = sort_items(
                                 item_labels,
-                                direction="vertical",
-                                custom_style=sortable_style(),
+                                            custom_style=sortable_style(),
                                 key=f"item_drag_sort_{aid}",
                             )
 
