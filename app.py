@@ -7,6 +7,11 @@ from io import BytesIO
 import pandas as pd
 import streamlit as st
 
+try:
+    from streamlit_sortables import sort_items
+except Exception:
+    sort_items = None
+
 
 # =========================
 # 앱 기본 설정
@@ -18,7 +23,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v14"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v15"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -483,7 +488,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v14",
+        "version": "patched-20260618-v15",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -528,6 +533,76 @@ def normalize_item_orders(assessment_id):
 
     for idx, item in enumerate(items, start=1):
         item["order"] = idx
+
+
+
+def normalize_assessment_orders():
+    """
+    수행평가 순서를 1, 2, 3...처럼 중복 없이 다시 정리한다.
+    """
+    assessments = sorted(
+        st.session_state.assessments,
+        key=lambda x: (
+            int(x.get("order", 999) or 999),
+            clean_text(x.get("name", "")),
+            clean_text(x.get("assessment_id", "")),
+        ),
+    )
+
+    for idx, assessment in enumerate(assessments, start=1):
+        assessment["order"] = idx
+
+
+def apply_assessment_drag_order(sorted_labels, label_to_assessment_id):
+    """
+    드래그 앤 드롭 결과에 맞춰 수행평가 order 값을 재배치한다.
+    """
+    id_to_assessment = {
+        assessment.get("assessment_id", ""): assessment
+        for assessment in st.session_state.assessments
+    }
+
+    for idx, label in enumerate(sorted_labels, start=1):
+        assessment_id = label_to_assessment_id.get(label)
+        if assessment_id in id_to_assessment:
+            id_to_assessment[assessment_id]["order"] = idx
+
+
+def apply_item_drag_order(assessment_id, sorted_labels, label_to_item_id):
+    """
+    드래그 앤 드롭 결과에 맞춰 한 수행평가 안의 평가 요소 order 값을 재배치한다.
+    """
+    id_to_item = {
+        item.get("item_id", ""): item
+        for item in get_items_for_assessment(assessment_id)
+    }
+
+    for idx, label in enumerate(sorted_labels, start=1):
+        item_id = label_to_item_id.get(label)
+        if item_id in id_to_item:
+            id_to_item[item_id]["order"] = idx
+
+
+def sortable_style():
+    return """
+    .sortable-component {
+        border: 1px solid #E5E7EB;
+        border-radius: 10px;
+        padding: 8px;
+        background-color: #FAFAFA;
+    }
+    .sortable-item {
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin: 6px 0;
+        background-color: #FFFFFF;
+        border: 1px solid #D1D5DB;
+        font-weight: 600;
+    }
+    .sortable-item:hover {
+        background-color: #F3F4F6;
+    }
+    """
 
 
 def shift_item_orders_for_insert(assessment_id, insert_order):
@@ -1359,13 +1434,8 @@ with tab3:
                 new_assessment_name = st.text_input("수행평가명", placeholder="예: 생태지도 만들기")
                 new_area = st.text_input("영역/단원", placeholder="예: 생물과 환경")
             with col2:
-                new_order = st.number_input(
-                    "표시 순서",
-                    min_value=1,
-                    value=len(st.session_state.assessments) + 1,
-                    step=1,
-                )
                 new_use = st.checkbox("사용", value=True)
+                st.caption("순서는 아래의 드래그 정렬에서 바꿀 수 있습니다.")
 
             new_desc = st.text_area(
                 "성취기준 / 활동 설명",
@@ -1384,7 +1454,7 @@ with tab3:
                             "name": new_assessment_name.strip(),
                             "area": new_area.strip(),
                             "description": new_desc.strip(),
-                            "order": int(new_order),
+                            "order": len(st.session_state.assessments) + 1,
                             "use": new_use,
                         }
                     )
@@ -1398,10 +1468,38 @@ with tab3:
     if not st.session_state.assessments:
         st.info("아직 등록된 수행평가가 없습니다. 먼저 수행평가를 추가하세요.")
 
+    normalize_assessment_orders()
     sorted_assessments = sorted(
         st.session_state.assessments,
         key=lambda x: int(x.get("order", 999) or 999),
     )
+
+    if len(sorted_assessments) >= 2:
+        with st.expander("수행평가 순서 드래그 정렬", expanded=False):
+            if sort_items is None:
+                st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables를 추가해야 합니다.")
+            else:
+                st.caption("수행평가명을 마우스로 잡고 위아래로 옮긴 뒤 저장하세요.")
+                assessment_labels = [
+                    f"{idx}. {assessment.get('name', '이름 없는 수행평가')}"
+                    for idx, assessment in enumerate(sorted_assessments, start=1)
+                ]
+                label_to_assessment_id = {
+                    label: assessment.get("assessment_id", "")
+                    for label, assessment in zip(assessment_labels, sorted_assessments)
+                }
+
+                sorted_labels = sort_items(
+                    assessment_labels,
+                    custom_style=sortable_style(),
+                    key="assessment_drag_sort",
+                )
+
+                if st.button("수행평가 순서 저장"):
+                    apply_assessment_drag_order(sorted_labels, label_to_assessment_id)
+                    normalize_assessment_orders()
+                    st.success("수행평가 순서를 저장했습니다.")
+                    st.rerun()
 
     for assess_index, assessment in enumerate(sorted_assessments, start=1):
         aid = assessment.get("assessment_id", "")
@@ -1454,12 +1552,7 @@ with tab3:
                     )
 
                 with col3:
-                    assessment["order"] = st.number_input(
-                        "순서",
-                        min_value=1,
-                        value=int(assessment.get("order", 1) or 1),
-                        key=f"assess_order_{aid}",
-                    )
+                    st.caption("순서는 수행평가 목록 위의 드래그 정렬에서 변경합니다.")
                     assessment["use"] = st.checkbox(
                         "사용",
                         value=assessment.get("use", True),
@@ -1525,15 +1618,7 @@ with tab3:
                 else:
                     st.info("개별 코멘트형입니다. 성취수준 코드 없이 학생별 서술형 코멘트만 입력합니다.")
 
-                insert_order_options = list(range(1, item_count + 2))
-                item_order = st.selectbox(
-                    "평가 요소 순서",
-                    options=insert_order_options,
-                    index=len(insert_order_options) - 1,
-                    format_func=lambda x: f"{x}번째",
-                    key=f"new_item_order_{aid}",
-                    help="선택한 순서에 새 평가 요소가 들어가고, 기존 요소들은 자동으로 뒤로 밀립니다.",
-                )
+                item_order = len(get_items_for_assessment(aid)) + 1
 
                 if st.button("이 수행평가에 평가 요소 추가", key=f"add_item_button_{aid}"):
                     if not item_name.strip():
@@ -1541,8 +1626,6 @@ with tab3:
                     else:
                         if item_type == "comment":
                             levels, rubrics = [], {}
-
-                        shift_item_orders_for_insert(aid, int(item_order))
 
                         st.session_state["items"].append(
                             {
@@ -1561,6 +1644,33 @@ with tab3:
                         st.rerun()
 
             if existing_items:
+                if len(existing_items) >= 2:
+                    with st.expander("평가 요소 순서 드래그 정렬", expanded=False):
+                        if sort_items is None:
+                            st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables를 추가해야 합니다.")
+                        else:
+                            st.caption("평가 요소명을 마우스로 잡고 위아래로 옮긴 뒤 저장하세요.")
+                            item_labels = [
+                                f"{idx}. {item.get('name', '이름 없는 평가 요소')}"
+                                for idx, item in enumerate(existing_items, start=1)
+                            ]
+                            label_to_item_id = {
+                                label: item.get("item_id", "")
+                                for label, item in zip(item_labels, existing_items)
+                            }
+
+                            sorted_item_labels = sort_items(
+                                item_labels,
+                                custom_style=sortable_style(),
+                                key=f"item_drag_sort_{aid}",
+                            )
+
+                            if st.button("평가 요소 순서 저장", key=f"save_item_drag_sort_{aid}"):
+                                apply_item_drag_order(aid, sorted_item_labels, label_to_item_id)
+                                normalize_item_orders(aid)
+                                st.success("평가 요소 순서를 저장했습니다.")
+                                st.rerun()
+
                 for item_index, item in enumerate(existing_items, start=1):
                     item_id = item.get("item_id", "")
                     item_type_label = item_type_to_kor(item.get("type", "rubric"))
@@ -1601,24 +1711,7 @@ with tab3:
                                     item["rubrics"] = {level: "" for level in item["levels"]}
 
                         with col3:
-                            order_options = list(range(1, len(existing_items) + 1))
-                            current_order = int(item.get("order", item_index) or item_index)
-                            if current_order not in order_options:
-                                current_order = item_index
-
-                            selected_order = st.selectbox(
-                                "평가 요소 순서",
-                                options=order_options,
-                                index=order_options.index(current_order),
-                                format_func=lambda x: f"{x}번째",
-                                key=f"item_order_{item_id}",
-                            )
-
-                            if int(selected_order) != current_order:
-                                move_item_to_order(aid, item_id, int(selected_order))
-                                st.success("평가 요소 순서를 변경했습니다.")
-                                st.rerun()
-
+                            st.caption(f"현재 {item_index}번째")
                             if st.button("평가 요소 삭제", key=f"delete_item_{item_id}"):
                                 st.session_state["items"] = [
                                     x for x in st.session_state["items"]
