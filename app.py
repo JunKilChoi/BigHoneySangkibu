@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v15"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v15-pretty-drag"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -488,7 +488,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v15",
+        "version": "patched-20260618-v15-pretty-drag",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -584,26 +584,82 @@ def apply_item_drag_order(assessment_id, sorted_labels, label_to_item_id):
 
 
 def sortable_style():
+    """
+    streamlit-sortables 드래그 박스 디자인.
+    Notion / Linear / Vercel 계열의 흰색 카드형 UI 느낌으로 구성한다.
+    글씨색을 명시해 다크모드나 컴포넌트 기본값 때문에 흰 글씨가 되는 문제를 막는다.
+    """
     return """
     .sortable-component {
-        border: 1px solid #E5E7EB;
-        border-radius: 10px;
-        padding: 8px;
-        background-color: #FAFAFA;
+        box-sizing: border-box;
+        width: 100%;
+        padding: 14px;
+        border-radius: 18px;
+        border: 1px solid rgba(15, 23, 42, 0.10);
+        background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+        box-shadow:
+            0 1px 2px rgba(15, 23, 42, 0.06),
+            0 10px 30px rgba(15, 23, 42, 0.06);
     }
+
     .sortable-item {
-        border-radius: 8px;
-        padding: 10px 12px;
-        margin: 6px 0;
-        background-color: #FFFFFF;
-        border: 1px solid #D1D5DB;
-        font-weight: 600;
+        position: relative;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        min-height: 48px;
+        margin: 8px 0;
+        padding: 13px 16px 13px 46px;
+        border-radius: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: #FFFFFF;
+        color: #111827 !important;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        line-height: 1.4;
+        box-shadow:
+            0 1px 2px rgba(15, 23, 42, 0.06),
+            0 6px 18px rgba(15, 23, 42, 0.04);
+        cursor: grab;
+        user-select: none;
+        transition:
+            transform 0.12s ease,
+            border-color 0.12s ease,
+            box-shadow 0.12s ease,
+            background 0.12s ease;
     }
+
+    .sortable-item::before {
+        content: "⋮⋮";
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94A3B8;
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: -5px;
+    }
+
     .sortable-item:hover {
-        background-color: #F3F4F6;
+        transform: translateY(-1px);
+        border-color: rgba(59, 130, 246, 0.55);
+        background: #F8FBFF;
+        box-shadow:
+            0 3px 8px rgba(15, 23, 42, 0.08),
+            0 14px 32px rgba(37, 99, 235, 0.10);
+    }
+
+    .sortable-item:active {
+        cursor: grabbing;
+        transform: scale(0.995);
+        border-color: rgba(37, 99, 235, 0.80);
+        box-shadow:
+            0 8px 18px rgba(37, 99, 235, 0.14),
+            0 18px 42px rgba(15, 23, 42, 0.12);
     }
     """
-
 
 def shift_item_orders_for_insert(assessment_id, insert_order):
     """
@@ -1491,6 +1547,7 @@ with tab3:
 
                 sorted_labels = sort_items(
                     assessment_labels,
+                    direction="vertical",
                     custom_style=sortable_style(),
                     key="assessment_drag_sort",
                 )
@@ -1661,6 +1718,7 @@ with tab3:
 
                             sorted_item_labels = sort_items(
                                 item_labels,
+                                direction="vertical",
                                 custom_style=sortable_style(),
                                 key=f"item_drag_sort_{aid}",
                             )
