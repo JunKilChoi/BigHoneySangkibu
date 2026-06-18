@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v10"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v11"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -483,7 +483,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v10",
+        "version": "patched-20260618-v11",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1279,11 +1279,34 @@ with tab2:
 # ③ 수행평가 설계
 # =========================
 with tab3:
-    st.subheader("③ 수행평가 / 관찰 항목 설계")
+    st.subheader("③ 수행평가 설계")
 
-    with st.expander("➕ 수행평가 추가", expanded=True):
+    st.markdown(
+        """
+        이 화면은 **수행평가 → 기록 항목 → 성취수준/개별 코멘트**의 위계로 구성됩니다.  
+        즉, **수행평가가 큰 폴더**이고, 그 안에 **학생별로 입력할 기록 항목**을 넣는 구조입니다.
+        """
+    )
+
+    st.markdown(
+        """
+        ```text
+        📁 수행평가
+           ├─ 🧾 기록 항목 1
+           │    └─ 성취수준 코드 / 평가 문구 / 학생별 코멘트
+           ├─ 🧾 기록 항목 2
+           │    └─ 성취수준 코드 / 평가 문구 / 학생별 코멘트
+           └─ 🧾 기록 항목 3
+                └─ 성취수준 코드 / 평가 문구 / 학생별 코멘트
+        ```
+        """
+    )
+
+    with st.expander("➕ 새 수행평가 추가", expanded=True):
+        st.caption("먼저 상위 단위인 수행평가를 만들고, 그 안에 하위 기록 항목을 추가합니다.")
+
         with st.form("add_assessment_form"):
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns([2, 1])
             with col1:
                 new_assessment_name = st.text_input("수행평가명", placeholder="예: 생태지도 만들기")
                 new_area = st.text_input("영역/단원", placeholder="예: 생물과 환경")
@@ -1321,150 +1344,244 @@ with tab3:
                     st.success("수행평가를 추가했습니다.")
                     st.rerun()
 
-    st.markdown("#### 등록된 수행평가와 기록 항목")
+    st.divider()
+    st.markdown("### 📚 등록된 수행평가 구조")
 
     if not st.session_state.assessments:
         st.info("아직 등록된 수행평가가 없습니다. 먼저 수행평가를 추가하세요.")
 
-    for assessment in sorted(st.session_state.assessments, key=lambda x: int(x.get("order", 999) or 999)):
+    sorted_assessments = sorted(
+        st.session_state.assessments,
+        key=lambda x: int(x.get("order", 999) or 999),
+    )
+
+    for assess_index, assessment in enumerate(sorted_assessments, start=1):
         aid = assessment.get("assessment_id", "")
-        with st.expander(f"📌 {assessment.get('name', '')} / {assessment.get('area', '')}", expanded=False):
-            col1, col2, col3 = st.columns([2, 2, 1])
+        existing_items = sorted(
+            get_items_for_assessment(aid),
+            key=lambda x: int(x.get("order", 999) or 999),
+        )
 
-            with col1:
-                assessment["name"] = st.text_input("수행평가명 수정", value=assessment.get("name", ""), key=f"assess_name_{aid}")
-                assessment["area"] = st.text_input("영역/단원 수정", value=assessment.get("area", ""), key=f"assess_area_{aid}")
-            with col2:
-                assessment["description"] = st.text_area("활동 설명 수정", value=assessment.get("description", ""), key=f"assess_desc_{aid}")
-            with col3:
-                assessment["order"] = st.number_input("순서", min_value=1, value=int(assessment.get("order", 1) or 1), key=f"assess_order_{aid}")
-                assessment["use"] = st.checkbox("사용", value=assessment.get("use", True), key=f"assess_use_{aid}")
-                if st.button("수행평가 삭제", key=f"delete_assessment_{aid}"):
-                    item_ids = [it.get("item_id", "") for it in get_items_for_assessment(aid)]
-                    st.session_state.assessments = [x for x in st.session_state.assessments if x.get("assessment_id", "") != aid]
-                    st.session_state["items"] = [x for x in st.session_state["items"] if x.get("assessment_id", "") != aid]
-                    st.session_state.records = {
-                        k: v for k, v in st.session_state.records.items()
-                        if k.split("::")[-1] not in item_ids
-                    }
-                    st.success("수행평가를 삭제했습니다.")
-                    st.rerun()
+        status_badge = "사용" if assessment.get("use", True) else "미사용"
+        area_text = assessment.get("area", "") or "영역/단원 미입력"
+        item_count = len(existing_items)
 
-            st.markdown("##### 기록 항목 추가")
-
-            item_name = st.text_input("기록 항목명", placeholder="예: 생태지도 결과물 평가", key=f"new_item_name_{aid}")
-
-            item_type_label = st.selectbox(
-                "기록 방식",
-                ["성취도 선택형", "개별 코멘트형", "성취도 + 추가 코멘트형"],
-                key=f"new_item_type_{aid}",
+        with st.container(border=True):
+            st.markdown(
+                f"""
+                ### 📁 수행평가 {assess_index}. {assessment.get('name', '이름 없는 수행평가')}
+                **영역/단원:** {area_text} &nbsp;&nbsp;|&nbsp;&nbsp;
+                **기록 항목:** {item_count}개 &nbsp;&nbsp;|&nbsp;&nbsp;
+                **상태:** {status_badge}
+                """
             )
-            item_type = item_type_from_kor(item_type_label)
 
-            levels = []
-            rubrics = {}
+            if assessment.get("description"):
+                st.caption(f"활동 설명: {assessment.get('description', '')}")
+            else:
+                st.caption("활동 설명이 아직 입력되지 않았습니다.")
 
-            # 폼 밖에서 선택하게 하여 '개별 코멘트형' 선택 즉시 성취수준 입력칸이 사라지도록 함
-            if item_type != "comment":
-                levels, rubrics = render_rubric_input_block(
-                    prefix=f"new_item_rubric_{aid}",
-                    current_levels=["A", "B", "C", "D", "E"],
-                    current_rubrics={
-                        "A": "우수한 수준으로 수행함",
-                        "B": "대체로 적절하게 수행함",
-                        "C": "일부 보완이 필요함",
-                        "D": "기본적인 참여가 이루어짐",
-                        "E": "지속적인 보완이 필요함",
-                    },
+            with st.expander("⚙️ 수행평가 기본 정보 수정 / 삭제", expanded=False):
+                col1, col2, col3 = st.columns([2, 2, 1])
+
+                with col1:
+                    assessment["name"] = st.text_input(
+                        "수행평가명 수정",
+                        value=assessment.get("name", ""),
+                        key=f"assess_name_{aid}",
+                    )
+                    assessment["area"] = st.text_input(
+                        "영역/단원 수정",
+                        value=assessment.get("area", ""),
+                        key=f"assess_area_{aid}",
+                    )
+
+                with col2:
+                    assessment["description"] = st.text_area(
+                        "활동 설명 수정",
+                        value=assessment.get("description", ""),
+                        key=f"assess_desc_{aid}",
+                        height=120,
+                    )
+
+                with col3:
+                    assessment["order"] = st.number_input(
+                        "순서",
+                        min_value=1,
+                        value=int(assessment.get("order", 1) or 1),
+                        key=f"assess_order_{aid}",
+                    )
+                    assessment["use"] = st.checkbox(
+                        "사용",
+                        value=assessment.get("use", True),
+                        key=f"assess_use_{aid}",
+                    )
+                    if st.button("수행평가 삭제", key=f"delete_assessment_{aid}"):
+                        item_ids = [it.get("item_id", "") for it in get_items_for_assessment(aid)]
+                        st.session_state.assessments = [
+                            x for x in st.session_state.assessments
+                            if x.get("assessment_id", "") != aid
+                        ]
+                        st.session_state["items"] = [
+                            x for x in st.session_state["items"]
+                            if x.get("assessment_id", "") != aid
+                        ]
+                        st.session_state.records = {
+                            k: v for k, v in st.session_state.records.items()
+                            if k.split("::")[-1] not in item_ids
+                        }
+                        st.success("수행평가를 삭제했습니다.")
+                        st.rerun()
+
+            st.markdown("#### └─ 🧾 하위 기록 항목")
+
+            with st.expander("➕ 이 수행평가에 기록 항목 추가", expanded=(item_count == 0)):
+                st.caption("기록 항목은 학생별 입력표의 실제 입력 칸이 됩니다.")
+
+                item_name = st.text_input(
+                    "기록 항목명",
+                    placeholder="예: 생태지도 결과물 평가",
+                    key=f"new_item_name_{aid}",
                 )
 
-            item_order = st.number_input(
-                "항목 순서",
-                min_value=1,
-                value=len(get_items_for_assessment(aid)) + 1,
-                step=1,
-                key=f"new_item_order_{aid}",
-            )
+                item_type_label = st.selectbox(
+                    "기록 방식",
+                    ["성취도 선택형", "개별 코멘트형", "성취도 + 추가 코멘트형"],
+                    key=f"new_item_type_{aid}",
+                    help="개별 코멘트형을 선택하면 성취수준 코드와 루브릭 입력칸이 사라집니다.",
+                )
+                item_type = item_type_from_kor(item_type_label)
 
-            if st.button("기록 항목 추가", key=f"add_item_button_{aid}"):
-                if not item_name.strip():
-                    st.warning("기록 항목명을 입력하세요.")
-                else:
-                    if item_type == "comment":
-                        levels, rubrics = [], {}
+                levels = []
+                rubrics = {}
 
-                    st.session_state["items"].append(
-                        {
-                            "item_id": make_id("item"),
-                            "assessment_id": aid,
-                            "name": item_name.strip(),
-                            "type": item_type,
-                            "levels": levels,
-                            "rubrics": rubrics,
-                            "order": int(item_order),
-                        }
+                if item_type != "comment":
+                    levels, rubrics = render_rubric_input_block(
+                        prefix=f"new_item_rubric_{aid}",
+                        current_levels=["A", "B", "C", "D", "E"],
+                        current_rubrics={
+                            "A": "우수한 수준으로 수행함",
+                            "B": "대체로 적절하게 수행함",
+                            "C": "일부 보완이 필요함",
+                            "D": "기본적인 참여가 이루어짐",
+                            "E": "지속적인 보완이 필요함",
+                        },
                     )
-                    sanitize_state()
-                    st.success("기록 항목을 추가했습니다.")
-                    st.rerun()
+                else:
+                    st.info("개별 코멘트형입니다. 성취수준 코드 없이 학생별 서술형 코멘트만 입력합니다.")
 
-            existing_items = sorted(get_items_for_assessment(aid), key=lambda x: int(x.get("order", 999) or 999))
+                item_order = st.number_input(
+                    "항목 순서",
+                    min_value=1,
+                    value=len(get_items_for_assessment(aid)) + 1,
+                    step=1,
+                    key=f"new_item_order_{aid}",
+                )
+
+                if st.button("이 수행평가에 기록 항목 추가", key=f"add_item_button_{aid}"):
+                    if not item_name.strip():
+                        st.warning("기록 항목명을 입력하세요.")
+                    else:
+                        if item_type == "comment":
+                            levels, rubrics = [], {}
+
+                        st.session_state["items"].append(
+                            {
+                                "item_id": make_id("item"),
+                                "assessment_id": aid,
+                                "name": item_name.strip(),
+                                "type": item_type,
+                                "levels": levels,
+                                "rubrics": rubrics,
+                                "order": int(item_order),
+                            }
+                        )
+                        sanitize_state()
+                        st.success("기록 항목을 추가했습니다.")
+                        st.rerun()
 
             if existing_items:
-                st.markdown("##### 등록된 기록 항목")
+                for item_index, item in enumerate(existing_items, start=1):
+                    item_id = item.get("item_id", "")
+                    item_type_label = item_type_to_kor(item.get("type", "rubric"))
+                    level_count = len(item.get("levels", [])) if item.get("type") != "comment" else 0
 
-            for item in existing_items:
-                item_id = item.get("item_id", "")
-                with st.container(border=True):
-                    st.markdown(f"**{item.get('name', '')}**")
-
-                    col1, col2, col3 = st.columns([2, 1.4, 1])
-                    with col1:
-                        item["name"] = st.text_input("항목명", value=item.get("name", ""), key=f"item_name_{item_id}")
-                    with col2:
-                        current_type_label = item_type_to_kor(item.get("type", "rubric"))
-                        type_options = ["성취도 선택형", "개별 코멘트형", "성취도 + 추가 코멘트형"]
-                        new_type_label = st.selectbox(
-                            "기록 방식",
-                            type_options,
-                            index=type_options.index(current_type_label) if current_type_label in type_options else 0,
-                            key=f"item_type_{item_id}",
-                        )
-                        new_type = item_type_from_kor(new_type_label)
-                        if new_type != item.get("type"):
-                            item["type"] = new_type
-                            if new_type == "comment":
-                                item["levels"] = []
-                                item["rubrics"] = {}
-                            elif not item.get("levels"):
-                                item["levels"] = ["A", "B", "C", "D", "E"]
-                                item["rubrics"] = {level: "" for level in item["levels"]}
-                    with col3:
-                        item["order"] = st.number_input("순서", min_value=1, value=int(item.get("order", 1) or 1), key=f"item_order_{item_id}")
-                        if st.button("삭제", key=f"delete_item_{item_id}"):
-                            st.session_state["items"] = [x for x in st.session_state["items"] if x.get("item_id", "") != item_id]
-                            st.session_state.records = {
-                                k: v for k, v in st.session_state.records.items()
-                                if not k.endswith(f"::{item_id}")
-                            }
-                            st.success("삭제했습니다.")
-                            st.rerun()
-
-                    # 개별 코멘트형이면 성취수준 코드/루브릭 칸을 즉시 숨김
-                    if item.get("type") in ["rubric", "rubric_plus"]:
-                        levels, rubrics = render_rubric_input_block(
-                            prefix=f"edit_item_rubric_{item_id}",
-                            current_levels=item.get("levels", []),
-                            current_rubrics=item.get("rubrics", {}),
+                    with st.container(border=True):
+                        st.markdown(
+                            f"""
+                            ##### ↳ 🧾 기록 항목 {item_index}. {item.get('name', '이름 없는 기록 항목')}
+                            **상위 수행평가:** {assessment.get('name', '')} &nbsp;&nbsp;|&nbsp;&nbsp;
+                            **기록 방식:** {item_type_label} &nbsp;&nbsp;|&nbsp;&nbsp;
+                            **성취수준:** {level_count}개
+                            """
                         )
 
-                        if st.button("루브릭 수정 저장", key=f"save_rubric_{item_id}"):
-                            item["levels"] = levels
-                            item["rubrics"] = rubrics
-                            st.success("루브릭을 저장했습니다.")
-                            st.rerun()
-                    else:
-                        st.info("개별 코멘트형 항목입니다. 학생별 기록 입력 화면에서 학생별 서술형 코멘트를 입력합니다.")
+                        col1, col2, col3 = st.columns([2.2, 1.6, 1])
+
+                        with col1:
+                            item["name"] = st.text_input(
+                                "항목명",
+                                value=item.get("name", ""),
+                                key=f"item_name_{item_id}",
+                            )
+
+                        with col2:
+                            current_type_label = item_type_to_kor(item.get("type", "rubric"))
+                            type_options = ["성취도 선택형", "개별 코멘트형", "성취도 + 추가 코멘트형"]
+                            new_type_label = st.selectbox(
+                                "기록 방식",
+                                type_options,
+                                index=type_options.index(current_type_label) if current_type_label in type_options else 0,
+                                key=f"item_type_{item_id}",
+                            )
+                            new_type = item_type_from_kor(new_type_label)
+
+                            if new_type != item.get("type"):
+                                item["type"] = new_type
+                                if new_type == "comment":
+                                    item["levels"] = []
+                                    item["rubrics"] = {}
+                                elif not item.get("levels"):
+                                    item["levels"] = ["A", "B", "C", "D", "E"]
+                                    item["rubrics"] = {level: "" for level in item["levels"]}
+
+                        with col3:
+                            item["order"] = st.number_input(
+                                "항목 순서",
+                                min_value=1,
+                                value=int(item.get("order", 1) or 1),
+                                key=f"item_order_{item_id}",
+                            )
+                            if st.button("기록 항목 삭제", key=f"delete_item_{item_id}"):
+                                st.session_state["items"] = [
+                                    x for x in st.session_state["items"]
+                                    if x.get("item_id", "") != item_id
+                                ]
+                                st.session_state.records = {
+                                    k: v for k, v in st.session_state.records.items()
+                                    if not k.endswith(f"::{item_id}")
+                                }
+                                st.success("기록 항목을 삭제했습니다.")
+                                st.rerun()
+
+                        if item.get("type") in ["rubric", "rubric_plus"]:
+                            with st.expander("└─ 성취수준 코드와 평가 문구 수정", expanded=False):
+                                levels, rubrics = render_rubric_input_block(
+                                    prefix=f"edit_item_rubric_{item_id}",
+                                    current_levels=item.get("levels", []),
+                                    current_rubrics=item.get("rubrics", {}),
+                                )
+
+                                if st.button("성취수준/평가 문구 저장", key=f"save_rubric_{item_id}"):
+                                    item["levels"] = levels
+                                    item["rubrics"] = rubrics
+                                    st.success("성취수준과 평가 문구를 저장했습니다.")
+                                    st.rerun()
+                        else:
+                            st.info("└─ 개별 코멘트형 항목입니다. 학생별 기록 입력 화면에서 학생별 서술형 코멘트를 입력합니다.")
+            else:
+                st.info("아직 이 수행평가에 등록된 기록 항목이 없습니다. 위의 '기록 항목 추가'를 눌러 하위 항목을 추가하세요.")
+
 
 
 # =========================
