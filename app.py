@@ -7,6 +7,11 @@ from io import BytesIO
 import pandas as pd
 import streamlit as st
 
+try:
+    from streamlit_sortables import sort_items
+except Exception:
+    sort_items = None
+
 
 # =========================
 # 앱 기본 설정
@@ -18,7 +23,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v16"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v15"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -483,7 +488,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v16",
+        "version": "patched-20260618-v15",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -528,6 +533,76 @@ def normalize_item_orders(assessment_id):
 
     for idx, item in enumerate(items, start=1):
         item["order"] = idx
+
+
+
+def normalize_assessment_orders():
+    """
+    수행평가 순서를 1, 2, 3...처럼 중복 없이 다시 정리한다.
+    """
+    assessments = sorted(
+        st.session_state.assessments,
+        key=lambda x: (
+            int(x.get("order", 999) or 999),
+            clean_text(x.get("name", "")),
+            clean_text(x.get("assessment_id", "")),
+        ),
+    )
+
+    for idx, assessment in enumerate(assessments, start=1):
+        assessment["order"] = idx
+
+
+def apply_assessment_drag_order(sorted_labels, label_to_assessment_id):
+    """
+    드래그 앤 드롭 결과에 맞춰 수행평가 order 값을 재배치한다.
+    """
+    id_to_assessment = {
+        assessment.get("assessment_id", ""): assessment
+        for assessment in st.session_state.assessments
+    }
+
+    for idx, label in enumerate(sorted_labels, start=1):
+        assessment_id = label_to_assessment_id.get(label)
+        if assessment_id in id_to_assessment:
+            id_to_assessment[assessment_id]["order"] = idx
+
+
+def apply_item_drag_order(assessment_id, sorted_labels, label_to_item_id):
+    """
+    드래그 앤 드롭 결과에 맞춰 한 수행평가 안의 평가 요소 order 값을 재배치한다.
+    """
+    id_to_item = {
+        item.get("item_id", ""): item
+        for item in get_items_for_assessment(assessment_id)
+    }
+
+    for idx, label in enumerate(sorted_labels, start=1):
+        item_id = label_to_item_id.get(label)
+        if item_id in id_to_item:
+            id_to_item[item_id]["order"] = idx
+
+
+def sortable_style():
+    return """
+    .sortable-component {
+        border: 1px solid #E5E7EB;
+        border-radius: 10px;
+        padding: 8px;
+        background-color: #FAFAFA;
+    }
+    .sortable-item {
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin: 6px 0;
+        background-color: #FFFFFF;
+        border: 1px solid #D1D5DB;
+        font-weight: 600;
+    }
+    .sortable-item:hover {
+        background-color: #F3F4F6;
+    }
+    """
 
 
 def shift_item_orders_for_insert(assessment_id, insert_order):
@@ -577,86 +652,6 @@ def get_assessment_name(assessment_id):
         if assessment.get("assessment_id", "") == assessment_id:
             return assessment.get("name", "")
     return ""
-
-
-
-def normalize_assessment_orders():
-    """
-    수행평가 순서를 1, 2, 3...처럼 중복 없이 다시 정리한다.
-    """
-    assessments = sorted(
-        st.session_state.assessments,
-        key=lambda x: (
-            int(x.get("order", 999) or 999),
-            clean_text(x.get("name", "")),
-            clean_text(x.get("assessment_id", "")),
-        ),
-    )
-
-    for idx, assessment in enumerate(assessments, start=1):
-        assessment["order"] = idx
-
-
-def move_assessment_order(assessment_id, direction):
-    """
-    수행평가를 위/아래로 한 칸 이동한다.
-    direction=-1: 위로, direction=1: 아래로
-    """
-    normalize_assessment_orders()
-
-    assessments = sorted(
-        st.session_state.assessments,
-        key=lambda x: int(x.get("order", 999) or 999),
-    )
-
-    current_index = None
-    for idx, assessment in enumerate(assessments):
-        if assessment.get("assessment_id", "") == assessment_id:
-            current_index = idx
-            break
-
-    if current_index is None:
-        return
-
-    target_index = current_index + direction
-    if target_index < 0 or target_index >= len(assessments):
-        return
-
-    assessments[current_index], assessments[target_index] = assessments[target_index], assessments[current_index]
-
-    for idx, assessment in enumerate(assessments, start=1):
-        assessment["order"] = idx
-
-
-def move_item_order(assessment_id, item_id, direction):
-    """
-    평가 요소를 같은 수행평가 안에서 위/아래로 한 칸 이동한다.
-    direction=-1: 위로, direction=1: 아래로
-    """
-    normalize_item_orders(assessment_id)
-
-    items = sorted(
-        get_items_for_assessment(assessment_id),
-        key=lambda x: int(x.get("order", 999) or 999),
-    )
-
-    current_index = None
-    for idx, item in enumerate(items):
-        if item.get("item_id", "") == item_id:
-            current_index = idx
-            break
-
-    if current_index is None:
-        return
-
-    target_index = current_index + direction
-    if target_index < 0 or target_index >= len(items):
-        return
-
-    items[current_index], items[target_index] = items[target_index], items[current_index]
-
-    for idx, item in enumerate(items, start=1):
-        item["order"] = idx
 
 
 def record_key(student_id, item_id):
@@ -1440,7 +1435,7 @@ with tab3:
                 new_area = st.text_input("영역/단원", placeholder="예: 생물과 환경")
             with col2:
                 new_use = st.checkbox("사용", value=True)
-                st.caption("순서는 추가 후 ▲ 위로 / ▼ 아래로 버튼으로 조정합니다.")
+                st.caption("순서는 아래의 드래그 정렬에서 바꿀 수 있습니다.")
 
             new_desc = st.text_area(
                 "성취기준 / 활동 설명",
@@ -1479,6 +1474,33 @@ with tab3:
         key=lambda x: int(x.get("order", 999) or 999),
     )
 
+    if len(sorted_assessments) >= 2:
+        with st.expander("수행평가 순서 드래그 정렬", expanded=False):
+            if sort_items is None:
+                st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables를 추가해야 합니다.")
+            else:
+                st.caption("수행평가명을 마우스로 잡고 위아래로 옮긴 뒤 저장하세요.")
+                assessment_labels = [
+                    f"{idx}. {assessment.get('name', '이름 없는 수행평가')}"
+                    for idx, assessment in enumerate(sorted_assessments, start=1)
+                ]
+                label_to_assessment_id = {
+                    label: assessment.get("assessment_id", "")
+                    for label, assessment in zip(assessment_labels, sorted_assessments)
+                }
+
+                sorted_labels = sort_items(
+                    assessment_labels,
+                    custom_style=sortable_style(),
+                    key="assessment_drag_sort",
+                )
+
+                if st.button("수행평가 순서 저장"):
+                    apply_assessment_drag_order(sorted_labels, label_to_assessment_id)
+                    normalize_assessment_orders()
+                    st.success("수행평가 순서를 저장했습니다.")
+                    st.rerun()
+
     for assess_index, assessment in enumerate(sorted_assessments, start=1):
         aid = assessment.get("assessment_id", "")
         normalize_item_orders(aid)
@@ -1506,16 +1528,6 @@ with tab3:
             else:
                 st.caption("활동 설명이 아직 입력되지 않았습니다.")
 
-            col_up, col_down, col_spacer = st.columns([1, 1, 8])
-            with col_up:
-                if st.button("▲ 위로", key=f"move_assessment_up_{aid}", disabled=(assess_index == 1)):
-                    move_assessment_order(aid, -1)
-                    st.rerun()
-            with col_down:
-                if st.button("▼ 아래로", key=f"move_assessment_down_{aid}", disabled=(assess_index == len(sorted_assessments))):
-                    move_assessment_order(aid, 1)
-                    st.rerun()
-
             with st.expander("⚙️ 수행평가 기본 정보 수정 / 삭제", expanded=False):
                 col1, col2, col3 = st.columns([2, 2, 1])
 
@@ -1540,7 +1552,7 @@ with tab3:
                     )
 
                 with col3:
-                    st.caption("순서는 수행평가 카드의 ▲ 위로 / ▼ 아래로 버튼으로 조정합니다.")
+                    st.caption("순서는 수행평가 목록 위의 드래그 정렬에서 변경합니다.")
                     assessment["use"] = st.checkbox(
                         "사용",
                         value=assessment.get("use", True),
@@ -1607,7 +1619,6 @@ with tab3:
                     st.info("개별 코멘트형입니다. 성취수준 코드 없이 학생별 서술형 코멘트만 입력합니다.")
 
                 item_order = len(get_items_for_assessment(aid)) + 1
-                st.caption("평가 요소 순서는 추가 후 ▲ 위로 / ▼ 아래로 버튼으로 조정합니다.")
 
                 if st.button("이 수행평가에 평가 요소 추가", key=f"add_item_button_{aid}"):
                     if not item_name.strip():
@@ -1633,6 +1644,33 @@ with tab3:
                         st.rerun()
 
             if existing_items:
+                if len(existing_items) >= 2:
+                    with st.expander("평가 요소 순서 드래그 정렬", expanded=False):
+                        if sort_items is None:
+                            st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables를 추가해야 합니다.")
+                        else:
+                            st.caption("평가 요소명을 마우스로 잡고 위아래로 옮긴 뒤 저장하세요.")
+                            item_labels = [
+                                f"{idx}. {item.get('name', '이름 없는 평가 요소')}"
+                                for idx, item in enumerate(existing_items, start=1)
+                            ]
+                            label_to_item_id = {
+                                label: item.get("item_id", "")
+                                for label, item in zip(item_labels, existing_items)
+                            }
+
+                            sorted_item_labels = sort_items(
+                                item_labels,
+                                custom_style=sortable_style(),
+                                key=f"item_drag_sort_{aid}",
+                            )
+
+                            if st.button("평가 요소 순서 저장", key=f"save_item_drag_sort_{aid}"):
+                                apply_item_drag_order(aid, sorted_item_labels, label_to_item_id)
+                                normalize_item_orders(aid)
+                                st.success("평가 요소 순서를 저장했습니다.")
+                                st.rerun()
+
                 for item_index, item in enumerate(existing_items, start=1):
                     item_id = item.get("item_id", "")
                     item_type_label = item_type_to_kor(item.get("type", "rubric"))
@@ -1674,13 +1712,6 @@ with tab3:
 
                         with col3:
                             st.caption(f"현재 {item_index}번째")
-                            if st.button("▲ 위로", key=f"move_item_up_{item_id}", disabled=(item_index == 1)):
-                                move_item_order(aid, item_id, -1)
-                                st.rerun()
-                            if st.button("▼ 아래로", key=f"move_item_down_{item_id}", disabled=(item_index == len(existing_items))):
-                                move_item_order(aid, item_id, 1)
-                                st.rerun()
-
                             if st.button("평가 요소 삭제", key=f"delete_item_{item_id}"):
                                 st.session_state["items"] = [
                                     x for x in st.session_state["items"]
