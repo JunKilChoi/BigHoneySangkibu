@@ -12,13 +12,13 @@ import streamlit as st
 # 앱 기본 설정
 # =========================
 st.set_page_config(
-    page_title="BigHoney생기부",
+    page_title="BigHoneySangkibu",
     page_icon="🍯",
     layout="wide",
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v4"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v5"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -137,6 +137,19 @@ def init_state():
 
     if "results" not in st.session_state:
         st.session_state.results = {}
+
+    if "generation_job" not in st.session_state:
+        st.session_state.generation_job = {
+            "active": False,
+            "stop_requested": False,
+            "student_ids": [],
+            "index": 0,
+            "log": [],
+            "api_key": "",
+            "model": "",
+            "started_at": "",
+            "finished_at": "",
+        }
 
 
 def sanitize_state():
@@ -403,7 +416,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v4",
+        "version": "patched-20260618-v5",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -927,7 +940,7 @@ with st.sidebar:
         st.rerun()
 
     if st.button("전체 초기화", type="secondary"):
-        for key in ["settings", "students", "assessments", "items", "records", "results"]:
+        for key in ["settings", "students", "assessments", "items", "records", "results", "generation_job"]:
             if key in st.session_state:
                 del st.session_state[key]
         init_state()
@@ -1526,56 +1539,119 @@ with tab6:
                 st.rerun()
 
         with col_b:
-            if st.button("전체 학생 생기부 생성"):
-                progress = st.progress(0)
-                status_box = st.empty()
-                live_box = st.empty()
-                total = len(students)
-                live_rows = []
+            job = st.session_state.generation_job
 
-                for index, (_, student) in enumerate(students.iterrows(), start=1):
-                    label = f"{student.get('반', '')}반 {student.get('번호', '')}번 {student.get('성명', '')}"
-                    status_box.info(f"{index}/{total} 생성 중: {label}")
-
-                    material = build_student_material(student)
-                    prompt = build_prompt(material)
-
-                    generated = None
-                    if api_key:
-                        generated = generate_with_openai(prompt, api_key, model)
-
-                    if not generated:
-                        generated = fallback_generate(material)
-
-                    sid = student["student_id"]
-                    st.session_state.results[sid] = {
-                        "material": material,
-                        "generated": generated,
-                        "edited": generated,
-                        "bytes": byte_count(generated),
-                        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            if not job.get("active", False):
+                if st.button("전체 학생 생기부 생성 시작"):
+                    st.session_state.generation_job = {
+                        "active": True,
+                        "stop_requested": False,
+                        "student_ids": students["student_id"].tolist(),
+                        "index": 0,
+                        "log": [],
+                        "api_key": api_key,
+                        "model": model,
+                        "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "finished_at": "",
                     }
+                    st.success("전체 생성 작업을 시작합니다.")
+                    st.rerun()
+            else:
+                if st.button("생기부 생성 중지", type="secondary"):
+                    job["active"] = False
+                    job["stop_requested"] = True
+                    job["finished_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    st.session_state.generation_job = job
+                    st.warning("생성 중지를 요청했습니다. 이미 생성된 학생 결과는 저장되어 있습니다.")
+                    st.rerun()
 
-                    live_rows.append(
-                        {
-                            "순서": index,
-                            "반": student.get("반", ""),
-                            "번호": student.get("번호", ""),
-                            "성명": student.get("성명", ""),
-                            "생성 문구": generated,
-                            "byte": byte_count(generated),
-                        }
-                    )
+        # 전체 생성 작업 상태 표시 및 한 명씩 자동 처리
+        job = st.session_state.generation_job
+        if job.get("active", False) or job.get("log"):
+            st.markdown("#### 전체 생성 진행 상황")
+            total = len(job.get("student_ids", []))
+            done = int(job.get("index", 0))
 
-                    live_box.dataframe(
-                        pd.DataFrame(live_rows),
-                        use_container_width=True,
-                        height=360,
-                    )
+            if total > 0:
+                st.progress(min(done / total, 1.0))
+                st.caption(f"진행률: {done}/{total}명")
 
-                    progress.progress(index / total)
+            if job.get("active", False):
+                st.info("전체 생성이 진행 중입니다. 중지하려면 오른쪽의 '생기부 생성 중지' 버튼을 누르세요. 현재 처리 중인 학생은 완료된 뒤 멈춥니다.")
+            elif job.get("stop_requested", False):
+                st.warning("전체 생성이 중지되었습니다. 중지 전까지 생성된 문구는 아래 결과표와 다운로드 엑셀에 자동 반영됩니다.")
+            elif job.get("log"):
+                st.success("전체 생성 작업이 완료되었습니다.")
 
-                status_box.success("전체 학생 생기부 생성을 완료했습니다.")
+            if job.get("log"):
+                st.dataframe(
+                    pd.DataFrame(job.get("log", [])),
+                    use_container_width=True,
+                    height=360,
+                )
+
+        if job.get("active", False) and not job.get("stop_requested", False):
+            student_ids = job.get("student_ids", [])
+            index = int(job.get("index", 0))
+            total = len(student_ids)
+
+            if index >= total:
+                job["active"] = False
+                job["finished_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                st.session_state.generation_job = job
+                st.success("전체 학생 생기부 생성을 완료했습니다.")
+                st.rerun()
+
+            current_sid = student_ids[index]
+            matched = students[students["student_id"] == current_sid]
+
+            if matched.empty:
+                job["index"] = index + 1
+                st.session_state.generation_job = job
+                st.rerun()
+
+            student = matched.iloc[0]
+            label = f"{student.get('반', '')}반 {student.get('번호', '')}번 {student.get('성명', '')}"
+
+            with st.spinner(f"{index + 1}/{total} 생성 중: {label}"):
+                material = build_student_material(student)
+                prompt = build_prompt(material)
+
+                generated = None
+                if job.get("api_key"):
+                    generated = generate_with_openai(prompt, job.get("api_key", ""), job.get("model", model))
+
+                if not generated:
+                    generated = fallback_generate(material)
+
+            st.session_state.results[current_sid] = {
+                "material": material,
+                "generated": generated,
+                "edited": generated,
+                "bytes": byte_count(generated),
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+
+            job.setdefault("log", []).append(
+                {
+                    "순서": index + 1,
+                    "반": student.get("반", ""),
+                    "번호": student.get("번호", ""),
+                    "성명": student.get("성명", ""),
+                    "생성 문구": generated,
+                    "byte": byte_count(generated),
+                    "상태": "저장 완료",
+                }
+            )
+            job["index"] = index + 1
+
+            if job["index"] >= total:
+                job["active"] = False
+                job["finished_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                st.session_state.generation_job = job
+                st.success("전체 학생 생기부 생성을 완료했습니다.")
+            else:
+                st.session_state.generation_job = job
                 st.rerun()
 
         st.divider()
