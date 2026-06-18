@@ -2,4 +2,4 @@ streamlit
 pandas
 openpyxl
 openai
-streamlit-sortables
+streamlit-sortables==0.2.0
