@@ -586,8 +586,7 @@ def apply_item_drag_order(assessment_id, sorted_labels, label_to_item_id):
 def sortable_style():
     """
     streamlit-sortables 드래그 박스 디자인.
-    Notion / Linear / Vercel 계열의 흰색 카드형 UI 느낌으로 구성한다.
-    글씨색을 명시해 다크모드나 컴포넌트 기본값 때문에 흰 글씨가 되는 문제를 막는다.
+    streamlit-sortables의 custom_style은 multi_containers=True 구조에서 가장 안정적으로 적용된다.
     """
     return """
     .sortable-component {
@@ -597,69 +596,109 @@ def sortable_style():
         border-radius: 18px;
         border: 1px solid rgba(15, 23, 42, 0.10);
         background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
-        box-shadow:
-            0 1px 2px rgba(15, 23, 42, 0.06),
-            0 10px 30px rgba(15, 23, 42, 0.06);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+
+    .sortable-container {
+        background: transparent;
+        border: 0;
+        padding: 0;
+        counter-reset: item;
+    }
+
+    .sortable-container-header {
+        display: none;
+    }
+
+    .sortable-container-body {
+        background: transparent;
+        padding: 0;
     }
 
     .sortable-item {
         position: relative;
         box-sizing: border-box;
-        display: flex;
-        align-items: center;
         min-height: 48px;
         margin: 8px 0;
-        padding: 13px 16px 13px 46px;
+        padding: 13px 16px 13px 48px;
         border-radius: 14px;
-        border: 1px solid rgba(148, 163, 184, 0.35);
+        border: 1px solid rgba(148, 163, 184, 0.40);
         background: #FFFFFF;
         color: #111827 !important;
         font-size: 15px;
         font-weight: 700;
-        letter-spacing: -0.01em;
         line-height: 1.4;
-        box-shadow:
-            0 1px 2px rgba(15, 23, 42, 0.06),
-            0 6px 18px rgba(15, 23, 42, 0.04);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 18px rgba(15, 23, 42, 0.04);
         cursor: grab;
         user-select: none;
-        transition:
-            transform 0.12s ease,
-            border-color 0.12s ease,
-            box-shadow 0.12s ease,
-            background 0.12s ease;
+        transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
     }
 
     .sortable-item::before {
         content: "⋮⋮";
         position: absolute;
-        left: 16px;
+        left: 17px;
         top: 50%;
         transform: translateY(-50%);
         color: #94A3B8;
         font-size: 18px;
         font-weight: 800;
-        letter-spacing: -5px;
+        letter-spacing: -4px;
     }
 
     .sortable-item:hover {
         transform: translateY(-1px);
-        border-color: rgba(59, 130, 246, 0.55);
+        border-color: rgba(59, 130, 246, 0.60);
         background: #F8FBFF;
-        box-shadow:
-            0 3px 8px rgba(15, 23, 42, 0.08),
-            0 14px 32px rgba(37, 99, 235, 0.10);
+        color: #111827 !important;
+        box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08), 0 14px 32px rgba(37, 99, 235, 0.10);
     }
 
     .sortable-item:active {
         cursor: grabbing;
         transform: scale(0.995);
-        border-color: rgba(37, 99, 235, 0.80);
-        box-shadow:
-            0 8px 18px rgba(37, 99, 235, 0.14),
-            0 18px 42px rgba(15, 23, 42, 0.12);
+        border-color: rgba(37, 99, 235, 0.85);
+        color: #111827 !important;
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.14), 0 18px 42px rgba(15, 23, 42, 0.12);
     }
     """
+
+
+def sort_labels_with_pretty_box(labels, key, header="정렬"):
+    """
+    streamlit-sortables를 안정적으로 호출한다.
+    - 예쁜 custom_style은 multi_containers=True 구조에서 적용한다.
+    - 현재 설치된 streamlit-sortables 버전이 custom_style을 거부하면 기본 정렬로 자동 fallback한다.
+    """
+    if sort_items is None:
+        return labels
+
+    try:
+        sorted_containers = sort_items(
+            [{"header": header, "items": labels}],
+            multi_containers=True,
+            custom_style=sortable_style(),
+            key=key,
+        )
+        if (
+            isinstance(sorted_containers, list)
+            and sorted_containers
+            and isinstance(sorted_containers[0], dict)
+            and isinstance(sorted_containers[0].get("items"), list)
+        ):
+            return sorted_containers[0].get("items", labels)
+        return labels
+    except TypeError:
+        # 일부 설치 환경에서는 custom_style 또는 multi_containers 인자 조합에서 TypeError가 발생할 수 있다.
+        # 이때 앱이 죽지 않도록 기본 드래그 정렬로 후퇴한다.
+        try:
+            return sort_items(labels, key=f"{key}_plain")
+        except Exception as e:
+            st.error(f"드래그 정렬 컴포넌트 오류: {e}")
+            return labels
+    except Exception as e:
+        st.error(f"드래그 정렬 컴포넌트 오류: {e}")
+        return labels
 
 def shift_item_orders_for_insert(assessment_id, insert_order):
     """
@@ -1545,10 +1584,10 @@ with tab3:
                     for label, assessment in zip(assessment_labels, sorted_assessments)
                 }
 
-                sorted_labels = sort_items(
+                sorted_labels = sort_labels_with_pretty_box(
                     assessment_labels,
-                    custom_style=sortable_style(),
                     key="assessment_drag_sort",
+                    header="수행평가 순서",
                 )
 
                 if st.button("수행평가 순서 저장"):
@@ -1715,10 +1754,10 @@ with tab3:
                                 for label, item in zip(item_labels, existing_items)
                             }
 
-                            sorted_item_labels = sort_items(
+                            sorted_item_labels = sort_labels_with_pretty_box(
                                 item_labels,
-                                            custom_style=sortable_style(),
                                 key=f"item_drag_sort_{aid}",
+                                header="평가 요소 순서",
                             )
 
                             if st.button("평가 요소 순서 저장", key=f"save_item_drag_sort_{aid}"):
