@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v15-gray-drag-pretty-drag"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v15-gray-drag-v4"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -488,7 +488,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v15-gray-drag-pretty-drag",
+        "version": "patched-20260618-v15",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -585,108 +585,63 @@ def apply_item_drag_order(assessment_id, sorted_labels, label_to_item_id):
 
 def sortable_style():
     """
-    streamlit-sortables 0.3.1 이상에서 사용하는 회색 계열 드래그 카드 디자인.
-    글씨색, 배경색, 테두리색을 모두 명시해 기본 빨간색/흰 글씨 스타일이 끼어들지 않게 한다.
+    streamlit-sortables 0.3.0 기준의 회색 계열 드래그 박스 스타일.
+    공식 문서의 selector만 사용해 렌더링 실패 가능성을 줄인다.
     """
     return """
-    .sortable-component,
-    .sortable-component.vertical {
-        box-sizing: border-box !important;
-        width: 100% !important;
-        padding: 12px !important;
-        border-radius: 14px !important;
-        border: 1px solid #D1D5DB !important;
-        background: #F9FAFB !important;
-        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05) !important;
+    .sortable-component {
+        border: 1px solid #D1D5DB;
+        border-radius: 12px;
+        padding: 10px;
+        background-color: #F9FAFB;
     }
-
     .sortable-container {
-        box-sizing: border-box !important;
-        border: 0 !important;
-        border-radius: 12px !important;
-        background: transparent !important;
-        padding: 0 !important;
-        margin: 0 !important;
+        background-color: #F9FAFB;
+        border-radius: 10px;
+        padding: 6px;
     }
-
     .sortable-container-header {
-        display: none !important;
-        height: 0 !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        border: 0 !important;
-        background: transparent !important;
-        color: #111827 !important;
+        background-color: #F3F4F6;
+        color: #111827;
+        font-weight: 700;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid #E5E7EB;
     }
-
-    .sortable-container-body,
-    .sortable-container-boy {
-        background: transparent !important;
-        border: 0 !important;
-        padding: 0 !important;
-        margin: 0 !important;
+    .sortable-container-body {
+        background-color: #F9FAFB;
+        padding-top: 6px;
     }
-
-    .sortable-item {
-        position: relative !important;
-        box-sizing: border-box !important;
-        display: flex !important;
-        align-items: center !important;
-        min-height: 48px !important;
-        margin: 8px 0 !important;
-        padding: 12px 16px 12px 48px !important;
-        border-radius: 12px !important;
-        border: 1px solid #D1D5DB !important;
-        background: #FFFFFF !important;
-        color: #111827 !important;
-        font-size: 15px !important;
-        font-weight: 650 !important;
-        line-height: 1.45 !important;
-        letter-spacing: -0.01em !important;
-        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.05) !important;
-        cursor: grab !important;
-        user-select: none !important;
-        transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease !important;
+    .sortable-item, .sortable-item:hover {
+        background-color: #FFFFFF;
+        color: #111827;
+        font-weight: 700;
+        border: 1px solid #D1D5DB;
+        border-radius: 10px;
+        padding: 11px 14px;
+        margin: 7px 0;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06);
     }
-
-    .sortable-item::before {
-        content: "⋮⋮" !important;
-        position: absolute !important;
-        left: 17px !important;
-        top: 50% !important;
-        transform: translateY(-50%) !important;
-        color: #9CA3AF !important;
-        font-size: 18px !important;
-        font-weight: 800 !important;
-        letter-spacing: -4px !important;
-    }
-
     .sortable-item:hover {
-        transform: translateY(-1px) !important;
-        border-color: #9CA3AF !important;
-        background: #F3F4F6 !important;
-        color: #111827 !important;
-        box-shadow: 0 2px 8px rgba(17, 24, 39, 0.10) !important;
+        background-color: #F3F4F6;
+        border-color: #9CA3AF;
     }
-
-    .sortable-item:active {
-        cursor: grabbing !important;
-        transform: scale(0.995) !important;
-        border-color: #6B7280 !important;
-        background: #E5E7EB !important;
-        color: #111827 !important;
-        box-shadow: 0 4px 12px rgba(17, 24, 39, 0.12) !important;
+    .sortable-item::before {
+        content: "☰ ";
+        color: #6B7280;
+        font-weight: 700;
     }
     """
 
 
-def sort_labels_with_pretty_box(labels, key, header="정렬"):
+def sort_labels_with_gray_box(labels, key, header="정렬"):
     """
-    수행평가와 평가 요소에 공통으로 쓰는 드래그 정렬 함수.
-    회색 카드 스타일은 streamlit-sortables==0.3.1 이상에서만 안정적으로 적용된다.
+    수행평가/평가 요소 공통 드래그 정렬 함수.
+    우선 회색 스타일을 적용하고, 설치된 패키지가 custom_style을 지원하지 않으면
+    기본 드래그 박스로라도 화면에 표시되게 한다.
     """
     if sort_items is None:
-        st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables==0.3.1을 추가해야 합니다.")
+        st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables==0.3.0을 추가해야 합니다.")
         return labels
 
     if len(labels) < 2:
@@ -696,19 +651,20 @@ def sort_labels_with_pretty_box(labels, key, header="정렬"):
         return sort_items(
             labels,
             header=header,
-            direction="vertical",
             custom_style=sortable_style(),
             key=key,
         )
     except TypeError:
-        st.error(
-            "현재 설치된 streamlit-sortables 버전이 custom_style을 지원하지 않습니다. "
-            "requirements.txt의 streamlit-sortables를 streamlit-sortables==0.3.1로 바꾼 뒤, Streamlit Cloud에서 Reboot app을 눌러주세요."
-        )
-        return labels
+        st.warning("현재 설치된 streamlit-sortables가 회색 스타일을 지원하지 않아 기본 드래그 박스로 표시합니다. requirements.txt를 streamlit-sortables==0.3.0으로 바꾼 뒤 Reboot app을 누르면 회색 스타일이 적용됩니다.")
+        try:
+            return sort_items(labels, key=f"{key}_basic")
+        except Exception as e:
+            st.error(f"드래그 정렬 컴포넌트 오류: {e}")
+            return labels
     except Exception as e:
         st.error(f"드래그 정렬 컴포넌트 오류: {e}")
         return labels
+
 
 def shift_item_orders_for_insert(assessment_id, insert_order):
     """
@@ -1580,7 +1536,7 @@ with tab3:
     )
 
     if len(sorted_assessments) >= 2:
-        with st.expander("수행평가 순서 드래그 정렬", expanded=False):
+        with st.expander("수행평가 순서 드래그 정렬", expanded=True):
             if sort_items is None:
                 st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables를 추가해야 합니다.")
             else:
@@ -1594,7 +1550,7 @@ with tab3:
                     for label, assessment in zip(assessment_labels, sorted_assessments)
                 }
 
-                sorted_labels = sort_labels_with_pretty_box(
+                sorted_labels = sort_labels_with_gray_box(
                     assessment_labels,
                     key="assessment_drag_sort",
                     header="수행평가 순서",
@@ -1749,6 +1705,9 @@ with tab3:
                         st.rerun()
 
             if existing_items:
+                if len(existing_items) == 1:
+                    st.caption("평가 요소가 1개라서 드래그 정렬 박스는 표시하지 않습니다. 평가 요소를 2개 이상 만들면 이곳에 드래그 정렬 박스가 나타납니다.")
+
                 if len(existing_items) >= 2:
                     with st.expander("평가 요소 순서 드래그 정렬", expanded=True):
                         if sort_items is None:
@@ -1764,7 +1723,7 @@ with tab3:
                                 for label, item in zip(item_labels, existing_items)
                             }
 
-                            sorted_item_labels = sort_labels_with_pretty_box(
+                            sorted_item_labels = sort_labels_with_gray_box(
                                 item_labels,
                                 key=f"item_drag_sort_{aid}",
                                 header="평가 요소 순서",
