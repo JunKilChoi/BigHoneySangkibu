@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v5"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v6"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -78,6 +78,45 @@ def sort_students_df(df: pd.DataFrame) -> pd.DataFrame:
     ).drop(columns=["_학년정렬", "_반정렬", "_번호정렬"])
 
     return result.reset_index(drop=True)
+
+
+
+def needs_name_review(name) -> bool:
+    """
+    성명에 한글 외 문자가 포함된 경우 이름 확인이 필요하다고 표시한다.
+    예: 영문명, 한자명, 특수문자가 섞인 이름 등.
+    """
+    text = clean_text(name)
+    if not text:
+        return False
+
+    # 공백, 가운데점, 하이픈, 괄호 정도는 이름 표기 보조기호로 허용
+    name_core = re.sub(r"[\s·ㆍ\-()（）]", "", text)
+
+    if not name_core:
+        return False
+
+    return re.fullmatch(r"[가-힣]+", name_core) is None
+
+
+def apply_name_review_edits(base_df: pd.DataFrame, review_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    이름 확인 필요 학생만 따로 수정한 내용을 업로드 미리보기 명단에 반영한다.
+    """
+    if base_df.empty or review_df.empty or "student_id" not in base_df.columns or "student_id" not in review_df.columns:
+        return base_df
+
+    result = base_df.copy()
+    review_map = review_df.set_index("student_id").to_dict(orient="index")
+
+    for idx, row in result.iterrows():
+        sid = row.get("student_id", "")
+        if sid in review_map:
+            for col in ["학년", "반", "번호", "성명"]:
+                if col in review_map[sid]:
+                    result.at[idx, col] = review_map[sid][col]
+
+    return sort_students_df(result)
 
 
 def json_safe(obj):
@@ -416,7 +455,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v5",
+        "version": "patched-20260618-v6",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1034,9 +1073,11 @@ with tab2:
     st.markdown(
         """
         나이스 세특 파일에서 `학년`, `반/번호`, `성명`을 자동 추출합니다.  
-        여러 반 파일을 한 번에 올리거나, 파일을 나중에 하나씩 추가해도 기존 명단 아래에 누적할 수 있습니다.
+        여러 반 파일을 한 번에 올리거나, 파일을 나중에 하나씩 추가해도 기존 명단에 누적할 수 있습니다.
         """
     )
+
+    st.info("아래의 '업로드 파일 미리보기'는 아직 최종 명단이 아닙니다. 최종 명단은 하단의 '현재 학생 명단'이며, 그 표에서 직접 수정할 수 있습니다.")
 
     uploaded_excels = st.file_uploader(
         "나이스 엑셀 파일 업로드",
@@ -1049,6 +1090,7 @@ with tab2:
 
     if uploaded_excels:
         parsed_frames = []
+
         for file in uploaded_excels:
             try:
                 students_df, sheet_names = parse_neis_excel(file)
@@ -1070,39 +1112,59 @@ with tab2:
             st.caption(info)
 
         if not parsed_students.empty:
-            st.success(f"업로드 파일에서 총 {len(parsed_students)}명의 학생을 찾았습니다.")
+            st.markdown("#### 업로드 파일 미리보기")
+            st.caption("이 표는 업로드한 파일에서 읽어온 임시 명단입니다. 아래 버튼을 눌러야 현재 학생 명단에 반영됩니다.")
+
             st.dataframe(
                 parsed_students.drop(columns=["student_id"], errors="ignore"),
                 use_container_width=True,
-                height=280,
+                height=260,
             )
+
+            review_students = parsed_students[parsed_students["성명"].map(needs_name_review)].copy()
+            adjusted_parsed_students = parsed_students.copy()
+
+            if not review_students.empty:
+                st.markdown("#### 이름 확인 필요 학생")
+                st.warning(
+                    "성명에 한글 외 문자가 포함된 학생만 따로 모았습니다. "
+                    "필요하면 여기서 이름을 수정한 뒤 아래의 추가/교체 버튼을 누르세요. "
+                    "수정이 필요 없으면 그냥 넘어가도 됩니다."
+                )
+
+                edited_review = st.data_editor(
+                    review_students,
+                    use_container_width=True,
+                    height=220,
+                    num_rows="fixed",
+                    disabled=["student_id"],
+                    column_config={
+                        "student_id": None,
+                    },
+                    key="name_review_editor",
+                )
+
+                adjusted_parsed_students = apply_name_review_edits(parsed_students, edited_review)
+            else:
+                st.success("한글 외 문자가 포함된 성명은 발견되지 않았습니다.")
 
             col_a, col_b = st.columns(2)
             with col_a:
-                if st.button("기존 명단 아래에 추가"):
-                    st.session_state.students = combine_students(st.session_state.students, parsed_students)
-                    st.success("기존 명단에 추가했습니다.")
+                if st.button("업로드 명단을 현재 명단에 추가"):
+                    st.session_state.students = combine_students(st.session_state.students, adjusted_parsed_students)
+                    st.success("업로드 명단을 현재 학생 명단에 추가했습니다.")
                     st.rerun()
 
             with col_b:
                 if st.button("현재 명단을 업로드 명단으로 교체"):
-                    st.session_state.students = sort_students_df(parsed_students)
-                    st.success("학생 명단을 교체했습니다.")
+                    st.session_state.students = sort_students_df(adjusted_parsed_students)
+                    st.success("현재 학생 명단을 업로드 명단으로 교체했습니다.")
                     st.rerun()
 
     st.divider()
     st.markdown("#### 현재 학생 명단")
+    st.caption("이 표가 최종 명단입니다. 여기서 직접 수정한 뒤 '현재 학생 명단 저장'을 누르면 이후 모든 입력 화면에 반영됩니다.")
 
-    if st.session_state.students.empty:
-        st.info("아직 등록된 학생이 없습니다.")
-    else:
-        st.dataframe(
-            st.session_state.students.drop(columns=["student_id"], errors="ignore"),
-            use_container_width=True,
-            height=260,
-        )
-
-    st.markdown("#### 직접 입력 / 수정")
     editable_students = st.session_state.students.copy()
 
     if editable_students.empty:
@@ -1118,20 +1180,61 @@ with tab2:
             ]
         )
 
+    for col in ["student_id", "학년", "반", "번호", "성명"]:
+        if col not in editable_students.columns:
+            editable_students[col] = ""
+
     edited_students = st.data_editor(
-        editable_students.drop(columns=["student_id"], errors="ignore"),
+        editable_students[["student_id", "학년", "반", "번호", "성명"]],
         num_rows="dynamic",
         use_container_width=True,
-        key="students_editor",
+        height=360,
+        key="final_students_editor",
+        column_config={
+            "student_id": None,
+            "학년": st.column_config.TextColumn("학년", width="small"),
+            "반": st.column_config.TextColumn("반", width="small"),
+            "번호": st.column_config.TextColumn("번호", width="small"),
+            "성명": st.column_config.TextColumn("성명", width="medium"),
+        },
     )
 
-    if st.button("직접 입력 명단 저장"):
-        new_df = edited_students.copy()
-        new_df = new_df[new_df["성명"].astype(str).str.strip() != ""].reset_index(drop=True)
-        new_df.insert(0, "student_id", [make_id("stu") for _ in range(len(new_df))])
-        st.session_state.students = sort_students_df(new_df)
-        st.success("학생 명단을 저장했습니다.")
-        st.rerun()
+    col_save, col_sort = st.columns([1, 1])
+
+    with col_save:
+        if st.button("현재 학생 명단 저장", type="primary"):
+            new_df = edited_students.copy()
+
+            for col in ["student_id", "학년", "반", "번호", "성명"]:
+                if col not in new_df.columns:
+                    new_df[col] = ""
+
+            new_df = new_df[new_df["성명"].astype(str).str.strip() != ""].reset_index(drop=True)
+
+            # 기존 행은 student_id를 유지하고, 새로 추가된 행만 새 ID를 부여한다.
+            new_df["student_id"] = new_df["student_id"].apply(
+                lambda x: clean_text(x) if clean_text(x) else make_id("stu")
+            )
+
+            st.session_state.students = sort_students_df(new_df[["student_id", "학년", "반", "번호", "성명"]])
+            st.success("현재 학생 명단을 저장했습니다.")
+            st.rerun()
+
+    with col_sort:
+        if st.button("반/번호 순으로 다시 정렬"):
+            st.session_state.students = sort_students_df(st.session_state.students)
+            st.success("현재 학생 명단을 정렬했습니다.")
+            st.rerun()
+
+    if not st.session_state.students.empty:
+        review_current = st.session_state.students[st.session_state.students["성명"].map(needs_name_review)]
+        if not review_current.empty:
+            with st.expander(f"현재 명단의 이름 확인 필요 학생 {len(review_current)}명 보기"):
+                st.dataframe(
+                    review_current.drop(columns=["student_id"], errors="ignore"),
+                    use_container_width=True,
+                    height=180,
+                )
 
 
 # =========================
