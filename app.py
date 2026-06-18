@@ -1045,7 +1045,7 @@ with tab4:
             selected_assess_ids = [a["assessment_id"] for a in assessments if a["name"] == selected_assess_name]
 
         selected_items = [
-            it for it in st.session_state.items if it["assessment_id"] in selected_assess_ids
+            it for it in st.session_state.items if it.get("assessment_id", "") in selected_assess_ids
         ]
         selected_items = sorted(selected_items, key=lambda x: (get_assessment_name(x["assessment_id"]), x.get("order", 999)))
 
