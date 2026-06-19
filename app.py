@@ -7,6 +7,7 @@ from io import BytesIO
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 try:
     from streamlit_sortables import sort_items
@@ -23,8 +24,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v24"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v24"
+APP_TITLE = "🍯 BigHoneySangkibu v25"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v25"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -489,7 +490,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v24",
+        "version": "patched-20260619-v25",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1334,8 +1335,9 @@ STEP_LABELS = [
     "⑥ 생기부 생성/다운로드",
 ]
 
-NAV_WIDGET_KEY = "step_nav_radio_v24"
-PENDING_STEP_KEY = "pending_step_index_v24"
+NAV_WIDGET_KEY = "step_nav_radio_v25"
+PENDING_STEP_KEY = "pending_step_index_v25"
+SCROLL_TO_TOP_KEY = "scroll_to_top_after_step_change_v25"
 
 if "current_step" not in st.session_state:
     st.session_state["current_step"] = 0
@@ -1361,6 +1363,34 @@ st.session_state["current_step"] = max(0, min(st.session_state["current_step"], 
 
 if NAV_WIDGET_KEY not in st.session_state or st.session_state[NAV_WIDGET_KEY] not in STEP_LABELS:
     st.session_state[NAV_WIDGET_KEY] = STEP_LABELS[st.session_state["current_step"]]
+
+
+def scroll_page_to_top_once():
+    """다음 단계 이동 직후 화면을 앱 맨 위로 올린다."""
+    if st.session_state.get(SCROLL_TO_TOP_KEY, False):
+        st.session_state[SCROLL_TO_TOP_KEY] = False
+        components.html(
+            """
+            <script>
+            function scrollToTop() {
+                try {
+                    const parentDoc = window.parent.document;
+                    const main = parentDoc.querySelector('section.main');
+                    if (main) {
+                        main.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+                    }
+                    window.parent.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+                    parentDoc.documentElement.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+                    parentDoc.body.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+                } catch (e) {}
+            }
+            scrollToTop();
+            setTimeout(scrollToTop, 80);
+            setTimeout(scrollToTop, 250);
+            </script>
+            """,
+            height=0,
+        )
 
 st.markdown(
     """
@@ -1465,6 +1495,7 @@ selected_step_label = st.radio(
 )
 st.session_state["current_step"] = STEP_LABELS.index(selected_step_label)
 current_step = st.session_state["current_step"]
+scroll_page_to_top_once()
 
 
 def render_next_step_button(current_index: int):
@@ -1481,6 +1512,7 @@ def render_next_step_button(current_index: int):
     ):
         st.session_state["current_step"] = next_index
         st.session_state[PENDING_STEP_KEY] = next_index
+        st.session_state[SCROLL_TO_TOP_KEY] = True
         st.rerun()
 
 
