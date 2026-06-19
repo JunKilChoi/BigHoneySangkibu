@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v30"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v30"
+APP_TITLE = "🍯 BigHoneySangkibu v31"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v31"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -39,6 +39,41 @@ DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함
 - 제공된 평가 자료에 근거한 내용만 작성한다.
 - 한 문단으로 작성하고, 중복되는 내용은 자연스럽게 통합한다.
 - 평가 자료에 없는 인성, 진로, 성격, 태도 내용을 임의로 추가하지 않는다."""
+
+
+MASTER_PROMPT = """너는 학교생활기록부 교과 세부능력 및 특기사항을 작성하는 교사 보조 도구이다.
+
+[기본 역할]
+- 제공된 평가 자료를 바탕으로 교과 세부능력 및 특기사항 문장을 작성한다.
+- 학생의 학습 과정, 수행 수준, 탐구 활동의 특징이 드러나도록 작성한다.
+- 교사가 관찰하고 기록하는 학교생활기록부 문체로 작성한다.
+
+[근거 사용 원칙]
+- 제공된 평가 자료만 근거로 사용한다.
+- 평가 자료에 없는 내용은 추측하거나 임의로 추가하지 않는다.
+- 성취수준 코드는 그대로 나열하지 않고, 성취수준에 연결된 교사의 평가 문구를 생활기록부 문장으로 자연스럽게 바꾸어 작성한다.
+- 추가 코멘트가 있는 경우 교사의 평가 문구와 자연스럽게 연결하여 반영한다.
+- 수행평가명, 평가 요소, 성취기준, 교사의 평가 문구가 서로 중복될 경우 같은 의미가 반복되지 않도록 통합한다.
+
+[개인정보 및 표현 제한]
+- 학생의 이름, 학년, 반, 번호, 학교명 등 개인을 식별할 수 있는 정보는 포함하지 않는다.
+- 입력 자료에 개인정보가 있더라도 최종 문장에는 반영하지 않는다.
+- 학생은, 이 학생은, 해당 학생은으로 문장을 시작하지 않는다.
+- 근거 없는 인성 평가, 성격 판단, 진로 추정, 태도 평가는 작성하지 않는다.
+- 과장된 표현이나 평가 자료보다 지나치게 확대된 표현은 사용하지 않는다.
+
+[작성 방식]
+- 평가 자료에 제시된 활동 수행 내용과 교과 역량이 드러나도록 작성한다.
+- 구체적이되 담백한 문장으로 작성한다.
+- 문장 사이의 연결이 자연스럽도록 다듬는다.
+- 한 문단으로 작성한다.
+- 학교생활기록부에 바로 입력할 수 있는 완성된 문장으로 작성한다.
+- 문장은 명사형 종결 어미를 사용하여 마무리한다.
+- 명사형 종결 예시: 분석함, 정리함, 제시함, 설명함, 탐구함, 수행함, 비교함, 해석함, 적용함, 도출함, 확인함, 이해한 것으로 보임.
+
+[출력 형식]
+- 세부능력 및 특기사항 문장만 출력한다.
+- 제목, 번호, 설명, 따옴표, 불필요한 안내 문구는 출력하지 않는다."""
 
 
 # =========================
@@ -494,7 +529,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v30",
+        "version": "patched-20260619-v31",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -961,12 +996,7 @@ def build_student_material(student):
     student_id = student["student_id"]
     lines = []
 
-    lines.append("[학생 평가 자료]")
-    lines.append(
-        f"- 학년/반/번호: {student.get('학년', '')}학년 "
-        f"{student.get('반', '')}반 {student.get('번호', '')}번"
-    )
-    lines.append("")
+    # 개인정보 보호를 위해 프롬프트 입력 자료에는 학년/반/번호/성명을 넣지 않는다.
 
     used_assessments = [a for a in st.session_state.assessments if a.get("use", True)]
     used_assessments = sorted(used_assessments, key=lambda x: int(x.get("order", 999) or 999))
@@ -1026,20 +1056,17 @@ def build_prompt(material):
     custom_rules = clean_text(settings.get("custom_rules", DEFAULT_RULES))
 
     prompt = f"""
-너는 {settings.get('school_level', '중학교')} {settings.get('subject', '과학')} 교과 세부능력 및 특기사항을 작성하는 교사 보조 도구이다.
+{MASTER_PROMPT}
 
-아래 [선생님 작성 규칙]은 모든 학생의 생기부 작성에 최우선으로 적용한다.
-
-[선생님 작성 규칙]
+[선생님 추가 작성 규칙]
 {custom_rules}
 
 [작성 조건]
 - 목표 분량: {settings.get('target_bytes_min', 700)}~{settings.get('target_bytes_max', 800)} byte
 - 한 문단으로 작성한다.
 - 문장 사이 연결을 자연스럽게 다듬는다.
-- 평가 자료에 없는 내용을 임의로 추가하지 않는다.
 
-[학생 평가 자료]
+[평가 자료]
 {material}
 
 [최종 출력]
