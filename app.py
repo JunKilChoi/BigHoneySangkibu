@@ -23,8 +23,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v21"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v21"
+APP_TITLE = "🍯 BigHoneySangkibu v22"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v22"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -489,7 +489,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v21",
+        "version": "patched-20260619-v22",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1334,8 +1334,8 @@ STEP_LABELS = [
     "⑥ 생기부 생성/다운로드",
 ]
 
-NAV_WIDGET_KEY = "step_nav_radio_v21"
-PENDING_STEP_KEY = "pending_step_index_v21"
+NAV_WIDGET_KEY = "step_nav_radio_v22"
+PENDING_STEP_KEY = "pending_step_index_v22"
 
 if "current_step" not in st.session_state:
     st.session_state["current_step"] = 0
@@ -1395,6 +1395,53 @@ st.markdown(
         font-size: 0.95rem !important;
     }
     div[data-testid="stRadio"] > div[role="radiogroup"] input {
+        display: none !important;
+    }
+
+
+    /* 수행평가 설계 화면 계층 구분: 수행평가는 푸른색, 평가요소는 주황색 계열로 구분한다. */
+    div[data-testid="stExpander"] details:has(.assessment-card-content) {
+        background: linear-gradient(180deg, #EAF4FF 0%, #DCEEFF 100%) !important;
+        border: 2px solid #93C5FD !important;
+        border-radius: 18px !important;
+        box-shadow: 0 6px 18px rgba(37, 99, 235, 0.10) !important;
+        padding: 0.15rem 0.35rem 0.35rem 0.35rem !important;
+        margin: 0.9rem 0 1.25rem 0 !important;
+    }
+    div[data-testid="stExpander"] details:has(.assessment-card-content) > summary {
+        background: #DBEAFE !important;
+        border: 1px solid #BFDBFE !important;
+        border-radius: 14px !important;
+        margin: 0.2rem 0 0.55rem 0 !important;
+        padding: 0.15rem 0.45rem !important;
+    }
+    div[data-testid="stExpander"] details:has(.assessment-card-content) > summary p {
+        color: #0F172A !important;
+        font-weight: 800 !important;
+    }
+    div[data-testid="stExpander"] details:has(.assessment-card-content) .assessment-card-content {
+        display: none !important;
+    }
+    div[data-testid="stExpander"] details:has(.item-card-content) {
+        background: linear-gradient(180deg, #FFF7ED 0%, #FFEDD5 100%) !important;
+        border: 2px solid #FDBA74 !important;
+        border-radius: 16px !important;
+        box-shadow: 0 5px 14px rgba(234, 88, 12, 0.10) !important;
+        padding: 0.12rem 0.3rem 0.32rem 0.3rem !important;
+        margin: 0.65rem 0 0.95rem 0 !important;
+    }
+    div[data-testid="stExpander"] details:has(.item-card-content) > summary {
+        background: #FED7AA !important;
+        border: 1px solid #FDBA74 !important;
+        border-radius: 12px !important;
+        margin: 0.16rem 0 0.5rem 0 !important;
+        padding: 0.12rem 0.4rem !important;
+    }
+    div[data-testid="stExpander"] details:has(.item-card-content) > summary p {
+        color: #111827 !important;
+        font-weight: 800 !important;
+    }
+    div[data-testid="stExpander"] details:has(.item-card-content) .item-card-content {
         display: none !important;
     }
     </style>
@@ -1793,6 +1840,7 @@ if current_step == 2:
             f"· 평가 요소 {item_count}개 · {status_badge}"
         )
         with st.expander(assessment_expander_title, expanded=True):
+            st.markdown('<div class="assessment-card-content"></div>', unsafe_allow_html=True)
             st.markdown(
                 f"""
                 ### 📁 수행평가 {assess_index}. {assessment.get('name', '이름 없는 수행평가')}
@@ -1898,6 +1946,7 @@ if current_step == 2:
                         f"· {item_type_label}"
                     )
                     with st.expander(item_expander_title, expanded=True):
+                        st.markdown('<div class="item-card-content"></div>', unsafe_allow_html=True)
                         st.markdown(
                             f"##### 🧾 평가 요소 {item_index}. {item.get('name', '이름 없는 평가 요소')}"
                         )
