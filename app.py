@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v44"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v44"
+APP_TITLE = "🍯 개꿀 생기부 v45"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v45"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -543,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260619-v44",
+        "version": "patched-20260619-v45",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -3381,19 +3381,7 @@ if current_step == 5:
         )
         current_bytes = byte_count(edited)
 
-        min_bytes = int(st.session_state.settings.get("target_bytes_min", 700))
-        max_bytes = int(st.session_state.settings.get("target_bytes_max", 800))
-
-        col_byte, col_range = st.columns([1, 3])
-        with col_byte:
-            st.metric("현재 byte", current_bytes)
-        with col_range:
-            if current_bytes < min_bytes:
-                st.warning(f"목표 byte보다 짧습니다. 목표: {min_bytes}~{max_bytes} byte")
-            elif current_bytes > max_bytes:
-                st.warning(f"목표 byte보다 깁니다. 목표: {min_bytes}~{max_bytes} byte")
-            else:
-                st.success(f"목표 byte 범위 안에 있습니다. 목표: {min_bytes}~{max_bytes} byte")
+        st.metric("현재 byte", current_bytes)
 
         if st.button("수정 문구 저장", type="primary"):
             result = st.session_state.results.get(current_selected_sid, {})
