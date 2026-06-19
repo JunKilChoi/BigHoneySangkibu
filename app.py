@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v29"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v29"
+APP_TITLE = "🍯 BigHoneySangkibu v30"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v30"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -494,7 +494,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v29",
+        "version": "patched-20260619-v30",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1202,16 +1202,16 @@ def export_excel():
 # 학생별 기록 입력 엑셀 양식
 # =========================
 def student_display_label(student) -> str:
-    """학생을 엑셀/화면의 열 제목으로 표시할 때 쓰는 이름."""
+    """학생을 화면/엑셀에서 표시할 때 쓰는 이름."""
     return f"{clean_text(student.get('반', ''))}반 {clean_text(student.get('번호', ''))}번 {clean_text(student.get('성명', ''))}"
 
 
 def selected_record_rows(selected_items):
     """
-    선택된 수행평가/평가요소를 학생별 기록 입력용 행 구조로 변환한다.
-    - 성취도 선택형: 성취수준 1행
-    - 개별 코멘트형: 개별코멘트 1행
-    - 성취도+추가코멘트형: 성취수준 1행 + 추가코멘트 1행
+    선택된 수행평가/평가요소를 학생별 기록 입력용 입력 항목 구조로 변환한다.
+    - 성취도 선택형: 성취수준 1개 열
+    - 개별 코멘트형: 개별코멘트 1개 열
+    - 성취도+추가코멘트형: 성취수준 1개 열 + 추가코멘트 1개 열
     """
     rows = []
     for item in selected_items:
@@ -1236,45 +1236,61 @@ def selected_record_rows(selected_items):
     return rows
 
 
-def build_record_matrix_df(students: pd.DataFrame, selected_items):
-    """웹 화면에서 엑셀 양식과 같은 방향으로 보여줄 입력표를 만든다."""
-    record_rows = selected_record_rows(selected_items)
-    student_labels = []
-    student_label_to_id = {}
+def record_column_label(record_row, used_labels=None):
+    """
+    웹 입력표는 엑셀처럼 다중 헤더를 직접 편집하기 어렵기 때문에
+    수행평가 > 평가요소 > 입력구분을 한 열 제목에 압축해서 표시한다.
+    """
+    base = f"{record_row['assessment_name']} | {record_row['item_name']} | {record_row['field_label']}"
+    if used_labels is None:
+        return base
 
-    for _, student in students.iterrows():
-        label = student_display_label(student)
-        # 동명이인/동번호 예외가 생겨도 열 이름이 겹치지 않게 보정
-        if label in student_label_to_id:
-            label = f"{label} ({clean_text(student.get('student_id', ''))[-4:]})"
-        student_labels.append(label)
-        student_label_to_id[label] = student.get("student_id", "")
+    label = base
+    count = 2
+    while label in used_labels:
+        label = f"{base} ({count})"
+        count += 1
+    used_labels.add(label)
+    return label
+
+
+def build_record_matrix_df(students: pd.DataFrame, selected_items):
+    """
+    웹 화면에서 학생을 행으로, 평가요소 입력칸을 열로 배치한 전치형 입력표를 만든다.
+    """
+    record_rows = selected_record_rows(selected_items)
+    used_labels = set()
+    record_columns = []
+
+    for record_row in record_rows:
+        label = record_column_label(record_row, used_labels)
+        record_columns.append({**record_row, "column_label": label})
 
     matrix_rows = []
-    for record_row in record_rows:
+    for _, student in students.iterrows():
+        sid = student.get("student_id", "")
         row = {
-            "_assessment_id": record_row["assessment_id"],
-            "_item_id": record_row["item_id"],
-            "_field": record_row["field"],
-            "수행평가": record_row["assessment_name"],
-            "평가요소": record_row["item_name"],
-            "입력구분": record_row["field_label"],
+            "_student_id": sid,
+            "학년": clean_text(student.get("학년", "")),
+            "반": clean_text(student.get("반", "")),
+            "번호": clean_text(student.get("번호", "")),
+            "성명": clean_text(student.get("성명", "")),
         }
 
-        for label, sid in student_label_to_id.items():
-            rec = get_record(sid, record_row["item_id"])
-            if record_row["field"] == "level":
-                row[label] = rec.get("level", "")
+        for record_col in record_columns:
+            rec = get_record(sid, record_col["item_id"])
+            if record_col["field"] == "level":
+                row[record_col["column_label"]] = rec.get("level", "")
             else:
-                row[label] = rec.get("comment", "")
+                row[record_col["column_label"]] = rec.get("comment", "")
 
         matrix_rows.append(row)
 
-    return pd.DataFrame(matrix_rows), student_labels, student_label_to_id
+    return pd.DataFrame(matrix_rows), record_columns
 
 
-def save_record_matrix_df(edited_df: pd.DataFrame, base_df: pd.DataFrame, student_label_to_id: dict):
-    """엑셀형 웹 입력표에서 수정한 내용을 세션 기록에 저장한다."""
+def save_record_matrix_df(edited_df: pd.DataFrame, base_df: pd.DataFrame, record_columns):
+    """전치형 웹 입력표에서 수정한 내용을 세션 기록에 저장한다."""
     if edited_df.empty or base_df.empty:
         return 0, []
 
@@ -1290,22 +1306,27 @@ def save_record_matrix_df(edited_df: pd.DataFrame, base_df: pd.DataFrame, studen
         if idx not in base_df.index:
             continue
 
-        item_id = clean_text(base_df.loc[idx, "_item_id"])
-        field = clean_text(base_df.loc[idx, "_field"])
-        item = item_map.get(item_id)
-        if item is None:
+        sid = clean_text(base_df.loc[idx, "_student_id"])
+        student_label = student_display_label(base_df.loc[idx])
+        if not sid:
             continue
 
-        allowed_levels = [clean_text(x) for x in item.get("levels", [])]
+        for record_col in record_columns:
+            item_id = record_col["item_id"]
+            field = record_col["field"]
+            col_label = record_col["column_label"]
+            item = item_map.get(item_id)
+            if item is None or col_label not in edited_df.columns:
+                continue
 
-        for label, sid in student_label_to_id.items():
-            value = clean_text(row.get(label, ""))
+            value = clean_text(row.get(col_label, ""))
             rec = get_record(sid, item_id)
 
             if field == "level":
+                allowed_levels = [clean_text(x) for x in item.get("levels", [])]
                 if value and allowed_levels and value not in allowed_levels:
                     warnings.append(
-                        f"{label} / {item.get('name', '')}: '{value}'는 등록된 성취수준 {allowed_levels}에 없습니다."
+                        f"{student_label} / {item.get('name', '')}: '{value}'는 등록된 성취수준 {allowed_levels}에 없습니다."
                     )
                 set_record(sid, item_id, level=value, comment=rec.get("comment", ""))
                 saved_count += 1
@@ -1316,8 +1337,25 @@ def save_record_matrix_df(edited_df: pd.DataFrame, base_df: pd.DataFrame, studen
     return saved_count, warnings
 
 
+def merge_same_values(ws, row_idx, start_col, end_col):
+    """같은 값이 이어지는 헤더 셀을 가로 병합한다."""
+    if start_col > end_col:
+        return
+
+    group_start = start_col
+    previous_value = clean_text(ws.cell(row_idx, start_col).value)
+
+    for col_idx in range(start_col + 1, end_col + 2):
+        current_value = clean_text(ws.cell(row_idx, col_idx).value) if col_idx <= end_col else "__END__"
+        if current_value != previous_value:
+            if previous_value and col_idx - group_start > 1:
+                ws.merge_cells(start_row=row_idx, start_column=group_start, end_row=row_idx, end_column=col_idx - 1)
+            group_start = col_idx
+            previous_value = current_value
+
+
 def make_student_record_excel(students: pd.DataFrame, selected_items, selected_assess_name: str = "전체"):
-    """학생별 기록 입력용 엑셀 양식을 생성한다. 성취수준 입력칸에는 드롭다운을 넣는다."""
+    """학생별 기록 입력용 전치형 엑셀 양식을 생성한다. 성취수준 입력칸에는 드롭다운을 넣는다."""
     wb = Workbook()
     ws = wb.active
     ws.title = "학생별기록"
@@ -1328,45 +1366,44 @@ def make_student_record_excel(students: pd.DataFrame, selected_items, selected_a
     students = students.copy()
 
     title = f"BigHoneySangkibu 학생별 기록 입력 양식 - {selected_assess_name}"
-    student_count = len(students)
-    student_start_col = 4  # A 수행평가, B 평가요소, C 입력구분, D부터 학생
-    student_end_col = student_start_col + student_count - 1
-    meta_start_col = student_end_col + 2
+    record_start_col = 6  # A 숨김 student_id, B 학년, C 반, D 번호, E 성명, F부터 입력 항목
+    student_start_row = 8
+    record_count = len(record_rows)
+    record_end_col = record_start_col + record_count - 1
+    last_visible_col = max(record_end_col, 5)
 
     # 제목/안내
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max(meta_start_col + 3, student_end_col))
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=last_visible_col)
     ws.cell(1, 1).value = title
     ws.cell(1, 1).font = Font(bold=True, size=14, color="1F2937")
     ws.cell(1, 1).alignment = Alignment(horizontal="left", vertical="center")
 
-    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=max(meta_start_col + 3, student_end_col))
-    ws.cell(2, 1).value = "노란색 성취수준 칸은 드롭다운으로 선택하고, 코멘트 칸은 직접 입력한 뒤 이 파일을 다시 웹앱에 업로드하세요. 숨겨진 행/열은 삭제하지 마세요."
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=last_visible_col)
+    ws.cell(2, 1).value = "학생은 행으로, 수행평가·평가요소는 열로 배치했습니다. 노란색 성취수준 칸은 드롭다운으로 선택하고, 코멘트 칸은 직접 입력한 뒤 이 파일을 다시 웹앱에 업로드하세요. 숨겨진 행/열은 삭제하지 마세요."
     ws.cell(2, 1).font = Font(size=10, color="6B7280")
     ws.cell(2, 1).alignment = Alignment(wrap_text=True, vertical="center")
 
-    # 숨김 메타 행: 학생 ID
+    # 숨김 메타 행: 각 입력 열의 item_id / field
     ws.row_dimensions[3].hidden = True
-    ws.cell(3, 1).value = "__student_id_row__"
+    ws.row_dimensions[4].hidden = True
+    ws.cell(3, 1).value = "__item_id_row__"
+    ws.cell(4, 1).value = "__field_row__"
 
-    headers = ["수행평가", "평가요소", "입력구분"]
-    for col_idx, header in enumerate(headers, start=1):
-        ws.cell(4, col_idx).value = header
+    # 학생 기본 정보 헤더
+    base_headers = {
+        1: "__student_id__",
+        2: "학년",
+        3: "반",
+        4: "번호",
+        5: "성명",
+    }
+    for col_idx, header in base_headers.items():
+        ws.cell(7, col_idx).value = header
+        if col_idx >= 2:
+            ws.merge_cells(start_row=5, start_column=col_idx, end_row=7, end_column=col_idx)
+            ws.cell(5, col_idx).value = header
 
-    student_labels = []
-    for offset, (_, student) in enumerate(students.iterrows()):
-        col_idx = student_start_col + offset
-        label = student_display_label(student)
-        if label in student_labels:
-            label = f"{label} ({clean_text(student.get('student_id', ''))[-4:]})"
-        student_labels.append(label)
-        ws.cell(3, col_idx).value = student.get("student_id", "")
-        ws.cell(4, col_idx).value = label
-
-    meta_headers = ["__item_id__", "__field__", "__assessment_id__", "__item_type__"]
-    for offset, header in enumerate(meta_headers):
-        col_idx = meta_start_col + offset
-        ws.cell(4, col_idx).value = header
-        ws.column_dimensions[get_column_letter(col_idx)].hidden = True
+    ws.column_dimensions["A"].hidden = True
 
     # 선택목록 시트에 성취수준 목록 저장
     item_level_ranges = {}
@@ -1385,14 +1422,29 @@ def make_student_record_excel(students: pd.DataFrame, selected_items, selected_a
         item_level_ranges[item_id] = f"'선택목록'!${col_letter}$2:${col_letter}${len(levels) + 1}"
         list_col += 1
 
-    # 본문 행 작성
-    start_row = 5
-    current_row = start_row
+    # 입력 항목 헤더 작성
+    for offset, record_row in enumerate(record_rows):
+        col_idx = record_start_col + offset
+        item_id = record_row["item_id"]
+        field = record_row["field"]
+
+        ws.cell(3, col_idx).value = item_id
+        ws.cell(4, col_idx).value = field
+        ws.cell(5, col_idx).value = record_row["assessment_name"]
+        ws.cell(6, col_idx).value = record_row["item_name"]
+        ws.cell(7, col_idx).value = record_row["field_label"]
+
+    if record_count > 0:
+        merge_same_values(ws, 5, record_start_col, record_end_col)
+        merge_same_values(ws, 6, record_start_col, record_end_col)
+
+    # 스타일
     level_fill = PatternFill("solid", fgColor="FFF7ED")
     comment_fill = PatternFill("solid", fgColor="F9FAFB")
     assessment_fill = PatternFill("solid", fgColor="EFF6FF")
     item_fill = PatternFill("solid", fgColor="FFFBEB")
-    header_fill = PatternFill("solid", fgColor="1F2937")
+    field_fill = PatternFill("solid", fgColor="F3F4F6")
+    student_fill = PatternFill("solid", fgColor="E5E7EB")
     border = Border(
         left=Side(style="thin", color="D1D5DB"),
         right=Side(style="thin", color="D1D5DB"),
@@ -1400,90 +1452,95 @@ def make_student_record_excel(students: pd.DataFrame, selected_items, selected_a
         bottom=Side(style="thin", color="D1D5DB"),
     )
 
-    item_map = {item.get("item_id", ""): item for item in selected_items}
-
-    for record_row in record_rows:
-        item_id = record_row["item_id"]
-        field = record_row["field"]
-        item = item_map.get(item_id, {})
-
-        ws.cell(current_row, 1).value = record_row["assessment_name"]
-        ws.cell(current_row, 2).value = record_row["item_name"]
-        ws.cell(current_row, 3).value = record_row["field_label"]
-
-        ws.cell(current_row, meta_start_col).value = item_id
-        ws.cell(current_row, meta_start_col + 1).value = field
-        ws.cell(current_row, meta_start_col + 2).value = record_row["assessment_id"]
-        ws.cell(current_row, meta_start_col + 3).value = record_row["item_type"]
-
-        for offset, (_, student) in enumerate(students.iterrows()):
-            sid = student.get("student_id", "")
-            col_idx = student_start_col + offset
-            rec = get_record(sid, item_id)
-            if field == "level":
-                ws.cell(current_row, col_idx).value = rec.get("level", "")
-            else:
-                ws.cell(current_row, col_idx).value = rec.get("comment", "")
-
-        if field == "level" and item_id in item_level_ranges and student_count > 0:
-            dv = DataValidation(
-                type="list",
-                formula1=item_level_ranges[item_id],
-                allow_blank=True,
-                showDropDown=False,
-            )
-            dv.error = "등록된 성취수준 코드 중에서 선택하세요."
-            dv.errorTitle = "성취수준 선택 오류"
-            dv.prompt = "드롭다운에서 성취수준을 선택하세요."
-            dv.promptTitle = "성취수준 선택"
-            ws.add_data_validation(dv)
-            dv.add(f"{get_column_letter(student_start_col)}{current_row}:{get_column_letter(student_end_col)}{current_row}")
-
-        # 행 스타일
-        for col_idx in range(1, meta_start_col + len(meta_headers)):
-            cell = ws.cell(current_row, col_idx)
+    for row_idx in range(5, 8):
+        for col_idx in range(1, last_visible_col + 1):
+            cell = ws.cell(row_idx, col_idx)
             cell.border = border
-            cell.alignment = Alignment(wrap_text=True, vertical="center")
-            if col_idx == 1:
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.font = Font(bold=True, color="111827")
+            if col_idx < record_start_col:
+                cell.fill = student_fill
+            elif row_idx == 5:
                 cell.fill = assessment_fill
                 cell.font = Font(bold=True, color="1E3A8A")
-            elif col_idx == 2:
+            elif row_idx == 6:
                 cell.fill = item_fill
                 cell.font = Font(bold=True, color="92400E")
-            elif col_idx == 3:
-                cell.fill = level_fill if field == "level" else comment_fill
-                cell.font = Font(bold=True, color="374151")
-            elif student_start_col <= col_idx <= student_end_col:
-                cell.fill = level_fill if field == "level" else comment_fill
+            else:
+                cell.fill = field_fill
 
-        current_row += 1
+    item_map = {item.get("item_id", ""): item for item in selected_items}
 
-    # 헤더 스타일
-    for col_idx in range(1, meta_start_col + len(meta_headers)):
-        cell = ws.cell(4, col_idx)
-        cell.fill = header_fill
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        cell.border = border
+    # 학생별 본문 작성
+    for row_offset, (_, student) in enumerate(students.iterrows()):
+        row_idx = student_start_row + row_offset
+        sid = student.get("student_id", "")
+        ws.cell(row_idx, 1).value = sid
+        ws.cell(row_idx, 2).value = clean_text(student.get("학년", ""))
+        ws.cell(row_idx, 3).value = clean_text(student.get("반", ""))
+        ws.cell(row_idx, 4).value = clean_text(student.get("번호", ""))
+        ws.cell(row_idx, 5).value = clean_text(student.get("성명", ""))
+
+        for col_idx in range(1, 6):
+            cell = ws.cell(row_idx, col_idx)
+            cell.border = border
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.fill = PatternFill("solid", fgColor="F9FAFB")
+
+        for offset, record_row in enumerate(record_rows):
+            col_idx = record_start_col + offset
+            item_id = record_row["item_id"]
+            field = record_row["field"]
+            rec = get_record(sid, item_id)
+            cell = ws.cell(row_idx, col_idx)
+            cell.value = rec.get("level", "") if field == "level" else rec.get("comment", "")
+            cell.border = border
+            cell.alignment = Alignment(wrap_text=True, vertical="center")
+            cell.fill = level_fill if field == "level" else comment_fill
+
+    # 성취수준 드롭다운 적용
+    student_end_row = student_start_row + len(students) - 1
+    if len(students) > 0:
+        for offset, record_row in enumerate(record_rows):
+            item_id = record_row["item_id"]
+            field = record_row["field"]
+            col_idx = record_start_col + offset
+            item = item_map.get(item_id, {})
+            if field == "level" and item_id in item_level_ranges:
+                dv = DataValidation(
+                    type="list",
+                    formula1=item_level_ranges[item_id],
+                    allow_blank=True,
+                    showDropDown=False,
+                )
+                dv.error = "등록된 성취수준 코드 중에서 선택하세요."
+                dv.errorTitle = "성취수준 선택 오류"
+                dv.prompt = "드롭다운에서 성취수준을 선택하세요."
+                dv.promptTitle = "성취수준 선택"
+                ws.add_data_validation(dv)
+                col_letter = get_column_letter(col_idx)
+                dv.add(f"{col_letter}{student_start_row}:{col_letter}{student_end_row}")
 
     # 열 너비와 고정
-    ws.column_dimensions["A"].width = 22
-    ws.column_dimensions["B"].width = 28
-    ws.column_dimensions["C"].width = 14
-    for col_idx in range(student_start_col, student_end_col + 1):
-        ws.column_dimensions[get_column_letter(col_idx)].width = 18
-    for col_idx in range(meta_start_col, meta_start_col + len(meta_headers)):
-        ws.column_dimensions[get_column_letter(col_idx)].width = 12
-        ws.column_dimensions[get_column_letter(col_idx)].hidden = True
+    ws.column_dimensions["A"].width = 12
+    ws.column_dimensions["B"].width = 8
+    ws.column_dimensions["C"].width = 8
+    ws.column_dimensions["D"].width = 8
+    ws.column_dimensions["E"].width = 14
+    for col_idx in range(record_start_col, last_visible_col + 1):
+        field = clean_text(ws.cell(4, col_idx).value)
+        ws.column_dimensions[get_column_letter(col_idx)].width = 18 if field == "level" else 28
 
     ws.row_dimensions[1].height = 24
-    ws.row_dimensions[2].height = 34
-    ws.row_dimensions[4].height = 28
-    for row_idx in range(start_row, current_row):
-        ws.row_dimensions[row_idx].height = 36
+    ws.row_dimensions[2].height = 36
+    ws.row_dimensions[5].height = 28
+    ws.row_dimensions[6].height = 42
+    ws.row_dimensions[7].height = 28
+    for row_idx in range(student_start_row, student_start_row + len(students)):
+        ws.row_dimensions[row_idx].height = 34
 
-    ws.freeze_panes = "D5"
-    ws.auto_filter.ref = f"A4:{get_column_letter(student_end_col)}{max(current_row - 1, 4)}"
+    ws.freeze_panes = "F8"
+    ws.auto_filter.ref = f"B7:{get_column_letter(last_visible_col)}{max(student_start_row + len(students) - 1, 7)}"
 
     output = BytesIO()
     wb.save(output)
@@ -1496,6 +1553,66 @@ def import_student_record_excel(uploaded_file):
     wb = load_workbook(BytesIO(uploaded_file.getvalue()), data_only=True)
     ws = wb["학생별기록"] if "학생별기록" in wb.sheetnames else wb.active
 
+    # v30 전치형 양식: A열 hidden student_id, 3행 item_id, 4행 field, 8행부터 학생
+    if clean_text(ws.cell(3, 1).value) == "__item_id_row__" and clean_text(ws.cell(4, 1).value) == "__field_row__":
+        student_id_col = 1
+        record_start_col = 6
+        student_start_row = 8
+        current_student_ids = set(st.session_state.students["student_id"].astype(str).tolist())
+
+        record_cols = []
+        for col_idx in range(record_start_col, ws.max_column + 1):
+            item_id = clean_text(ws.cell(3, col_idx).value)
+            field = clean_text(ws.cell(4, col_idx).value)
+            if item_id and field:
+                record_cols.append((col_idx, item_id, field))
+
+        if not record_cols:
+            return 0, ["엑셀 양식에서 평가요소 입력 열을 찾지 못했습니다. 웹앱에서 새 양식을 다운로드한 뒤 다시 입력해 주세요."]
+
+        item_map = {
+            item.get("item_id", ""): item
+            for item in st.session_state["items"]
+            if isinstance(item, dict)
+        }
+
+        saved_count = 0
+        warnings = []
+        matched_students = 0
+
+        for row_idx in range(student_start_row, ws.max_row + 1):
+            sid = clean_text(ws.cell(row_idx, student_id_col).value)
+            if not sid or sid not in current_student_ids:
+                continue
+            matched_students += 1
+            student_label = f"{clean_text(ws.cell(row_idx, 3).value)}반 {clean_text(ws.cell(row_idx, 4).value)}번 {clean_text(ws.cell(row_idx, 5).value)}"
+
+            for col_idx, item_id, field in record_cols:
+                if item_id not in item_map:
+                    continue
+
+                item = item_map[item_id]
+                value = clean_text(ws.cell(row_idx, col_idx).value)
+                rec = get_record(sid, item_id)
+
+                if field == "level":
+                    allowed_levels = [clean_text(x) for x in item.get("levels", [])]
+                    if value and allowed_levels and value not in allowed_levels:
+                        warnings.append(
+                            f"{student_label} / {item.get('name', '')}: '{value}'는 등록된 성취수준 {allowed_levels}에 없습니다."
+                        )
+                    set_record(sid, item_id, level=value, comment=rec.get("comment", ""))
+                    saved_count += 1
+                elif field == "comment":
+                    set_record(sid, item_id, level=rec.get("level", ""), comment=value)
+                    saved_count += 1
+
+        if matched_students == 0:
+            return 0, ["현재 웹앱 학생 명단과 엑셀 양식의 학생 정보가 맞지 않습니다. 현재 학생 명단 기준으로 양식을 다시 다운로드해 주세요."]
+
+        return saved_count, warnings
+
+    # v29 이전 행 중심 양식도 업로드할 수 있도록 기존 방식 유지
     header_row = None
     for row_idx in range(1, min(ws.max_row, 12) + 1):
         values = [clean_text(ws.cell(row_idx, col_idx).value) for col_idx in range(1, min(ws.max_column, 30) + 1)]
@@ -1565,7 +1682,6 @@ def import_student_record_excel(uploaded_file):
                 saved_count += 1
 
     return saved_count, warnings
-
 
 def load_sample_data():
     st.session_state.students = pd.DataFrame(
@@ -2591,33 +2707,44 @@ if current_step == 3:
             st.divider()
             st.markdown("#### 웹에서 직접 입력하기")
             st.caption(
-                "엑셀 양식과 같은 구조입니다. 1열은 수행평가, 2열은 평가요소, 3열은 입력구분이고, 그 오른쪽에 학생별 입력칸이 나옵니다. "
-                "성취수준은 ③ 수행평가 설계에서 정한 코드나 기호를 입력하세요."
+                "엑셀 양식과 같은 전치형 구조입니다. 학생은 행으로, 수행평가·평가요소·입력구분은 열로 배치됩니다. "
+                "성취수준 열은 ③ 수행평가 설계에서 정한 코드나 기호를 선택하거나 입력하세요."
             )
 
-            matrix_df, student_labels, student_label_to_id = build_record_matrix_df(students, selected_items)
-            visible_df = matrix_df.drop(columns=["_assessment_id", "_item_id", "_field"], errors="ignore")
+            matrix_df, record_columns = build_record_matrix_df(students, selected_items)
+            visible_df = matrix_df.drop(columns=["_student_id"], errors="ignore")
 
             column_config = {
-                "수행평가": st.column_config.TextColumn("수행평가", width="medium"),
-                "평가요소": st.column_config.TextColumn("평가요소", width="large"),
-                "입력구분": st.column_config.TextColumn("입력구분", width="small"),
+                "학년": st.column_config.TextColumn("학년", width="small"),
+                "반": st.column_config.TextColumn("반", width="small"),
+                "번호": st.column_config.TextColumn("번호", width="small"),
+                "성명": st.column_config.TextColumn("성명", width="medium"),
             }
-            for label in student_labels:
-                column_config[label] = st.column_config.TextColumn(label, width="medium")
+            for record_col in record_columns:
+                label = record_col["column_label"]
+                if record_col["field"] == "level":
+                    levels = [clean_text(x) for x in record_col.get("levels", []) if clean_text(x)]
+                    column_config[label] = st.column_config.SelectboxColumn(
+                        label,
+                        options=[""] + levels,
+                        required=False,
+                        width="medium",
+                    )
+                else:
+                    column_config[label] = st.column_config.TextColumn(label, width="large")
 
             edited_df = st.data_editor(
                 visible_df,
                 use_container_width=True,
                 num_rows="fixed",
-                disabled=["수행평가", "평가요소", "입력구분"],
+                disabled=["학년", "반", "번호", "성명"],
                 column_config=column_config,
                 key=f"record_matrix_editor_{selected_assess_name}",
                 height=560,
             )
 
             if st.button("학생별 기록 저장", type="primary", use_container_width=True):
-                saved_count, warnings = save_record_matrix_df(edited_df, matrix_df, student_label_to_id)
+                saved_count, warnings = save_record_matrix_df(edited_df, matrix_df, record_columns)
                 st.success(f"학생별 기록을 저장했습니다. 저장된 입력값: {saved_count}개")
                 if warnings:
                     with st.expander(f"성취수준 코드 확인 필요 {len(warnings)}개", expanded=True):
