@@ -23,8 +23,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v17"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v17"
+APP_TITLE = "🍯 BigHoneySangkibu v18"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v18"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -489,7 +489,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v17",
+        "version": "patched-20260619-v18",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -874,6 +874,79 @@ def render_rubric_input_block(prefix, current_levels=None, current_rubrics=None)
             rubrics[code] = clean_text(comment)
 
     return levels, rubrics
+
+
+def render_add_item_expander(aid, item_count):
+    """
+    수행평가별 평가 요소 추가 영역.
+    v18에서는 기존 평가 요소 목록을 모두 본 뒤 바로 아래에서 새 평가 요소를 추가할 수 있도록
+    이 함수를 평가 요소 목록 하단에서 호출한다.
+    """
+    with st.expander("➕ 이 수행평가에 평가 요소 추가", expanded=(item_count == 0)):
+        st.markdown(
+            """
+            수행평가 안에 존재하는 여러 관찰 및 평가 요소들을 추가해주세요.  
+            A, B, C와 같은 **성취도 선택형**으로 개별화시킬 수도 있고, 개인마다 다른 관찰 내용을 적어주는 **개별 코멘트형**으로 더욱 구체적인 개별화가 가능합니다.  
+            또한 이 두 가지를 융합한 **성취도 + 추가 코멘트형**도 가능합니다.
+            """
+        )
+
+        item_name = st.text_input(
+            "평가 요소명",
+            placeholder="예: 생태지도 결과물 평가",
+            key=f"new_item_name_{aid}",
+        )
+
+        item_type_label = st.selectbox(
+            "기록 방식",
+            ["성취도 선택형", "개별 코멘트형", "성취도 + 추가 코멘트형"],
+            key=f"new_item_type_{aid}",
+            help="개별 코멘트형을 선택하면 성취수준 코드와 루브릭 입력칸이 사라집니다.",
+        )
+        item_type = item_type_from_kor(item_type_label)
+
+        levels = []
+        rubrics = {}
+
+        if item_type != "comment":
+            levels, rubrics = render_rubric_input_block(
+                prefix=f"new_item_rubric_{aid}",
+                current_levels=["A", "B", "C", "D", "E"],
+                current_rubrics={
+                    "A": "우수한 수준으로 수행함",
+                    "B": "대체로 적절하게 수행함",
+                    "C": "일부 보완이 필요함",
+                    "D": "기본적인 참여가 이루어짐",
+                    "E": "지속적인 보완이 필요함",
+                },
+            )
+        else:
+            st.info("개별 코멘트형입니다. 성취수준 코드 없이 학생별 서술형 코멘트만 입력합니다.")
+
+        item_order = len(get_items_for_assessment(aid)) + 1
+
+        if st.button("이 수행평가에 평가 요소 추가", key=f"add_item_button_{aid}"):
+            if not item_name.strip():
+                st.warning("평가 요소명을 입력하세요.")
+            else:
+                if item_type == "comment":
+                    levels, rubrics = [], {}
+
+                st.session_state["items"].append(
+                    {
+                        "item_id": make_id("item"),
+                        "assessment_id": aid,
+                        "name": item_name.strip(),
+                        "type": item_type,
+                        "levels": levels,
+                        "rubrics": rubrics,
+                        "order": int(item_order),
+                    }
+                )
+                normalize_item_orders(aid)
+                sanitize_state()
+                st.success("평가 요소를 추가했습니다.")
+                st.rerun()
 
 
 # =========================
@@ -1601,6 +1674,8 @@ with tab3:
                     st.success("수행평가 순서를 저장했습니다.")
                     st.rerun()
 
+    rubric_updates = {}
+
     for assess_index, assessment in enumerate(sorted_assessments, start=1):
         aid = assessment.get("assessment_id", "")
         normalize_item_orders(aid)
@@ -1676,72 +1751,6 @@ with tab3:
                         st.rerun()
 
             st.markdown("#### 🧾 평가 요소")
-
-            with st.expander("➕ 이 수행평가에 평가 요소 추가", expanded=(item_count == 0)):
-                st.markdown(
-                    """
-                    수행평가 안에 존재하는 여러 관찰 및 평가 요소들을 추가해주세요.  
-                    A, B, C와 같은 **성취도 선택형**으로 개별화시킬 수도 있고, 개인마다 다른 관찰 내용을 적어주는 **개별 코멘트형**으로 더욱 구체적인 개별화가 가능합니다.  
-                    또한 이 두 가지를 융합한 **성취도 + 추가 코멘트형**도 가능합니다.
-                    """
-                )
-
-                item_name = st.text_input(
-                    "평가 요소명",
-                    placeholder="예: 생태지도 결과물 평가",
-                    key=f"new_item_name_{aid}",
-                )
-
-                item_type_label = st.selectbox(
-                    "기록 방식",
-                    ["성취도 선택형", "개별 코멘트형", "성취도 + 추가 코멘트형"],
-                    key=f"new_item_type_{aid}",
-                    help="개별 코멘트형을 선택하면 성취수준 코드와 루브릭 입력칸이 사라집니다.",
-                )
-                item_type = item_type_from_kor(item_type_label)
-
-                levels = []
-                rubrics = {}
-
-                if item_type != "comment":
-                    levels, rubrics = render_rubric_input_block(
-                        prefix=f"new_item_rubric_{aid}",
-                        current_levels=["A", "B", "C", "D", "E"],
-                        current_rubrics={
-                            "A": "우수한 수준으로 수행함",
-                            "B": "대체로 적절하게 수행함",
-                            "C": "일부 보완이 필요함",
-                            "D": "기본적인 참여가 이루어짐",
-                            "E": "지속적인 보완이 필요함",
-                        },
-                    )
-                else:
-                    st.info("개별 코멘트형입니다. 성취수준 코드 없이 학생별 서술형 코멘트만 입력합니다.")
-
-                item_order = len(get_items_for_assessment(aid)) + 1
-
-                if st.button("이 수행평가에 평가 요소 추가", key=f"add_item_button_{aid}"):
-                    if not item_name.strip():
-                        st.warning("평가 요소명을 입력하세요.")
-                    else:
-                        if item_type == "comment":
-                            levels, rubrics = [], {}
-
-                        st.session_state["items"].append(
-                            {
-                                "item_id": make_id("item"),
-                                "assessment_id": aid,
-                                "name": item_name.strip(),
-                                "type": item_type,
-                                "levels": levels,
-                                "rubrics": rubrics,
-                                "order": int(item_order),
-                            }
-                        )
-                        normalize_item_orders(aid)
-                        sanitize_state()
-                        st.success("평가 요소를 추가했습니다.")
-                        st.rerun()
 
             if existing_items:
                 if len(existing_items) == 1:
@@ -1835,17 +1844,31 @@ with tab3:
                                 current_levels=item.get("levels", []),
                                 current_rubrics=item.get("rubrics", {}),
                             )
-
-                            if st.button("성취수준/평가 문구 저장", key=f"save_rubric_{item_id}"):
-                                item["levels"] = levels
-                                item["rubrics"] = rubrics
-                                st.success("성취수준과 평가 문구를 저장했습니다.")
-                                st.rerun()
+                            rubric_updates[item_id] = {
+                                "levels": levels,
+                                "rubrics": rubrics,
+                            }
+                            st.caption("성취수준/평가 문구는 화면 맨 아래의 전체 저장 버튼으로 한꺼번에 저장됩니다.")
                         else:
                             st.info("개별 코멘트형 항목입니다. 학생별 기록 입력 화면에서 학생별 서술형 코멘트를 입력합니다.")
             else:
-                st.info("아직 이 수행평가에 등록된 평가 요소가 없습니다. 위의 '평가 요소 추가'를 눌러 항목을 추가하세요.")
+                st.info("아직 이 수행평가에 등록된 평가 요소가 없습니다. 아래의 '평가 요소 추가'를 눌러 항목을 추가하세요.")
 
+            st.divider()
+            render_add_item_expander(aid, item_count)
+
+    if rubric_updates:
+        st.divider()
+        if st.button("전체 성취수준/평가 문구 한꺼번에 저장", type="primary", use_container_width=True):
+            saved_count = 0
+            for item in st.session_state["items"]:
+                item_id = item.get("item_id", "")
+                if item_id in rubric_updates:
+                    item["levels"] = rubric_updates[item_id]["levels"]
+                    item["rubrics"] = rubric_updates[item_id]["rubrics"]
+                    saved_count += 1
+            st.success(f"성취수준/평가 문구를 {saved_count}개 평가 요소에 한꺼번에 저장했습니다.")
+            st.rerun()
 
 
 # =========================
