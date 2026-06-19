@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v39"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v39"
+APP_TITLE = "🍯 BigHoneySangkibu v40"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v40"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -543,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v39",
+        "version": "patched-20260619-v40",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1224,13 +1224,24 @@ def export_excel():
 
     record_df = pd.DataFrame(record_rows)
 
+    def excel_rgb(value, alpha=False):
+        """openpyxl 색상 오류를 막기 위해 #RRGGBB/RRGGBB 값을 정리한다.
+        탭 색상은 ARGB 8자리, 셀 채우기는 RGB 6자리를 사용한다.
+        """
+        text = clean_text(value).replace("#", "").upper()
+        if len(text) == 8:
+            return text if alpha else text[-6:]
+        if len(text) == 6:
+            return f"FF{text}" if alpha else text
+        return "FF64748B" if alpha else "64748B"
+
     def style_worksheet(ws, header_fill_color="#1F2937", tab_color="#64748B", freeze_cell="A2"):
         """엑셀 시트를 읽기 좋게 공통 서식화한다."""
         ws.sheet_view.showGridLines = False
         ws.freeze_panes = freeze_cell
-        ws.sheet_properties.tabColor = tab_color
+        ws.sheet_properties.tabColor = excel_rgb(tab_color, alpha=True)
 
-        header_fill = PatternFill("solid", fgColor=header_fill_color.replace("#", ""))
+        header_fill = PatternFill("solid", fgColor=excel_rgb(header_fill_color, alpha=False))
         header_font = Font(bold=True, color="FFFFFF", size=11)
         body_font = Font(size=10, color="111827")
         thin_side = Side(style="thin", color="D1D5DB")
