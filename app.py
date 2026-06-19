@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v37"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v37"
+APP_TITLE = "🍯 BigHoneySangkibu v38"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v38"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -543,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v37",
+        "version": "patched-20260619-v38",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -3037,7 +3037,7 @@ if current_step == 5:
         st.divider()
         st.markdown("#### 전체 결과표 / 학생 선택")
         st.caption(
-            "표에서 아무 셀이나 클릭하면 해당 학생 한 명만 아래 큰 수정창의 대상으로 선택됩니다. "
+            "표에서 학생의 성명, byte, 생성 문구 등 아무 셀이나 클릭하면 해당 학생 한 명만 아래 큰 수정창의 대상으로 선택됩니다. "
             "문구 수정은 아래 큰 수정창에서 하거나, 필요하면 접힌 `표 형태로 여러 문구 한꺼번에 수정` 영역을 열어 처리하세요."
         )
 
@@ -3069,9 +3069,10 @@ if current_step == 5:
         result_df = pd.DataFrame(result_rows)
         display_result_df = result_df.drop(columns=["student_id"], errors="ignore")
 
-        # st.dataframe 선택 이벤트는 row 선택과 cell 선택을 모두 받을 수 있다.
-        # 사용자가 성명, byte, 생성 문구 등 어떤 셀을 클릭해도 해당 셀의 행 번호를 읽어
+        # st.dataframe은 셀 선택 이벤트를 받을 수 있다.
+        # 사용자가 성명, byte, 생성 문구 등 어떤 셀을 클릭하면 해당 셀의 행 번호를 읽어
         # 아래 큰 수정창의 대상 학생으로 연결한다.
+        # row 선택 모드를 함께 켜면 왼쪽 선택 체크박스가 생기므로 cell 선택만 사용한다.
         # st.data_editor는 셀 클릭 이벤트와 표 편집을 동시에 안정적으로 제공하지 않으므로,
         # 메인 표는 선택 전용으로 두고 직접 수정은 아래 큰 수정창 또는 접힌 일괄 수정 표에서 처리한다.
         selection_event = st.dataframe(
@@ -3081,7 +3082,7 @@ if current_step == 5:
             hide_index=True,
             key="generation_result_selector",
             on_select="rerun",
-            selection_mode=["single-cell", "single-row"],
+            selection_mode="single-cell",
             column_config={
                 "학년": st.column_config.TextColumn("학년", width="small"),
                 "반": st.column_config.TextColumn("반", width="small"),
@@ -3134,7 +3135,7 @@ if current_step == 5:
         with st.expander("표 형태로 여러 학생 문구 한꺼번에 수정", expanded=False):
             st.caption(
                 "여러 학생의 문구를 표에서 한꺼번에 고칠 때만 사용하세요. "
-                "학생 선택은 위 표에서 아무 셀이나 클릭해서 합니다."
+                "학생 선택은 위 표의 성명, byte, 생성 문구 등 아무 셀이나 클릭해서 합니다."
             )
 
             edited_result_df = st.data_editor(
