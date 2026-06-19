@@ -24,8 +24,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v27"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v27"
+APP_TITLE = "🍯 BigHoneySangkibu v28"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v28"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -490,7 +490,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v27",
+        "version": "patched-20260619-v28",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1336,9 +1336,9 @@ STEP_LABELS = [
     "⑥ 생기부 생성/다운로드",
 ]
 
-NAV_WIDGET_KEY = "step_nav_radio_v27"
-PENDING_STEP_KEY = "pending_step_index_v27"
-SCROLL_TO_TOP_KEY = "scroll_to_top_after_step_change_v27"
+NAV_WIDGET_KEY = "step_nav_radio_v28"
+PENDING_STEP_KEY = "pending_step_index_v28"
+SCROLL_TO_TOP_KEY = "scroll_to_top_after_step_change_v28"
 
 
 if "current_step" not in st.session_state:
@@ -1351,6 +1351,7 @@ except Exception:
 
 # 다음 단계 버튼은 URL을 바꾸지 않고 세션 상태만 변경한다.
 # URL 이동은 새로고침처럼 동작해 입력 중인 정보가 날아갈 수 있으므로 사용하지 않는다.
+programmatic_step_change = False
 if PENDING_STEP_KEY in st.session_state:
     try:
         st.session_state["current_step"] = int(st.session_state[PENDING_STEP_KEY])
@@ -1358,12 +1359,15 @@ if PENDING_STEP_KEY in st.session_state:
         st.session_state["current_step"] = 0
     del st.session_state[PENDING_STEP_KEY]
     st.session_state[SCROLL_TO_TOP_KEY] = True
+    programmatic_step_change = True
 
 st.session_state["current_step"] = max(0, min(st.session_state["current_step"], len(STEP_LABELS) - 1))
 
-# 라디오 위젯이 만들어지기 전에만 key 값을 맞춘다.
-# 이렇게 해야 "위젯 생성 후 session_state 수정" 오류가 나지 않는다.
-st.session_state[NAV_WIDGET_KEY] = STEP_LABELS[st.session_state["current_step"]]
+# 중요: 단계 탭 라디오는 사용자가 직접 클릭해서도 이동할 수 있어야 한다.
+# 따라서 매 실행마다 NAV_WIDGET_KEY를 강제로 덮어쓰면 클릭값이 무시된다.
+# 처음 실행하거나, 하단 '다음 단계' 버튼으로 이동한 경우에만 위젯 값을 동기화한다.
+if NAV_WIDGET_KEY not in st.session_state or programmatic_step_change:
+    st.session_state[NAV_WIDGET_KEY] = STEP_LABELS[st.session_state["current_step"]]
 
 
 def request_step_change(next_index: int):
