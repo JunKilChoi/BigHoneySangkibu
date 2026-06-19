@@ -1,4 +1,4 @@
-import html
+import hashlib
 import json
 import re
 import uuid
@@ -18,13 +18,13 @@ except Exception:
 # 앱 기본 설정
 # =========================
 st.set_page_config(
-    page_title="BigHoneySangkibu v16",
+    page_title="BigHoneySangkibu",
     page_icon="🍯",
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v16"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v16 · 요청사항 반영본"
+APP_TITLE = "🍯 BigHoneySangkibu v17"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v17"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -318,146 +318,6 @@ sanitize_state()
 
 
 # =========================
-# 화면 이동 / UI 보조
-# =========================
-STEP_LABELS = [
-    "① 기본 설정",
-    "② 학생 명단 업로드",
-    "③ 수행평가 설계",
-    "④ 학생별 기록 입력",
-    "⑤ API 자료 확인",
-    "⑥ 생기부 생성/다운로드",
-]
-
-
-def escape_html(value) -> str:
-    """HTML 카드에 표시할 텍스트를 안전하게 변환한다."""
-    return html.escape(clean_text(value))
-
-
-def inject_custom_ui_css():
-    """Streamlit 기본 컨테이너와 수행평가/평가요소 카드의 계층감을 보강한다."""
-    st.markdown(
-        """
-        <style>
-        /* Streamlit border container 계층 색상: 바깥 박스 → 안쪽 박스로 갈수록 진하게 */
-        div[data-testid="stVerticalBlockBorderWrapper"] {
-            background: #F1F5F9 !important;
-            border: 1.5px solid #94A3B8 !important;
-            border-radius: 16px !important;
-            box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08) !important;
-        }
-        div[data-testid="stVerticalBlockBorderWrapper"] > div {
-            background: transparent !important;
-        }
-        div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stVerticalBlockBorderWrapper"] {
-            background: #E2E8F0 !important;
-            border-color: #64748B !important;
-            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.10) !important;
-        }
-        div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stVerticalBlockBorderWrapper"] {
-            background: #CBD5E1 !important;
-            border-color: #475569 !important;
-        }
-
-        /* 수행평가 제목 카드 */
-        .assessment-heading-card {
-            background: #DCE6F2;
-            border: 1.5px solid #7C8FA8;
-            border-radius: 14px;
-            padding: 14px 16px;
-            margin-bottom: 12px;
-            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.45);
-        }
-        .assessment-heading-title {
-            font-size: 1.18rem;
-            font-weight: 900;
-            color: #0F172A;
-            margin-bottom: 6px;
-        }
-        .assessment-heading-meta {
-            color: #26364A;
-            font-weight: 700;
-        }
-
-        /* 평가 요소 제목 카드 */
-        .item-heading-card {
-            background: #C8D5E5;
-            border: 1.5px solid #64748B;
-            border-radius: 12px;
-            padding: 11px 13px;
-            margin-bottom: 12px;
-            font-weight: 900;
-            color: #0F172A;
-            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35);
-        }
-
-        /* 하단 전체 저장 버튼 위 안내 카드 */
-        .bulk-save-hint {
-            background: #E0E7EF;
-            border: 1px solid #94A3B8;
-            border-radius: 12px;
-            padding: 10px 12px;
-            margin: 12px 0 8px 0;
-            color: #1E293B;
-            font-weight: 700;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-def set_step(index: int):
-    index = max(0, min(index, len(STEP_LABELS) - 1))
-    st.session_state["current_step_index"] = index
-    st.session_state["step_selector"] = STEP_LABELS[index]
-
-
-def render_step_selector() -> int:
-    if "current_step_index" not in st.session_state:
-        st.session_state["current_step_index"] = 0
-
-    current_index = int(st.session_state.get("current_step_index", 0) or 0)
-    current_index = max(0, min(current_index, len(STEP_LABELS) - 1))
-
-    if "step_selector" not in st.session_state:
-        st.session_state["step_selector"] = STEP_LABELS[current_index]
-
-    selected_label = st.radio(
-        "단계 선택",
-        STEP_LABELS,
-        index=current_index,
-        horizontal=True,
-        key="step_selector",
-        label_visibility="collapsed",
-    )
-    selected_index = STEP_LABELS.index(selected_label)
-    st.session_state["current_step_index"] = selected_index
-    return selected_index
-
-
-def render_next_step_button(current_index: int):
-    st.divider()
-    if current_index < len(STEP_LABELS) - 1:
-        next_index = current_index + 1
-        st.button(
-            f"다음 단계로 넘어가기 → {STEP_LABELS[next_index]}",
-            type="primary",
-            use_container_width=True,
-            key=f"next_step_button_{current_index}",
-            on_click=set_step,
-            args=(next_index,),
-        )
-    else:
-        st.button(
-            "마지막 단계입니다",
-            use_container_width=True,
-            disabled=True,
-            key="last_step_disabled_button",
-        )
-
-
-# =========================
 # 나이스 엑셀 파싱
 # =========================
 def normalize_col_name(col) -> str:
@@ -629,7 +489,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v16",
+        "version": "patched-20260619-v17",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -726,60 +586,96 @@ def apply_item_drag_order(assessment_id, sorted_labels, label_to_item_id):
 
 def sortable_style():
     """
-    streamlit-sortables 0.3.0 기준의 회색 계열 드래그 박스 스타일.
-    공식 문서의 selector만 사용해 렌더링 실패 가능성을 줄인다.
+    드래그 박스가 항목 수와 관계없이 세로 목록으로 안정적으로 보이도록 하는 최소 스타일.
+    항목이 3개 이상이어도 한 줄로 압축되지 않고 아래로 이어지게 한다.
     """
     return """
     .sortable-component {
-        border: 1px solid #D1D5DB;
-        border-radius: 12px;
-        padding: 10px;
-        background-color: #F9FAFB;
+        width: 100% !important;
+        border: 1px solid #D1D5DB !important;
+        border-radius: 12px !important;
+        padding: 10px !important;
+        background-color: #F9FAFB !important;
+        box-sizing: border-box !important;
+        overflow: visible !important;
     }
     .sortable-container {
-        background-color: #F9FAFB;
-        border-radius: 10px;
-        padding: 6px;
+        width: 100% !important;
+        background-color: #F9FAFB !important;
+        border-radius: 10px !important;
+        padding: 6px !important;
+        box-sizing: border-box !important;
+        overflow: visible !important;
     }
     .sortable-container-header {
-        background-color: #F3F4F6;
-        color: #111827;
-        font-weight: 700;
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: 1px solid #E5E7EB;
+        width: 100% !important;
+        background-color: #F3F4F6 !important;
+        color: #111827 !important;
+        font-weight: 700 !important;
+        padding: 8px 12px !important;
+        border-radius: 8px !important;
+        border: 1px solid #E5E7EB !important;
+        box-sizing: border-box !important;
     }
     .sortable-container-body {
-        background-color: #F9FAFB;
-        padding-top: 6px;
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        flex-wrap: nowrap !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        background-color: #F9FAFB !important;
+        padding-top: 8px !important;
+        box-sizing: border-box !important;
+        overflow: visible !important;
     }
-    .sortable-item, .sortable-item:hover {
-        background-color: #FFFFFF;
-        color: #111827;
-        font-weight: 700;
-        border: 1px solid #D1D5DB;
-        border-radius: 10px;
-        padding: 11px 14px;
-        margin: 7px 0;
-        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06);
+    .sortable-item,
+    .sortable-item:hover,
+    .sortable-container-body > div,
+    .sortable-container-body > div:hover {
+        display: block !important;
+        width: 100% !important;
+        min-height: 44px !important;
+        background-color: #FFFFFF !important;
+        color: #111827 !important;
+        font-weight: 700 !important;
+        border: 1px solid #D1D5DB !important;
+        border-radius: 10px !important;
+        padding: 11px 14px !important;
+        margin: 0 !important;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06) !important;
+        box-sizing: border-box !important;
+        white-space: normal !important;
+        line-height: 1.35 !important;
+        overflow-wrap: anywhere !important;
     }
-    .sortable-item:hover {
-        background-color: #F3F4F6;
-        border-color: #9CA3AF;
+    .sortable-item:hover,
+    .sortable-container-body > div:hover {
+        background-color: #F3F4F6 !important;
+        border-color: #9CA3AF !important;
     }
     .sortable-item::before {
-        content: "☰ ";
-        color: #6B7280;
-        font-weight: 700;
+        content: "☰ " !important;
+        color: #6B7280 !important;
+        font-weight: 700 !important;
     }
     """
+
+
+def sortable_key(base_key, labels):
+    """
+    streamlit-sortables 컴포넌트는 key가 그대로이면 이전 항목 개수를 기억하는 경우가 있다.
+    그래서 항목이 추가/삭제/이름 변경될 때 key가 자동으로 달라지게 해 새 목록을 즉시 렌더링한다.
+    """
+    raw = "||".join([clean_text(label) for label in labels])
+    digest = hashlib.md5(raw.encode("utf-8")).hexdigest()[:10]
+    return f"{base_key}_{len(labels)}_{digest}"
 
 
 def sort_labels_with_gray_box(labels, key, header="정렬"):
     """
     수행평가/평가 요소 공통 드래그 정렬 함수.
-    우선 회색 스타일을 적용하고, 설치된 패키지가 custom_style을 지원하지 않으면
-    기본 드래그 박스로라도 화면에 표시되게 한다.
+    항목 추가 직후에도 드래그 박스가 새 항목 수를 반영하도록 key를 동적으로 만든다.
     """
     if sort_items is None:
         st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables를 추가해야 합니다.")
@@ -788,24 +684,25 @@ def sort_labels_with_gray_box(labels, key, header="정렬"):
     if len(labels) < 2:
         return labels
 
+    component_key = sortable_key(key, labels)
+
     try:
         return sort_items(
             labels,
             header=header,
             custom_style=sortable_style(),
-            key=key,
+            key=component_key,
         )
     except TypeError:
-        st.warning("현재 설치된 streamlit-sortables가 회색 스타일을 지원하지 않아 기본 드래그 박스로 표시합니다. 드래그 자체는 기존 방식으로 유지됩니다.")
+        st.warning("현재 설치된 streamlit-sortables가 회색 스타일을 지원하지 않아 기본 드래그 박스로 표시합니다.")
         try:
-            return sort_items(labels, key=f"{key}_basic")
+            return sort_items(labels, key=f"{component_key}_basic")
         except Exception as e:
             st.error(f"드래그 정렬 컴포넌트 오류: {e}")
             return labels
     except Exception as e:
         st.error(f"드래그 정렬 컴포넌트 오류: {e}")
         return labels
-
 
 def shift_item_orders_for_insert(assessment_id, insert_order):
     """
@@ -977,78 +874,6 @@ def render_rubric_input_block(prefix, current_levels=None, current_rubrics=None)
             rubrics[code] = clean_text(comment)
 
     return levels, rubrics
-
-
-def render_add_item_expander(aid, item_count, expanded=False):
-    """
-    평가 요소 추가 UI를 한 곳에서만 관리한다.
-    기존 평가 요소가 없으면 위쪽에 펼쳐 보여주고, 이미 있으면 평가 요소 목록 아래쪽에 접어서 보여준다.
-    """
-    with st.expander("➕ 이 수행평가에 평가 요소 추가", expanded=expanded):
-        st.markdown(
-            """
-            수행평가 안에 존재하는 여러 관찰 및 평가 요소들을 추가해주세요.  
-            A, B, C와 같은 **성취도 선택형**으로 개별화시킬 수도 있고, 개인마다 다른 관찰 내용을 적어주는 **개별 코멘트형**으로 더욱 구체적인 개별화가 가능합니다.  
-            또한 이 두 가지를 융합한 **성취도 + 추가 코멘트형**도 가능합니다.
-            """
-        )
-
-        item_name = st.text_input(
-            "평가 요소명",
-            placeholder="예: 생태지도 결과물 평가",
-            key=f"new_item_name_{aid}",
-        )
-
-        item_type_label = st.selectbox(
-            "기록 방식",
-            ["성취도 선택형", "개별 코멘트형", "성취도 + 추가 코멘트형"],
-            key=f"new_item_type_{aid}",
-            help="개별 코멘트형을 선택하면 성취수준 코드와 루브릭 입력칸이 사라집니다.",
-        )
-        item_type = item_type_from_kor(item_type_label)
-
-        levels = []
-        rubrics = {}
-
-        if item_type != "comment":
-            levels, rubrics = render_rubric_input_block(
-                prefix=f"new_item_rubric_{aid}",
-                current_levels=["A", "B", "C", "D", "E"],
-                current_rubrics={
-                    "A": "우수한 수준으로 수행함",
-                    "B": "대체로 적절하게 수행함",
-                    "C": "일부 보완이 필요함",
-                    "D": "기본적인 참여가 이루어짐",
-                    "E": "지속적인 보완이 필요함",
-                },
-            )
-        else:
-            st.info("개별 코멘트형입니다. 성취수준 코드 없이 학생별 서술형 코멘트만 입력합니다.")
-
-        item_order = len(get_items_for_assessment(aid)) + 1
-
-        if st.button("이 수행평가에 평가 요소 추가", key=f"add_item_button_{aid}"):
-            if not item_name.strip():
-                st.warning("평가 요소명을 입력하세요.")
-            else:
-                if item_type == "comment":
-                    levels, rubrics = [], {}
-
-                st.session_state["items"].append(
-                    {
-                        "item_id": make_id("item"),
-                        "assessment_id": aid,
-                        "name": item_name.strip(),
-                        "type": item_type,
-                        "levels": levels,
-                        "rubrics": rubrics,
-                        "order": int(item_order),
-                    }
-                )
-                normalize_item_orders(aid)
-                sanitize_state()
-                st.success("평가 요소를 추가했습니다. 평가 요소가 2개 이상이면 드래그 정렬 박스가 자동으로 표시됩니다.")
-                st.rerun()
 
 
 # =========================
@@ -1388,7 +1213,6 @@ def load_sample_data():
 # =========================
 st.title(APP_TITLE)
 st.caption(APP_SUBTITLE)
-st.caption("현재 파일: app.py · v16 수정사항 반영 · 드래그 기능 유지")
 
 with st.sidebar:
     st.header("작업 관리")
@@ -1428,15 +1252,22 @@ with st.sidebar:
         st.rerun()
 
 
-inject_custom_ui_css()
-
-active_step = render_step_selector()
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    [
+        "① 기본 설정",
+        "② 학생 명단 업로드",
+        "③ 수행평가 설계",
+        "④ 학생별 기록 입력",
+        "⑤ API 자료 확인",
+        "⑥ 생기부 생성/다운로드",
+    ]
+)
 
 
 # =========================
 # ① 기본 설정
 # =========================
-if active_step == 0:
+with tab1:
     st.subheader("① 기본 설정")
 
     settings = st.session_state.settings
@@ -1497,13 +1328,10 @@ if active_step == 0:
     st.info("작업을 이어서 하려면 왼쪽의 '현재 프로젝트 JSON 저장'을 눌러 파일로 저장하세요.")
 
 
-    render_next_step_button(0)
-
-
 # =========================
 # ② 학생 명단 업로드
 # =========================
-if active_step == 1:
+with tab2:
     st.subheader("② 학생 명단 업로드")
 
     st.markdown(
@@ -1584,7 +1412,7 @@ if active_step == 1:
             else:
                 st.success("한글 외 문자가 포함된 성명은 발견되지 않았습니다.")
 
-            col_a, col_b, col_spacer = st.columns([1.45, 1.55, 6.5])
+            col_a, col_b, col_blank = st.columns([3.4, 3.4, 3.2])
             with col_a:
                 if st.button("업로드 명단을 현재 명단에 추가", type="primary", use_container_width=True):
                     st.session_state.students = combine_students(st.session_state.students, adjusted_parsed_students)
@@ -1683,13 +1511,10 @@ if active_step == 1:
                 )
 
 
-    render_next_step_button(1)
-
-
 # =========================
 # ③ 수행평가 설계
 # =========================
-if active_step == 2:
+with tab3:
     st.subheader("③ 수행평가 설계")
 
     st.markdown(
@@ -1753,11 +1578,12 @@ if active_step == 2:
             if sort_items is None:
                 st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables를 추가해야 합니다.")
             else:
-                st.caption("수행평가명을 마우스로 잡고 위아래로 옮긴 뒤 저장하세요.")
+                st.caption("수행평가명을 마우스로 잡고 위아래로 옮긴 뒤 저장하세요. 항목을 추가하면 이 박스가 자동으로 새로 생성됩니다.")
                 assessment_labels = [
                     f"{idx}. {assessment.get('name', '이름 없는 수행평가')}"
                     for idx, assessment in enumerate(sorted_assessments, start=1)
                 ]
+                st.caption("현재 수행평가 순서: " + " → ".join(assessment_labels))
                 label_to_assessment_id = {
                     label: assessment.get("assessment_id", "")
                     for label, assessment in zip(assessment_labels, sorted_assessments)
@@ -1775,8 +1601,6 @@ if active_step == 2:
                     st.success("수행평가 순서를 저장했습니다.")
                     st.rerun()
 
-    pending_rubric_updates = []
-
     for assess_index, assessment in enumerate(sorted_assessments, start=1):
         aid = assessment.get("assessment_id", "")
         normalize_item_orders(aid)
@@ -1792,16 +1616,11 @@ if active_step == 2:
         with st.container(border=True):
             st.markdown(
                 f"""
-                <div class="assessment-heading-card">
-                    <div class="assessment-heading-title">📁 수행평가 {assess_index}. {escape_html(assessment.get('name', '이름 없는 수행평가'))}</div>
-                    <div class="assessment-heading-meta">
-                        영역/단원: {escape_html(area_text)} &nbsp;&nbsp;|&nbsp;&nbsp;
-                        평가 요소: {item_count}개 &nbsp;&nbsp;|&nbsp;&nbsp;
-                        상태: {escape_html(status_badge)}
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
+                ### 📁 수행평가 {assess_index}. {assessment.get('name', '이름 없는 수행평가')}
+                **영역/단원:** {area_text} &nbsp;&nbsp;|&nbsp;&nbsp;
+                **평가 요소:** {item_count}개 &nbsp;&nbsp;|&nbsp;&nbsp;
+                **상태:** {status_badge}
+                """
             )
 
             if assessment.get("description"):
@@ -1858,8 +1677,71 @@ if active_step == 2:
 
             st.markdown("#### 🧾 평가 요소")
 
-            if not existing_items:
-                render_add_item_expander(aid, item_count, expanded=True)
+            with st.expander("➕ 이 수행평가에 평가 요소 추가", expanded=(item_count == 0)):
+                st.markdown(
+                    """
+                    수행평가 안에 존재하는 여러 관찰 및 평가 요소들을 추가해주세요.  
+                    A, B, C와 같은 **성취도 선택형**으로 개별화시킬 수도 있고, 개인마다 다른 관찰 내용을 적어주는 **개별 코멘트형**으로 더욱 구체적인 개별화가 가능합니다.  
+                    또한 이 두 가지를 융합한 **성취도 + 추가 코멘트형**도 가능합니다.
+                    """
+                )
+
+                item_name = st.text_input(
+                    "평가 요소명",
+                    placeholder="예: 생태지도 결과물 평가",
+                    key=f"new_item_name_{aid}",
+                )
+
+                item_type_label = st.selectbox(
+                    "기록 방식",
+                    ["성취도 선택형", "개별 코멘트형", "성취도 + 추가 코멘트형"],
+                    key=f"new_item_type_{aid}",
+                    help="개별 코멘트형을 선택하면 성취수준 코드와 루브릭 입력칸이 사라집니다.",
+                )
+                item_type = item_type_from_kor(item_type_label)
+
+                levels = []
+                rubrics = {}
+
+                if item_type != "comment":
+                    levels, rubrics = render_rubric_input_block(
+                        prefix=f"new_item_rubric_{aid}",
+                        current_levels=["A", "B", "C", "D", "E"],
+                        current_rubrics={
+                            "A": "우수한 수준으로 수행함",
+                            "B": "대체로 적절하게 수행함",
+                            "C": "일부 보완이 필요함",
+                            "D": "기본적인 참여가 이루어짐",
+                            "E": "지속적인 보완이 필요함",
+                        },
+                    )
+                else:
+                    st.info("개별 코멘트형입니다. 성취수준 코드 없이 학생별 서술형 코멘트만 입력합니다.")
+
+                item_order = len(get_items_for_assessment(aid)) + 1
+
+                if st.button("이 수행평가에 평가 요소 추가", key=f"add_item_button_{aid}"):
+                    if not item_name.strip():
+                        st.warning("평가 요소명을 입력하세요.")
+                    else:
+                        if item_type == "comment":
+                            levels, rubrics = [], {}
+
+                        st.session_state["items"].append(
+                            {
+                                "item_id": make_id("item"),
+                                "assessment_id": aid,
+                                "name": item_name.strip(),
+                                "type": item_type,
+                                "levels": levels,
+                                "rubrics": rubrics,
+                                "order": int(item_order),
+                            }
+                        )
+                        normalize_item_orders(aid)
+                        sanitize_state()
+                        st.success("평가 요소를 추가했습니다.")
+                        st.rerun()
 
             if existing_items:
                 if len(existing_items) == 1:
@@ -1870,11 +1752,12 @@ if active_step == 2:
                         if sort_items is None:
                             st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables를 추가해야 합니다.")
                         else:
-                            st.caption("평가 요소명을 마우스로 잡고 위아래로 옮긴 뒤 저장하세요.")
+                            st.caption("평가 요소명을 마우스로 잡고 위아래로 옮긴 뒤 저장하세요. 항목을 추가하면 이 박스가 자동으로 새로 생성됩니다.")
                             item_labels = [
                                 f"{idx}. {item.get('name', '이름 없는 평가 요소')}"
                                 for idx, item in enumerate(existing_items, start=1)
                             ]
+                            st.caption("현재 평가 요소 순서: " + " → ".join(item_labels))
                             label_to_item_id = {
                                 label: item.get("item_id", "")
                                 for label, item in zip(item_labels, existing_items)
@@ -1899,12 +1782,7 @@ if active_step == 2:
 
                     with st.container(border=True):
                         st.markdown(
-                            f"""
-                            <div class="item-heading-card">
-                                🧾 평가 요소 {item_index}. {escape_html(item.get('name', '이름 없는 평가 요소'))}
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
+                            f"##### 🧾 평가 요소 {item_index}. {item.get('name', '이름 없는 평가 요소')}"
                         )
 
                         col1, col2, col3 = st.columns([2.2, 1.6, 1])
@@ -1957,43 +1835,23 @@ if active_step == 2:
                                 current_levels=item.get("levels", []),
                                 current_rubrics=item.get("rubrics", {}),
                             )
-                            pending_rubric_updates.append(
-                                {
-                                    "item": item,
-                                    "levels": levels,
-                                    "rubrics": rubrics,
-                                }
-                            )
+
+                            if st.button("성취수준/평가 문구 저장", key=f"save_rubric_{item_id}"):
+                                item["levels"] = levels
+                                item["rubrics"] = rubrics
+                                st.success("성취수준과 평가 문구를 저장했습니다.")
+                                st.rerun()
                         else:
                             st.info("개별 코멘트형 항목입니다. 학생별 기록 입력 화면에서 학생별 서술형 코멘트를 입력합니다.")
-
-                st.markdown("#### ➕ 평가 요소 추가")
-                render_add_item_expander(aid, item_count, expanded=False)
             else:
-                st.info("아직 이 수행평가에 등록된 평가 요소가 없습니다. 아래의 '평가 요소 추가'를 눌러 항목을 추가하세요.")
+                st.info("아직 이 수행평가에 등록된 평가 요소가 없습니다. 위의 '평가 요소 추가'를 눌러 항목을 추가하세요.")
 
-
-
-    if pending_rubric_updates:
-        st.divider()
-        st.markdown(
-            '<div class="bulk-save-hint">⬇️ 위 평가 요소들의 성취수준/평가 문구를 모두 확인한 뒤, 아래 버튼 한 번으로 한꺼번에 저장합니다.</div>',
-            unsafe_allow_html=True,
-        )
-        if st.button("전체 성취수준/평가 문구 한꺼번에 저장", type="primary", use_container_width=True):
-            for update in pending_rubric_updates:
-                update["item"]["levels"] = update["levels"]
-                update["item"]["rubrics"] = update["rubrics"]
-            st.success("모든 평가 요소의 성취수준과 평가 문구를 저장했습니다.")
-            st.rerun()
-
-    render_next_step_button(2)
 
 
 # =========================
 # ④ 학생별 기록 입력
 # =========================
-if active_step == 3:
+with tab4:
     st.subheader("④ 학생별 기록 입력")
 
     if st.session_state.students.empty:
@@ -2116,13 +1974,10 @@ if active_step == 3:
                 st.success("학생별 기록을 저장했습니다.")
 
 
-    render_next_step_button(3)
-
-
 # =========================
 # ⑤ API 자료 확인
 # =========================
-if active_step == 4:
+with tab5:
     st.subheader("⑤ API 입력 자료 확인")
 
     if st.session_state.students.empty:
@@ -2145,13 +2000,10 @@ if active_step == 4:
             st.text_area("프롬프트", value=build_prompt(material), height=420)
 
 
-    render_next_step_button(4)
-
-
 # =========================
 # ⑥ 생기부 생성/다운로드
 # =========================
-if active_step == 5:
+with tab6:
     st.subheader("⑥ 생기부 생성 / 수정 / 다운로드")
 
     if st.session_state.students.empty:
@@ -2383,5 +2235,3 @@ if active_step == 5:
             file_name=f"BigHoneySangkibu_result_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
-
-    render_next_step_button(5)
