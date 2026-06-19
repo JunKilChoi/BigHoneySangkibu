@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v33"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v33"
+APP_TITLE = "🍯 BigHoneySangkibu v34"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v34"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -274,6 +274,9 @@ def init_state():
             "started_at": "",
             "finished_at": "",
         }
+
+    if "selected_generation_student_id" not in st.session_state:
+        st.session_state.selected_generation_student_id = ""
 
 
 def sanitize_state():
@@ -540,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v33",
+        "version": "patched-20260619-v34",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1844,7 +1847,7 @@ with st.sidebar:
         st.rerun()
 
     if st.button("전체 초기화", type="secondary"):
-        for key in ["settings", "students", "assessments", "items", "records", "results", "generation_job"]:
+        for key in ["settings", "students", "assessments", "items", "records", "results", "generation_job", "selected_generation_student_id"]:
             if key in st.session_state:
                 del st.session_state[key]
         init_state()
@@ -3034,44 +3037,28 @@ if current_step == 5:
                 st.rerun()
 
         st.divider()
+        st.markdown("#### 전체 결과표 / 바로 수정")
+        st.caption(
+            "표에서 `생성/수정 문구`를 바로 고친 뒤 저장할 수 있습니다. "
+            "아래 수정창에서 크게 보고 싶은 학생은 표의 `선택` 칸을 체크하세요."
+        )
 
-        sid = selected_student["student_id"]
-        result = st.session_state.results.get(sid)
+        # 표 선택값이 없으면, 위의 '생성할 학생' 선택값을 기본 수정 대상으로 사용한다.
+        valid_student_ids = set(students["student_id"].astype(str).tolist())
+        if clean_text(st.session_state.get("selected_generation_student_id", "")) not in valid_student_ids:
+            st.session_state.selected_generation_student_id = selected_student["student_id"]
 
-        if result:
-            st.markdown(f"#### {selected_label} 생성 결과")
-            edited = st.text_area(
-                "교사 수정 문구",
-                value=result.get("edited", result.get("generated", "")),
-                height=220,
-            )
-            current_bytes = byte_count(edited)
-            st.caption(f"현재 byte: {current_bytes}")
-
-            if current_bytes < st.session_state.settings["target_bytes_min"]:
-                st.warning("목표 byte보다 짧습니다.")
-            elif current_bytes > st.session_state.settings["target_bytes_max"]:
-                st.warning("목표 byte보다 깁니다.")
-            else:
-                st.success("목표 byte 범위 안에 있습니다.")
-
-            if st.button("수정 문구 저장"):
-                result["edited"] = edited
-                result["bytes"] = current_bytes
-                st.session_state.results[sid] = result
-                st.success("수정 문구를 저장했습니다.")
-        else:
-            st.info("아직 이 학생의 생기부 문구가 생성되지 않았습니다.")
-
-        st.divider()
-        st.markdown("#### 전체 결과표")
+        current_selected_sid = clean_text(st.session_state.get("selected_generation_student_id", selected_student["student_id"]))
 
         result_rows = []
         for _, student in students.iterrows():
-            result = st.session_state.results.get(student["student_id"], {})
+            sid = student["student_id"]
+            result = st.session_state.results.get(sid, {})
             text = result.get("edited", result.get("generated", ""))
             result_rows.append(
                 {
+                    "선택": sid == current_selected_sid,
+                    "student_id": sid,
                     "학년": student.get("학년", ""),
                     "반": student.get("반", ""),
                     "번호": student.get("번호", ""),
@@ -3083,8 +3070,131 @@ if current_step == 5:
             )
 
         result_df = pd.DataFrame(result_rows)
-        st.dataframe(result_df, use_container_width=True, height=320)
+        edited_result_df = st.data_editor(
+            result_df,
+            use_container_width=True,
+            height=360,
+            hide_index=True,
+            key="generation_result_editor",
+            disabled=["student_id", "학년", "반", "번호", "성명", "byte", "생성일시"],
+            column_config={
+                "선택": st.column_config.CheckboxColumn("선택", help="아래 큰 수정창에서 볼 학생을 체크하세요."),
+                "student_id": None,
+                "학년": st.column_config.TextColumn("학년", width="small"),
+                "반": st.column_config.TextColumn("반", width="small"),
+                "번호": st.column_config.TextColumn("번호", width="small"),
+                "성명": st.column_config.TextColumn("성명", width="medium"),
+                "생성/수정 문구": st.column_config.TextColumn("생성/수정 문구", width="large"),
+                "byte": st.column_config.NumberColumn("byte", width="small"),
+                "생성일시": st.column_config.TextColumn("생성일시", width="medium"),
+            },
+        )
 
+        selected_rows = edited_result_df[edited_result_df["선택"] == True] if "선택" in edited_result_df.columns else pd.DataFrame()
+        if not selected_rows.empty:
+            # 여러 명이 체크되면 아래쪽에 있는 체크값을 우선 사용한다.
+            current_selected_sid = clean_text(selected_rows.iloc[-1].get("student_id", current_selected_sid))
+            st.session_state.selected_generation_student_id = current_selected_sid
+
+        col_save_table, col_table_info = st.columns([1.5, 4])
+        with col_save_table:
+            if st.button("표에서 수정한 문구 저장", type="primary", use_container_width=True):
+                student_map = {
+                    row["student_id"]: row
+                    for _, row in students.iterrows()
+                }
+                saved_count = 0
+                now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                for _, row in edited_result_df.iterrows():
+                    sid = clean_text(row.get("student_id", ""))
+                    if not sid or sid not in student_map:
+                        continue
+
+                    edited_text = clean_text(row.get("생성/수정 문구", ""))
+                    existing_result = st.session_state.results.get(sid, {})
+
+                    # 이미 생성된 결과가 있거나, 표에서 새 문구를 직접 입력한 경우 저장한다.
+                    if existing_result or edited_text:
+                        existing_result["edited"] = edited_text
+                        existing_result["bytes"] = byte_count(edited_text)
+                        if not existing_result.get("generated"):
+                            existing_result["generated"] = edited_text
+                        if not existing_result.get("material"):
+                            existing_result["material"] = build_student_material(student_map[sid])
+                        if not existing_result.get("created_at"):
+                            existing_result["created_at"] = now_text
+                        st.session_state.results[sid] = existing_result
+                        saved_count += 1
+
+                st.success(f"표에서 수정한 문구 {saved_count}건을 저장했습니다.")
+                st.rerun()
+
+        with col_table_info:
+            st.caption("표의 byte는 저장 후 다시 계산되어 반영됩니다. 긴 문장은 아래 큰 수정창에서 고치면 현재 byte를 바로 확인하기 쉽습니다.")
+
+        st.divider()
+
+        selected_match = students[students["student_id"] == current_selected_sid]
+        if selected_match.empty:
+            selected_detail_student = selected_student
+            current_selected_sid = selected_student["student_id"]
+        else:
+            selected_detail_student = selected_match.iloc[0]
+
+        selected_detail_label = (
+            f"{selected_detail_student.get('반', '')}반 "
+            f"{selected_detail_student.get('번호', '')}번 "
+            f"{selected_detail_student.get('성명', '')}"
+        )
+        result = st.session_state.results.get(current_selected_sid, {})
+        initial_text = result.get("edited", result.get("generated", ""))
+
+        st.markdown(f"#### 표에서 선택한 학생 수정: {selected_detail_label}")
+        if not result:
+            st.info("아직 이 학생의 생기부 문구가 생성되지 않았습니다. 직접 입력하거나, 위에서 선택 학생 생기부 생성을 먼저 실행하세요.")
+
+        editor_key = f"generation_detail_text_{current_selected_sid}"
+        if editor_key not in st.session_state:
+            st.session_state[editor_key] = initial_text
+
+        edited = st.text_area(
+            "교사 수정 문구",
+            key=editor_key,
+            height=220,
+            help="입력한 내용의 byte를 아래에서 바로 확인할 수 있습니다.",
+        )
+        current_bytes = byte_count(edited)
+
+        min_bytes = int(st.session_state.settings.get("target_bytes_min", 700))
+        max_bytes = int(st.session_state.settings.get("target_bytes_max", 800))
+
+        col_byte, col_range = st.columns([1, 3])
+        with col_byte:
+            st.metric("현재 byte", current_bytes)
+        with col_range:
+            if current_bytes < min_bytes:
+                st.warning(f"목표 byte보다 짧습니다. 목표: {min_bytes}~{max_bytes} byte")
+            elif current_bytes > max_bytes:
+                st.warning(f"목표 byte보다 깁니다. 목표: {min_bytes}~{max_bytes} byte")
+            else:
+                st.success(f"목표 byte 범위 안에 있습니다. 목표: {min_bytes}~{max_bytes} byte")
+
+        if st.button("수정 문구 저장", type="primary"):
+            result = st.session_state.results.get(current_selected_sid, {})
+            result["edited"] = edited
+            result["bytes"] = current_bytes
+            if not result.get("generated"):
+                result["generated"] = edited
+            if not result.get("material"):
+                result["material"] = build_student_material(selected_detail_student)
+            if not result.get("created_at"):
+                result["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.results[current_selected_sid] = result
+            st.success("수정 문구를 저장했습니다.")
+            st.rerun()
+
+        st.divider()
         excel_file = export_excel()
         st.download_button(
             "결과 엑셀 다운로드",
