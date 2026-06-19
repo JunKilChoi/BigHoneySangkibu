@@ -23,8 +23,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v23"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v23"
+APP_TITLE = "🍯 BigHoneySangkibu v24"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v24"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -489,7 +489,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v23",
+        "version": "patched-20260619-v24",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1334,8 +1334,8 @@ STEP_LABELS = [
     "⑥ 생기부 생성/다운로드",
 ]
 
-NAV_WIDGET_KEY = "step_nav_radio_v23"
-PENDING_STEP_KEY = "pending_step_index_v23"
+NAV_WIDGET_KEY = "step_nav_radio_v24"
+PENDING_STEP_KEY = "pending_step_index_v24"
 
 if "current_step" not in st.session_state:
     st.session_state["current_step"] = 0
@@ -1405,16 +1405,16 @@ st.markdown(
 
     /* 하위 박스: 평가요소는 노란색/주황색 계열 */
     div[data-testid="stExpander"] details:has(.item-card-content) {
-        background: linear-gradient(180deg, #FFF7ED 0%, #FFEDD5 100%) !important;
-        border: 2px solid #FDBA74 !important;
+        background: linear-gradient(180deg, #FFFBF5 0%, #FFF7ED 100%) !important;
+        border: 2px solid #FED7AA !important;
         border-radius: 16px !important;
-        box-shadow: 0 5px 14px rgba(234, 88, 12, 0.10) !important;
+        box-shadow: 0 4px 12px rgba(234, 88, 12, 0.07) !important;
         padding: 0.12rem 0.3rem 0.32rem 0.3rem !important;
         margin: 0.65rem 0 0.95rem 0 !important;
     }
     div[data-testid="stExpander"] details:has(.item-card-content) > summary {
-        background: #FED7AA !important;
-        border: 1px solid #FDBA74 !important;
+        background: #FFEDD5 !important;
+        border: 1px solid #FED7AA !important;
         border-radius: 12px !important;
         margin: 0.16rem 0 0.5rem 0 !important;
         padding: 0.12rem 0.4rem !important;
@@ -1427,18 +1427,18 @@ st.markdown(
         display: none !important;
     }
 
-    /* 상위 박스: 수행평가는 파란색 계열. 아래 선언이 나중에 오므로 바깥 수행평가 박스는 확실히 파란색으로 보인다. */
+    /* 상위 박스: 수행평가는 연한 파란색 계열. 아래 선언이 나중에 오므로 바깥 수행평가 박스는 확실히 파란색으로 보인다. */
     div[data-testid="stExpander"] details:has(.assessment-card-content) {
-        background: linear-gradient(180deg, #DBEAFE 0%, #BFDBFE 100%) !important;
-        border: 2px solid #3B82F6 !important;
+        background: linear-gradient(180deg, #EFF6FF 0%, #DBEAFE 100%) !important;
+        border: 2px solid #93C5FD !important;
         border-radius: 18px !important;
-        box-shadow: 0 6px 18px rgba(37, 99, 235, 0.18) !important;
+        box-shadow: 0 5px 15px rgba(37, 99, 235, 0.10) !important;
         padding: 0.18rem 0.38rem 0.42rem 0.38rem !important;
         margin: 0.9rem 0 1.25rem 0 !important;
     }
     div[data-testid="stExpander"] details:has(.assessment-card-content) > summary {
-        background: #93C5FD !important;
-        border: 1px solid #60A5FA !important;
+        background: #DBEAFE !important;
+        border: 1px solid #BFDBFE !important;
         border-radius: 14px !important;
         margin: 0.2rem 0 0.55rem 0 !important;
         padding: 0.15rem 0.45rem !important;
