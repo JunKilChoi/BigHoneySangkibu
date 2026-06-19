@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v34"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v34"
+APP_TITLE = "🍯 BigHoneySangkibu v35"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v35"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -543,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v34",
+        "version": "patched-20260619-v35",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -2966,11 +2966,9 @@ if current_step == 5:
                 st.success("전체 생성 작업이 완료되었습니다.")
 
             if job.get("log"):
-                st.dataframe(
-                    pd.DataFrame(job.get("log", [])),
-                    use_container_width=True,
-                    height=360,
-                )
+                latest_log = job.get("log", [])[-1]
+                latest_label = f"{latest_log.get('반', '')}반 {latest_log.get('번호', '')}번 {latest_log.get('성명', '')}"
+                st.caption(f"최근 생성 완료: {latest_label} · 생성 결과는 아래 수정 가능 표와 다운로드 엑셀에 반영됩니다.")
 
         if job.get("active", False) and not job.get("stop_requested", False):
             student_ids = job.get("student_ids", [])
@@ -3039,7 +3037,7 @@ if current_step == 5:
         st.divider()
         st.markdown("#### 전체 결과표 / 바로 수정")
         st.caption(
-            "표에서 `생성/수정 문구`를 바로 고친 뒤 저장할 수 있습니다. "
+            "생성된 문구는 이 표에 바로 모이고, `생성/수정 문구` 칸에서 직접 고칠 수 있습니다. "
             "아래 수정창에서 크게 보고 싶은 학생은 표의 `선택` 칸을 체크하세요."
         )
 
