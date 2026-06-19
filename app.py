@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 APP_TITLE = "🍯 BigHoneySangkibu"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260618-v15-gray-drag-v4"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v15-stable-drag"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -488,7 +488,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260618-v15",
+        "version": "patched-20260619-v15-stable-drag",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -583,88 +583,56 @@ def apply_item_drag_order(assessment_id, sorted_labels, label_to_item_id):
             id_to_item[item_id]["order"] = idx
 
 
-def sortable_style():
+def render_order_preview(labels, title="현재 순서 확인용 목록"):
     """
-    streamlit-sortables 0.3.0 기준의 회색 계열 드래그 박스 스타일.
-    공식 문서의 selector만 사용해 렌더링 실패 가능성을 줄인다.
+    드래그 컴포넌트의 글자가 흐리게 보이거나 잠깐 늦게 로딩되어도
+    사용자가 현재 항목명을 확인할 수 있도록 Streamlit 기본 UI로 별도 목록을 보여준다.
+    이 목록은 정렬 기능에는 관여하지 않는 안전한 보조 표시다.
     """
-    return """
-    .sortable-component {
-        border: 1px solid #D1D5DB;
-        border-radius: 12px;
-        padding: 10px;
-        background-color: #F9FAFB;
-    }
-    .sortable-container {
-        background-color: #F9FAFB;
-        border-radius: 10px;
-        padding: 6px;
-    }
-    .sortable-container-header {
-        background-color: #F3F4F6;
-        color: #111827;
-        font-weight: 700;
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: 1px solid #E5E7EB;
-    }
-    .sortable-container-body {
-        background-color: #F9FAFB;
-        padding-top: 6px;
-    }
-    .sortable-item, .sortable-item:hover {
-        background-color: #FFFFFF;
-        color: #111827;
-        font-weight: 700;
-        border: 1px solid #D1D5DB;
-        border-radius: 10px;
-        padding: 11px 14px;
-        margin: 7px 0;
-        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06);
-    }
-    .sortable-item:hover {
-        background-color: #F3F4F6;
-        border-color: #9CA3AF;
-    }
-    .sortable-item::before {
-        content: "☰ ";
-        color: #6B7280;
-        font-weight: 700;
-    }
-    """
+    if not labels:
+        return
+
+    st.caption(title)
+    for label in labels:
+        st.markdown(f"- {label}")
 
 
-def sort_labels_with_gray_box(labels, key, header="정렬"):
+def sort_labels_safely(labels, key):
     """
-    수행평가/평가 요소 공통 드래그 정렬 함수.
-    우선 회색 스타일을 적용하고, 설치된 패키지가 custom_style을 지원하지 않으면
-    기본 드래그 박스로라도 화면에 표시되게 한다.
+    streamlit-sortables 기본 호출만 사용한다.
+    custom_style, direction, header 같은 선택 인자는 버전별 차이로 오류가 날 수 있어 사용하지 않는다.
+    컴포넌트가 실패해도 앱 전체가 죽지 않고 기존 순서를 유지한다.
     """
-    if sort_items is None:
-        st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables==0.3.0을 추가해야 합니다.")
-        return labels
+    labels = [str(label) for label in labels]
 
     if len(labels) < 2:
         return labels
 
-    try:
-        return sort_items(
-            labels,
-            header=header,
-            custom_style=sortable_style(),
-            key=key,
-        )
-    except TypeError:
-        st.warning("현재 설치된 streamlit-sortables가 회색 스타일을 지원하지 않아 기본 드래그 박스로 표시합니다. requirements.txt를 streamlit-sortables==0.3.0으로 바꾼 뒤 Reboot app을 누르면 회색 스타일이 적용됩니다.")
-        try:
-            return sort_items(labels, key=f"{key}_basic")
-        except Exception as e:
-            st.error(f"드래그 정렬 컴포넌트 오류: {e}")
-            return labels
-    except Exception as e:
-        st.error(f"드래그 정렬 컴포넌트 오류: {e}")
+    if sort_items is None:
+        st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables를 추가해야 합니다.")
         return labels
 
+    try:
+        sorted_labels = sort_items(labels, key=key)
+    except TypeError as e:
+        st.error(f"드래그 정렬 컴포넌트 인자 오류가 발생했습니다. 기본 순서를 유지합니다: {e}")
+        return labels
+    except Exception as e:
+        st.error(f"드래그 정렬 컴포넌트를 불러오지 못했습니다. 기본 순서를 유지합니다: {e}")
+        return labels
+
+    if not isinstance(sorted_labels, list):
+        st.warning("드래그 정렬 결과를 읽지 못해 기본 순서를 유지합니다.")
+        return labels
+
+    sorted_labels = [str(label) for label in sorted_labels]
+
+    # 알 수 없는 값이 섞이거나 항목 개수가 달라지면 저장하지 않고 원래 순서를 유지한다.
+    if len(sorted_labels) != len(labels) or sorted(sorted_labels) != sorted(labels):
+        st.warning("드래그 정렬 결과가 예상과 달라 기본 순서를 유지합니다.")
+        return labels
+
+    return sorted_labels
 
 def shift_item_orders_for_insert(assessment_id, insert_order):
     """
@@ -1550,10 +1518,10 @@ with tab3:
                     for label, assessment in zip(assessment_labels, sorted_assessments)
                 }
 
-                sorted_labels = sort_labels_with_gray_box(
+                render_order_preview(assessment_labels, title="현재 수행평가 순서")
+                sorted_labels = sort_labels_safely(
                     assessment_labels,
                     key="assessment_drag_sort",
-                    header="수행평가 순서",
                 )
 
                 if st.button("수행평가 순서 저장"):
@@ -1723,10 +1691,10 @@ with tab3:
                                 for label, item in zip(item_labels, existing_items)
                             }
 
-                            sorted_item_labels = sort_labels_with_gray_box(
+                            render_order_preview(item_labels, title="현재 평가 요소 순서")
+                            sorted_item_labels = sort_labels_safely(
                                 item_labels,
                                 key=f"item_drag_sort_{aid}",
-                                header="평가 요소 순서",
                             )
 
                             if st.button("평가 요소 순서 저장", key=f"save_item_drag_sort_{aid}"):
