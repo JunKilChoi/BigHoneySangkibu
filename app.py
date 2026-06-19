@@ -23,8 +23,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v18"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v18"
+APP_TITLE = "🍯 BigHoneySangkibu v19"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v19"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -489,7 +489,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v18",
+        "version": "patched-20260619-v19",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -879,7 +879,7 @@ def render_rubric_input_block(prefix, current_levels=None, current_rubrics=None)
 def render_add_item_expander(aid, item_count):
     """
     수행평가별 평가 요소 추가 영역.
-    v18에서는 기존 평가 요소 목록을 모두 본 뒤 바로 아래에서 새 평가 요소를 추가할 수 있도록
+    v19에서는 기존 평가 요소 목록을 모두 본 뒤 바로 아래에서 새 평가 요소를 추가할 수 있도록
     이 함수를 평가 요소 목록 하단에서 호출한다.
     """
     with st.expander("➕ 이 수행평가에 평가 요소 추가", expanded=(item_count == 0)):
@@ -1325,22 +1325,61 @@ with st.sidebar:
         st.rerun()
 
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
-    [
-        "① 기본 설정",
-        "② 학생 명단 업로드",
-        "③ 수행평가 설계",
-        "④ 학생별 기록 입력",
-        "⑤ API 자료 확인",
-        "⑥ 생기부 생성/다운로드",
-    ]
+STEP_LABELS = [
+    "① 기본 설정",
+    "② 학생 명단 업로드",
+    "③ 수행평가 설계",
+    "④ 학생별 기록 입력",
+    "⑤ API 자료 확인",
+    "⑥ 생기부 생성/다운로드",
+]
+
+if "current_step" not in st.session_state:
+    st.session_state["current_step"] = 0
+
+try:
+    st.session_state["current_step"] = int(st.session_state.get("current_step", 0))
+except Exception:
+    st.session_state["current_step"] = 0
+
+st.session_state["current_step"] = max(0, min(st.session_state["current_step"], len(STEP_LABELS) - 1))
+
+if "step_nav_radio" not in st.session_state or st.session_state["step_nav_radio"] not in STEP_LABELS:
+    st.session_state["step_nav_radio"] = STEP_LABELS[st.session_state["current_step"]]
+
+st.markdown("### 작업 단계")
+selected_step_label = st.radio(
+    "이동할 단계를 선택하세요.",
+    STEP_LABELS,
+    horizontal=True,
+    label_visibility="collapsed",
+    key="step_nav_radio",
 )
+st.session_state["current_step"] = STEP_LABELS.index(selected_step_label)
+current_step = st.session_state["current_step"]
+
+
+def render_next_step_button(current_index: int):
+    """각 단계 하단에서 다음 단계로 이동한다. 마지막 단계에서는 첫 단계로 순환한다."""
+    next_index = (current_index + 1) % len(STEP_LABELS)
+    next_label = STEP_LABELS[next_index]
+
+    st.divider()
+    if st.button(
+        f"다음 단계로 넘어가기 → {next_label}",
+        type="primary",
+        use_container_width=True,
+        key=f"next_step_button_{current_index}",
+    ):
+        st.session_state["current_step"] = next_index
+        st.session_state["step_nav_radio"] = next_label
+        st.rerun()
 
 
 # =========================
 # ① 기본 설정
 # =========================
-with tab1:
+if current_step == 0:
     st.subheader("① 기본 설정")
 
     settings = st.session_state.settings
@@ -1401,10 +1440,13 @@ with tab1:
     st.info("작업을 이어서 하려면 왼쪽의 '현재 프로젝트 JSON 저장'을 눌러 파일로 저장하세요.")
 
 
+    render_next_step_button(0)
+
+
 # =========================
 # ② 학생 명단 업로드
 # =========================
-with tab2:
+if current_step == 1:
     st.subheader("② 학생 명단 업로드")
 
     st.markdown(
@@ -1584,10 +1626,13 @@ with tab2:
                 )
 
 
+    render_next_step_button(1)
+
+
 # =========================
 # ③ 수행평가 설계
 # =========================
-with tab3:
+if current_step == 2:
     st.subheader("③ 수행평가 설계")
 
     st.markdown(
@@ -1871,10 +1916,13 @@ with tab3:
             st.rerun()
 
 
+    render_next_step_button(2)
+
+
 # =========================
 # ④ 학생별 기록 입력
 # =========================
-with tab4:
+if current_step == 3:
     st.subheader("④ 학생별 기록 입력")
 
     if st.session_state.students.empty:
@@ -1997,10 +2045,13 @@ with tab4:
                 st.success("학생별 기록을 저장했습니다.")
 
 
+    render_next_step_button(3)
+
+
 # =========================
 # ⑤ API 자료 확인
 # =========================
-with tab5:
+if current_step == 4:
     st.subheader("⑤ API 입력 자료 확인")
 
     if st.session_state.students.empty:
@@ -2023,10 +2074,13 @@ with tab5:
             st.text_area("프롬프트", value=build_prompt(material), height=420)
 
 
+    render_next_step_button(4)
+
+
 # =========================
 # ⑥ 생기부 생성/다운로드
 # =========================
-with tab6:
+if current_step == 5:
     st.subheader("⑥ 생기부 생성 / 수정 / 다운로드")
 
     if st.session_state.students.empty:
@@ -2258,3 +2312,5 @@ with tab6:
             file_name=f"BigHoneySangkibu_result_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+
+    render_next_step_button(5)
