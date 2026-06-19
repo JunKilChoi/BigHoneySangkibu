@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v43"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v43"
+APP_TITLE = "🍯 개꿀 생기부 v44"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v44"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -543,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260619-v43",
+        "version": "patched-20260619-v44",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -3048,10 +3048,10 @@ if current_step == 5:
         selected_label = st.selectbox("생성할 학생", list(student_labels.keys()))
         selected_student = student_labels[selected_label]
 
-        col_a, col_b = st.columns(2)
+        col_a, col_b, col_spacer = st.columns([1.65, 1.9, 5.45], gap="small")
 
         with col_a:
-            if st.button("선택 학생 생기부 생성", type="primary"):
+            if st.button("선택 학생 생기부 생성", type="secondary", use_container_width=True):
                 material = build_student_material(selected_student)
                 prompt = build_prompt(material)
 
@@ -3078,7 +3078,7 @@ if current_step == 5:
             job = st.session_state.generation_job
 
             if not job.get("active", False):
-                if st.button("전체 학생 생기부 생성 시작"):
+                if st.button("전체 학생 생기부 생성 시작", type="primary", use_container_width=True):
                     st.session_state.generation_job = {
                         "active": True,
                         "stop_requested": False,
@@ -3410,11 +3410,29 @@ if current_step == 5:
             st.rerun()
 
         st.divider()
+        st.markdown("#### 최종 결과 다운로드")
+        st.caption("마지막 단계입니다. 수정 내용을 확인한 뒤 결과 엑셀을 내려받으세요.")
+        st.markdown(
+            """
+            <style>
+            section.main div[data-testid="stDownloadButton"] > button {
+                min-height: 58px !important;
+                font-size: 1.14rem !important;
+                font-weight: 900 !important;
+                border-radius: 14px !important;
+                box-shadow: 0 4px 12px rgba(217, 45, 32, 0.18) !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
         excel_file = export_excel()
         st.download_button(
-            "결과 엑셀 다운로드",
+            "📥 결과 엑셀 다운로드",
             data=excel_file,
             file_name=f"BigHoneySangkibu_result_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary",
+            use_container_width=True,
         )
 
