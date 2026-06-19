@@ -24,8 +24,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v25"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v25"
+APP_TITLE = "🍯 BigHoneySangkibu v26"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v26"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -490,7 +490,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v25",
+        "version": "patched-20260619-v26",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1285,6 +1285,7 @@ def load_sample_data():
 # =========================
 # 앱 UI
 # =========================
+st.markdown('<div id="big-honey-top"></div>', unsafe_allow_html=True)
 st.title(APP_TITLE)
 st.caption(APP_SUBTITLE)
 
@@ -1335,9 +1336,27 @@ STEP_LABELS = [
     "⑥ 생기부 생성/다운로드",
 ]
 
-NAV_WIDGET_KEY = "step_nav_radio_v25"
-PENDING_STEP_KEY = "pending_step_index_v25"
-SCROLL_TO_TOP_KEY = "scroll_to_top_after_step_change_v25"
+NAV_WIDGET_KEY = "step_nav_radio_v26"
+PENDING_STEP_KEY = "pending_step_index_v26"
+SCROLL_TO_TOP_KEY = "scroll_to_top_after_step_change_v26"
+QUERY_STEP_APPLIED_KEY = "query_step_applied_v26"
+
+
+def read_step_from_query_params():
+    """URL의 ?step=번호 값을 읽어 다음 단계 링크 이동을 반영한다."""
+    try:
+        raw = st.query_params.get("step", None)
+        if isinstance(raw, list):
+            raw = raw[0] if raw else None
+        if raw is None or clean_text(raw) == "":
+            return None
+        idx = int(raw)
+        if 0 <= idx < len(STEP_LABELS):
+            return idx
+    except Exception:
+        return None
+    return None
+
 
 if "current_step" not in st.session_state:
     st.session_state["current_step"] = 0
@@ -1347,9 +1366,16 @@ try:
 except Exception:
     st.session_state["current_step"] = 0
 
-# 하단 다음 버튼이 요청한 이동은 위쪽 단계 선택 위젯이 만들어지기 전에 반영한다.
-# Streamlit은 이미 생성된 위젯 key를 같은 실행 중간에 바꾸면 오류가 나기 때문이다.
-if PENDING_STEP_KEY in st.session_state:
+# 하단 다음 버튼 이동은 URL의 ?step=번호를 먼저 읽어 반영한다.
+# 이렇게 해야 다음 화면으로 넘어가면서 브라우저가 #big-honey-top 앵커로 실제 스크롤된다.
+query_step_index = read_step_from_query_params()
+query_step_token = str(query_step_index) if query_step_index is not None else ""
+
+if query_step_index is not None and st.session_state.get(QUERY_STEP_APPLIED_KEY, "") != query_step_token:
+    st.session_state["current_step"] = query_step_index
+    st.session_state[QUERY_STEP_APPLIED_KEY] = query_step_token
+    st.session_state[NAV_WIDGET_KEY] = STEP_LABELS[query_step_index]
+elif PENDING_STEP_KEY in st.session_state:
     try:
         st.session_state["current_step"] = int(st.session_state[PENDING_STEP_KEY])
     except Exception:
@@ -1480,6 +1506,29 @@ st.markdown(
     div[data-testid="stExpander"] details:has(.assessment-card-content) .assessment-card-content {
         display: none !important;
     }
+
+
+    a.next-step-link {
+        display: flex !important;
+        width: 100% !important;
+        min-height: 46px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: #D92D20 !important;
+        color: #FFFFFF !important;
+        text-decoration: none !important;
+        border-radius: 10px !important;
+        font-weight: 800 !important;
+        border: 1px solid #B42318 !important;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08) !important;
+        margin-top: 0.65rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    a.next-step-link:hover {
+        background: #B42318 !important;
+        color: #FFFFFF !important;
+        text-decoration: none !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -1504,16 +1553,12 @@ def render_next_step_button(current_index: int):
     next_label = STEP_LABELS[next_index]
 
     st.divider()
-    if st.button(
-        f"다음 단계로 넘어가기 → {next_label}",
-        type="primary",
-        use_container_width=True,
-        key=f"next_step_button_{current_index}",
-    ):
-        st.session_state["current_step"] = next_index
-        st.session_state[PENDING_STEP_KEY] = next_index
-        st.session_state[SCROLL_TO_TOP_KEY] = True
-        st.rerun()
+    # st.button + JavaScript 방식은 Streamlit iframe 구조 때문에 실제 브라우저 스크롤이 안 될 수 있다.
+    # 그래서 URL 앵커(#big-honey-top)를 포함한 링크형 버튼으로 만들어 다음 단계 이동과 상단 스크롤을 동시에 처리한다.
+    st.markdown(
+        f'<a class="next-step-link" href="?step={next_index}#big-honey-top" target="_self">다음 단계로 넘어가기 → {next_label}</a>',
+        unsafe_allow_html=True,
+    )
 
 
 # =========================
