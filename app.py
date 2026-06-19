@@ -24,8 +24,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v26"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v26"
+APP_TITLE = "🍯 BigHoneySangkibu v27"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v27"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -490,7 +490,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v26",
+        "version": "patched-20260619-v27",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1336,26 +1336,9 @@ STEP_LABELS = [
     "⑥ 생기부 생성/다운로드",
 ]
 
-NAV_WIDGET_KEY = "step_nav_radio_v26"
-PENDING_STEP_KEY = "pending_step_index_v26"
-SCROLL_TO_TOP_KEY = "scroll_to_top_after_step_change_v26"
-QUERY_STEP_APPLIED_KEY = "query_step_applied_v26"
-
-
-def read_step_from_query_params():
-    """URL의 ?step=번호 값을 읽어 다음 단계 링크 이동을 반영한다."""
-    try:
-        raw = st.query_params.get("step", None)
-        if isinstance(raw, list):
-            raw = raw[0] if raw else None
-        if raw is None or clean_text(raw) == "":
-            return None
-        idx = int(raw)
-        if 0 <= idx < len(STEP_LABELS):
-            return idx
-    except Exception:
-        return None
-    return None
+NAV_WIDGET_KEY = "step_nav_radio_v27"
+PENDING_STEP_KEY = "pending_step_index_v27"
+SCROLL_TO_TOP_KEY = "scroll_to_top_after_step_change_v27"
 
 
 if "current_step" not in st.session_state:
@@ -1366,57 +1349,85 @@ try:
 except Exception:
     st.session_state["current_step"] = 0
 
-# 하단 다음 버튼 이동은 URL의 ?step=번호를 먼저 읽어 반영한다.
-# 이렇게 해야 다음 화면으로 넘어가면서 브라우저가 #big-honey-top 앵커로 실제 스크롤된다.
-query_step_index = read_step_from_query_params()
-query_step_token = str(query_step_index) if query_step_index is not None else ""
-
-if query_step_index is not None and st.session_state.get(QUERY_STEP_APPLIED_KEY, "") != query_step_token:
-    st.session_state["current_step"] = query_step_index
-    st.session_state[QUERY_STEP_APPLIED_KEY] = query_step_token
-    st.session_state[NAV_WIDGET_KEY] = STEP_LABELS[query_step_index]
-elif PENDING_STEP_KEY in st.session_state:
+# 다음 단계 버튼은 URL을 바꾸지 않고 세션 상태만 변경한다.
+# URL 이동은 새로고침처럼 동작해 입력 중인 정보가 날아갈 수 있으므로 사용하지 않는다.
+if PENDING_STEP_KEY in st.session_state:
     try:
         st.session_state["current_step"] = int(st.session_state[PENDING_STEP_KEY])
     except Exception:
         st.session_state["current_step"] = 0
     del st.session_state[PENDING_STEP_KEY]
-    st.session_state[NAV_WIDGET_KEY] = STEP_LABELS[max(0, min(st.session_state["current_step"], len(STEP_LABELS) - 1))]
-elif NAV_WIDGET_KEY in st.session_state and st.session_state[NAV_WIDGET_KEY] in STEP_LABELS:
-    st.session_state["current_step"] = STEP_LABELS.index(st.session_state[NAV_WIDGET_KEY])
+    st.session_state[SCROLL_TO_TOP_KEY] = True
 
 st.session_state["current_step"] = max(0, min(st.session_state["current_step"], len(STEP_LABELS) - 1))
 
-if NAV_WIDGET_KEY not in st.session_state or st.session_state[NAV_WIDGET_KEY] not in STEP_LABELS:
-    st.session_state[NAV_WIDGET_KEY] = STEP_LABELS[st.session_state["current_step"]]
+# 라디오 위젯이 만들어지기 전에만 key 값을 맞춘다.
+# 이렇게 해야 "위젯 생성 후 session_state 수정" 오류가 나지 않는다.
+st.session_state[NAV_WIDGET_KEY] = STEP_LABELS[st.session_state["current_step"]]
+
+
+def request_step_change(next_index: int):
+    """다음 단계 이동 요청을 저장한다. 실제 반영은 다음 rerun의 위쪽에서 처리한다."""
+    st.session_state[PENDING_STEP_KEY] = int(next_index)
 
 
 def scroll_page_to_top_once():
-    """다음 단계 이동 직후 화면을 앱 맨 위로 올린다."""
-    if st.session_state.get(SCROLL_TO_TOP_KEY, False):
-        st.session_state[SCROLL_TO_TOP_KEY] = False
-        components.html(
-            """
-            <script>
-            function scrollToTop() {
-                try {
-                    const parentDoc = window.parent.document;
-                    const main = parentDoc.querySelector('section.main');
-                    if (main) {
-                        main.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-                    }
-                    window.parent.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-                    parentDoc.documentElement.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-                    parentDoc.body.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-                } catch (e) {}
-            }
-            scrollToTop();
-            setTimeout(scrollToTop, 80);
-            setTimeout(scrollToTop, 250);
-            </script>
-            """,
-            height=0,
-        )
+    """다음 단계 이동 직후 새로고침 없이 화면을 앱 맨 위로 올린다."""
+    if not st.session_state.get(SCROLL_TO_TOP_KEY, False):
+        return
+
+    st.session_state[SCROLL_TO_TOP_KEY] = False
+    components.html(
+        """
+        <script>
+        function forceScrollTop() {
+            try {
+                const parentWindow = window.parent;
+                const parentDoc = parentWindow.document;
+
+                try { parentWindow.scrollTo(0, 0); } catch (e) {}
+                try { parentDoc.documentElement.scrollTop = 0; } catch (e) {}
+                try { parentDoc.body.scrollTop = 0; } catch (e) {}
+
+                const selectors = [
+                    'section.main',
+                    'main',
+                    '.main',
+                    '.block-container',
+                    '[data-testid="stAppViewContainer"]',
+                    '[data-testid="stMain"]',
+                    '[data-testid="stMainBlockContainer"]'
+                ];
+
+                selectors.forEach(function(selector) {
+                    parentDoc.querySelectorAll(selector).forEach(function(el) {
+                        try { el.scrollTop = 0; } catch (e) {}
+                        try { el.scrollTo(0, 0); } catch (e) {}
+                    });
+                });
+
+                // Streamlit 버전에 따라 실제 스크롤 컨테이너가 달라질 수 있어
+                // 스크롤 가능한 주요 요소를 한 번 더 찾아서 맨 위로 올린다.
+                parentDoc.querySelectorAll('section, main, div').forEach(function(el) {
+                    try {
+                        if (el.scrollHeight > el.clientHeight + 80) {
+                            el.scrollTop = 0;
+                        }
+                    } catch (e) {}
+                });
+            } catch (e) {}
+        }
+
+        forceScrollTop();
+        setTimeout(forceScrollTop, 50);
+        setTimeout(forceScrollTop, 150);
+        setTimeout(forceScrollTop, 350);
+        setTimeout(forceScrollTop, 700);
+        setTimeout(forceScrollTop, 1100);
+        </script>
+        """,
+        height=0,
+    )
 
 st.markdown(
     """
@@ -1553,11 +1564,13 @@ def render_next_step_button(current_index: int):
     next_label = STEP_LABELS[next_index]
 
     st.divider()
-    # st.button + JavaScript 방식은 Streamlit iframe 구조 때문에 실제 브라우저 스크롤이 안 될 수 있다.
-    # 그래서 URL 앵커(#big-honey-top)를 포함한 링크형 버튼으로 만들어 다음 단계 이동과 상단 스크롤을 동시에 처리한다.
-    st.markdown(
-        f'<a class="next-step-link" href="?step={next_index}#big-honey-top" target="_self">다음 단계로 넘어가기 → {next_label}</a>',
-        unsafe_allow_html=True,
+    st.button(
+        f"다음 단계로 넘어가기 → {next_label}",
+        type="primary",
+        use_container_width=True,
+        key=f"next_step_button_{current_index}",
+        on_click=request_step_change,
+        args=(next_index,),
     )
 
 
