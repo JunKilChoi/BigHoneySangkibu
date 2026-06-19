@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v32"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v32"
+APP_TITLE = "🍯 BigHoneySangkibu v33"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v33"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -540,7 +540,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v32",
+        "version": "patched-20260619-v33",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -2803,14 +2803,48 @@ if current_step == 4:
     if st.session_state.students.empty:
         st.warning("먼저 학생 명단을 입력하세요.")
     else:
-        students = st.session_state.students.copy()
-        label_map = {
-            f"{row['반']}반 {row['번호']}번 {row['성명']}": row
-            for _, row in students.iterrows()
+        students = sort_students_df(st.session_state.students.copy())
+
+        class_values = sorted(
+            students["반"].map(clean_text).unique().tolist(),
+            key=to_int_or_big,
+        )
+        class_label_map = {
+            (f"{class_value}반" if class_value else "반 미입력"): class_value
+            for class_value in class_values
         }
 
-        selected_label = st.selectbox("학생 선택", list(label_map.keys()))
-        selected_student = label_map[selected_label]
+        col_class, col_student = st.columns([1, 2])
+        with col_class:
+            selected_class_label = st.selectbox(
+                "반 선택",
+                list(class_label_map.keys()),
+                key="api_preview_class_select",
+            )
+
+        selected_class = class_label_map[selected_class_label]
+        class_students = students[students["반"].map(clean_text) == selected_class].copy()
+        class_students = sort_students_df(class_students)
+
+        student_label_map = {}
+        label_counts = {}
+        for _, row in class_students.iterrows():
+            number_text = clean_text(row.get("번호", ""))
+            name_text = clean_text(row.get("성명", ""))
+            base_label = f"{number_text}번 {name_text}" if number_text else f"번호 미입력 {name_text}"
+            label_counts[base_label] = label_counts.get(base_label, 0) + 1
+            label = base_label if label_counts[base_label] == 1 else f"{base_label} ({label_counts[base_label]})"
+            student_label_map[label] = row
+
+        with col_student:
+            selected_label = st.selectbox(
+                "번호/이름 선택",
+                list(student_label_map.keys()),
+                key="api_preview_student_select",
+            )
+
+        selected_student = student_label_map[selected_label]
+        st.caption(f"선택한 학생: {selected_class_label} {selected_label}")
         material = build_student_material(selected_student)
 
         st.markdown("#### API 입력 자료 미리보기")
