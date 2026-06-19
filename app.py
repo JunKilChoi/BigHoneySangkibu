@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v45"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v45"
+APP_TITLE = "🍯 개꿀 생기부 v46"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v46"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -543,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260619-v45",
+        "version": "patched-20260619-v46",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -2348,6 +2348,8 @@ if current_step == 1:
         type=["xlsx", "xls"],
         accept_multiple_files=True,
     )
+
+    st.info("나이스 파일 다운로드 경로: [성적처리] → [과목별세부능력특기사항] → 강의실 선택 후 [조회] → [엑셀 다운로드]")
 
     parsed_students = pd.DataFrame(columns=["student_id", "학년", "반", "번호", "성명"])
     parsed_info = []
