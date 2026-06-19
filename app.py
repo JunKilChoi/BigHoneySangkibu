@@ -23,8 +23,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v19"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v19"
+APP_TITLE = "🍯 BigHoneySangkibu v20"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v20"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -489,7 +489,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v19",
+        "version": "patched-20260619-v20",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -879,7 +879,7 @@ def render_rubric_input_block(prefix, current_levels=None, current_rubrics=None)
 def render_add_item_expander(aid, item_count):
     """
     수행평가별 평가 요소 추가 영역.
-    v19에서는 기존 평가 요소 목록을 모두 본 뒤 바로 아래에서 새 평가 요소를 추가할 수 있도록
+    v20에서는 기존 평가 요소 목록을 모두 본 뒤 바로 아래에서 새 평가 요소를 추가할 수 있도록
     이 함수를 평가 요소 목록 하단에서 호출한다.
     """
     with st.expander("➕ 이 수행평가에 평가 요소 추가", expanded=(item_count == 0)):
@@ -1334,6 +1334,9 @@ STEP_LABELS = [
     "⑥ 생기부 생성/다운로드",
 ]
 
+NAV_WIDGET_KEY = "step_nav_radio_v20"
+PENDING_STEP_KEY = "pending_step_index_v20"
+
 if "current_step" not in st.session_state:
     st.session_state["current_step"] = 0
 
@@ -1342,10 +1345,62 @@ try:
 except Exception:
     st.session_state["current_step"] = 0
 
+# 하단 다음 버튼이 요청한 이동은 위쪽 단계 선택 위젯이 만들어지기 전에 반영한다.
+# Streamlit은 이미 생성된 위젯 key를 같은 실행 중간에 바꾸면 오류가 나기 때문이다.
+if PENDING_STEP_KEY in st.session_state:
+    try:
+        st.session_state["current_step"] = int(st.session_state[PENDING_STEP_KEY])
+    except Exception:
+        st.session_state["current_step"] = 0
+    del st.session_state[PENDING_STEP_KEY]
+    st.session_state[NAV_WIDGET_KEY] = STEP_LABELS[max(0, min(st.session_state["current_step"], len(STEP_LABELS) - 1))]
+elif NAV_WIDGET_KEY in st.session_state and st.session_state[NAV_WIDGET_KEY] in STEP_LABELS:
+    st.session_state["current_step"] = STEP_LABELS.index(st.session_state[NAV_WIDGET_KEY])
+
 st.session_state["current_step"] = max(0, min(st.session_state["current_step"], len(STEP_LABELS) - 1))
 
-if "step_nav_radio" not in st.session_state or st.session_state["step_nav_radio"] not in STEP_LABELS:
-    st.session_state["step_nav_radio"] = STEP_LABELS[st.session_state["current_step"]]
+if NAV_WIDGET_KEY not in st.session_state or st.session_state[NAV_WIDGET_KEY] not in STEP_LABELS:
+    st.session_state[NAV_WIDGET_KEY] = STEP_LABELS[st.session_state["current_step"]]
+
+st.markdown(
+    """
+    <style>
+    /* 기존 st.tabs처럼 보이도록 단계 선택 라디오를 탭 형태로 정리한다. */
+    div[data-testid="stRadio"] > div[role="radiogroup"] {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 0 !important;
+        border-bottom: 1px solid #D0D7DE !important;
+        margin-bottom: 1.15rem !important;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] label {
+        min-height: 42px !important;
+        padding: 0.62rem 0.95rem !important;
+        margin-right: 4px !important;
+        margin-bottom: -1px !important;
+        border: 1px solid #D0D7DE !important;
+        border-bottom: none !important;
+        border-radius: 10px 10px 0 0 !important;
+        background: #F6F8FA !important;
+        cursor: pointer !important;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] label:has(input:checked) {
+        background: #FFFFFF !important;
+        border-top: 3px solid #D92D20 !important;
+        color: #111827 !important;
+        font-weight: 800 !important;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] label p {
+        font-weight: 700 !important;
+        font-size: 0.95rem !important;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] input {
+        display: none !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.markdown("### 작업 단계")
 selected_step_label = st.radio(
@@ -1353,7 +1408,7 @@ selected_step_label = st.radio(
     STEP_LABELS,
     horizontal=True,
     label_visibility="collapsed",
-    key="step_nav_radio",
+    key=NAV_WIDGET_KEY,
 )
 st.session_state["current_step"] = STEP_LABELS.index(selected_step_label)
 current_step = st.session_state["current_step"]
@@ -1372,7 +1427,7 @@ def render_next_step_button(current_index: int):
         key=f"next_step_button_{current_index}",
     ):
         st.session_state["current_step"] = next_index
-        st.session_state["step_nav_radio"] = next_label
+        st.session_state[PENDING_STEP_KEY] = next_index
         st.rerun()
 
 
