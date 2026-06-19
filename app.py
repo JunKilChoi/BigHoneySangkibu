@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v42"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v42"
+APP_TITLE = "🍯 개꿀 생기부 v43"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v43"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -543,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260619-v42",
+        "version": "patched-20260619-v43",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -3418,4 +3418,3 @@ if current_step == 5:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-    render_next_step_button(5)
