@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v46"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v46"
+APP_TITLE = "🍯 개꿀 생기부 v47"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v47"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -543,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260619-v46",
+        "version": "patched-20260619-v47",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1878,91 +1878,228 @@ def import_student_record_excel(uploaded_file):
 
     return saved_count, warnings
 
-def load_sample_data():
-    st.session_state.students = pd.DataFrame(
-        [
-            {"student_id": make_id("stu"), "학년": "1", "반": "1", "번호": "1", "성명": "강나은"},
-            {"student_id": make_id("stu"), "학년": "1", "반": "1", "번호": "2", "성명": "경송혜"},
-            {"student_id": make_id("stu"), "학년": "1", "반": "2", "번호": "1", "성명": "김보배"},
-        ]
-    )
-    st.session_state.students = sort_students_df(st.session_state.students)
-
-    a1 = make_id("assess")
-    a2 = make_id("assess")
-    i1 = make_id("item")
-    i2 = make_id("item")
-    i3 = make_id("item")
-
-    st.session_state.assessments = [
+def build_sample_project_data():
+    """
+    사이드바의 샘플 데이터 불러오기 버튼에서 사용하는 내장 샘플 프로젝트.
+    실제 학생 정보가 아닌 가상 학생 3개 반과 임의 학생별 기록을 포함한다.
+    """
+    assessments = [
         {
-            "assessment_id": a1,
-            "name": "생태지도 만들기",
-            "area": "생물과 환경",
-            "description": "학교 운동장에서 생물을 관찰하고 생태지도를 제작하는 활동",
+            "assessment_id": "assess_sample_matter",
+            "name": "물질의 특성을 활용하여 혼합물 분리하기",
+            "area": "물질 - (8) 물질의 특성",
+            "description": "[9과08-03] 물질의 특성을 이용하여 혼합물이 분리되는 원리를 이해하고, 이를 이용한 사례를 주변에서 찾을 수 있다.",
             "order": 1,
             "use": True,
         },
         {
-            "assessment_id": a2,
-            "name": "비열 탐구",
-            "area": "열과 우리 생활",
-            "description": "서로 다른 물체의 비열 차이를 비교하고 일상생활 사례와 연결하는 활동",
+            "assessment_id": "assess_sample_photo",
+            "name": "환경 요인과 광합성의 관계를 알아보는 실험 설계하기",
+            "area": "생명 - (12) 식물과 에너지",
+            "description": "[9과12-01] 광합성 과정을 이해하고, 환경 요인과 광합성의 관계를 탐구하는 실험을 설계할 수 있다.",
             "order": 2,
             "use": True,
         },
     ]
 
-    st.session_state["items"] = [
+    items = [
         {
-            "item_id": i1,
-            "assessment_id": a1,
-            "name": "생태지도 결과물 평가",
-            "type": "rubric",
-            "levels": ["A", "B", "C", "D", "E"],
-            "rubrics": {
-                "A": "학교 운동장에서 생물과 환경 요소를 세밀하게 관찰하고 생태지도를 완성도 있게 구성함",
-                "B": "학교 운동장에서 생물을 관찰하고 생태지도에 적절히 나타냄",
-                "C": "생태지도 작성 활동에 참여하였으나 생물과 환경 요소의 관계 표현이 다소 부족함",
-                "D": "생태지도 작성 활동에 참여하였으나 관찰 결과 정리가 부족함",
-                "E": "생태지도 작성 활동에서 보완이 필요함",
-            },
-            "order": 1,
-        },
-        {
-            "item_id": i2,
-            "assessment_id": a1,
-            "name": "생태지도 개별 관찰 내용",
+            "item_id": "item_sample_matter_comment",
+            "assessment_id": "assess_sample_matter",
+            "name": "물질의 특성을 혼합물 분리 과정과 연결 짓기",
             "type": "comment",
             "levels": [],
             "rubrics": {},
+            "order": 1,
+        },
+        {
+            "item_id": "item_sample_matter_rubric",
+            "assessment_id": "assess_sample_matter",
+            "name": "혼합물 분리하기",
+            "type": "rubric",
+            "levels": ["A", "B", "C", "D", "E"],
+            "rubrics": {
+                "A": "우수한 수준으로 수행함",
+                "B": "대체로 적절하게 수행함",
+                "C": "일부 보완이 필요함",
+                "D": "기본적인 참여가 이루어짐",
+                "E": "지속적인 보완이 필요함",
+            },
             "order": 2,
         },
         {
-            "item_id": i3,
-            "assessment_id": a2,
-            "name": "비열 개념 적용",
+            "item_id": "item_sample_report",
+            "assessment_id": "assess_sample_matter",
+            "name": "과학 탐구 보고서 작성하기",
             "type": "rubric_plus",
             "levels": ["A", "B", "C", "D", "E"],
             "rubrics": {
-                "A": "비열 차이에 따른 온도 변화의 차이를 근거를 들어 설명함",
-                "B": "비열 차이와 온도 변화의 관계를 대체로 설명함",
-                "C": "비열의 의미를 일부 이해하였으나 온도 변화와의 관계 설명이 다소 부족함",
-                "D": "비열과 온도 변화의 관계를 설명하는 데 보완이 필요함",
-                "E": "비열 개념 적용 활동에서 지속적인 보완이 필요함",
+                "A": "우수한 수준으로 수행함",
+                "B": "대체로 적절하게 수행함",
+                "C": "일부 보완이 필요함",
+                "D": "기본적인 참여가 이루어짐",
+                "E": "지속적인 보완이 필요함",
+            },
+            "order": 3,
+        },
+        {
+            "item_id": "item_sample_variable",
+            "assessment_id": "assess_sample_photo",
+            "name": "환경요인과 광합성의 관계를 탐구하기 위한 적절한 변인 통제",
+            "type": "rubric",
+            "levels": ["A", "B", "C", "D", "E"],
+            "rubrics": {
+                "A": "우수한 수준으로 수행함",
+                "B": "대체로 적절하게 수행함",
+                "C": "일부 보완이 필요함",
+                "D": "기본적인 참여가 이루어짐",
+                "E": "지속적인 보완이 필요함",
             },
             "order": 1,
         },
+        {
+            "item_id": "item_sample_process",
+            "assessment_id": "assess_sample_photo",
+            "name": "실험 과정",
+            "type": "rubric",
+            "levels": ["A", "B", "C", "D", "E"],
+            "rubrics": {
+                "A": "우수한 수준으로 수행함",
+                "B": "대체로 적절하게 수행함",
+                "C": "일부 보완이 필요함",
+                "D": "기본적인 참여가 이루어짐",
+                "E": "지속적인 보완이 필요함",
+            },
+            "order": 2,
+        },
+        {
+            "item_id": "item_sample_interpret",
+            "assessment_id": "assess_sample_photo",
+            "name": "자료 해석 및 결과 예측",
+            "type": "comment",
+            "levels": [],
+            "rubrics": {},
+            "order": 3,
+        },
     ]
 
-    st.session_state.records = {}
-    for _, student in st.session_state.students.iterrows():
-        set_record(student["student_id"], i1, "A", "")
-        set_record(student["student_id"], i2, "", "운동장 가장자리의 식물과 곤충을 관찰하고 특징을 정리함")
-        set_record(student["student_id"], i3, "A", "나무와 금속의 온도 변화 차이를 사례와 연결함")
+    students = []
+    names_by_class = {
+        "1": ["가온", "나래", "다윤", "라온", "마루"],
+        "2": ["바다", "사랑", "아람", "이든", "지안"],
+        "3": ["하민", "서우", "도윤", "예준", "채원"],
+    }
+    for class_no, names in names_by_class.items():
+        for idx, name in enumerate(names, start=1):
+            students.append(
+                {
+                    "student_id": f"sample_stu_{class_no}_{idx:02d}",
+                    "학년": "2",
+                    "반": class_no,
+                    "번호": str(idx),
+                    "성명": f"가상{name}",
+                }
+            )
 
-    st.session_state.results = {}
+    matter_comments = [
+        "소금과 모래의 성질 차이를 바탕으로 알맞은 분리 방법을 설명함",
+        "용해도와 입자 크기 차이를 활용해 혼합물 분리 과정을 정리함",
+        "분리 방법을 선택하는 과정에서 물질의 특성을 근거로 제시함",
+        "여과와 증발의 차이를 사례와 연결하여 설명하려는 모습을 보임",
+        "혼합물 분리 과정을 순서대로 정리하고 관찰 결과를 기록함",
+    ]
+    report_comments = [
+        "실험 결과를 표로 정리하고 분리 원리와 연결하여 해석함",
+        "탐구 목적과 과정을 구분하여 보고서의 흐름을 분명하게 구성함",
+        "관찰 사실을 중심으로 결과를 정리하고 해석 근거를 보충함",
+        "실험 절차를 순서에 맞게 정리하며 보고서 형식을 갖춤",
+        "활동 내용을 바탕으로 보고서의 기본 항목을 채워 감",
+    ]
+    photo_comments = [
+        "빛의 세기 변화에 따른 광합성량 차이를 예상하고 근거를 제시함",
+        "이산화 탄소 농도와 광합성 결과의 관계를 실험 조건과 연결함",
+        "온도 조건 변화가 실험 결과에 미칠 영향을 자료와 연결하여 설명함",
+        "통제해야 할 조건을 확인하고 결과 해석과 연결하려는 과정을 보임",
+        "관찰 결과를 바탕으로 광합성에 영향을 주는 요인을 정리함",
+    ]
+
+    level_patterns = [
+        ("A", "A", "A", "A"),
+        ("B", "A", "B", "A"),
+        ("C", "B", "C", "B"),
+        ("D", "B", "D", "C"),
+        ("E", "C", "E", "D"),
+    ]
+
+    records = {}
+    for idx, student in enumerate(students):
+        sid = student["student_id"]
+        pattern = level_patterns[idx % len(level_patterns)]
+        records[f"{sid}::item_sample_matter_comment"] = {
+            "level": "",
+            "comment": matter_comments[idx % len(matter_comments)],
+        }
+        records[f"{sid}::item_sample_matter_rubric"] = {
+            "level": pattern[0],
+            "comment": "",
+        }
+        records[f"{sid}::item_sample_report"] = {
+            "level": pattern[1],
+            "comment": report_comments[idx % len(report_comments)],
+        }
+        records[f"{sid}::item_sample_variable"] = {
+            "level": pattern[2],
+            "comment": "",
+        }
+        records[f"{sid}::item_sample_process"] = {
+            "level": pattern[3],
+            "comment": "",
+        }
+        records[f"{sid}::item_sample_interpret"] = {
+            "level": "",
+            "comment": photo_comments[idx % len(photo_comments)],
+        }
+
+    return {
+        "settings": {
+            "school_year": "2026",
+            "semester": "1학기",
+            "school_level": "중학교",
+            "grade": "2",
+            "subject": "과학",
+            "target_bytes_min": 700,
+            "target_bytes_max": 800,
+            "custom_rules": "- 꾸며내지 말 것\n- 교사의 관찰이 드러나도록 할 것",
+        },
+        "students": students,
+        "assessments": assessments,
+        "items": items,
+        "records": records,
+        "results": {},
+        "saved_at": datetime.now().isoformat(timespec="seconds"),
+        "app": "개꿀 생기부",
+        "version": "sample-project-v47",
+    }
+
+
+def apply_project_data(data):
+    """
+    JSON 파일이나 내장 샘플 프로젝트 dict를 현재 세션에 반영한다.
+    """
+    st.session_state.settings = data.get("settings", st.session_state.settings)
+    st.session_state.students = pd.DataFrame(data.get("students", []))
+    st.session_state.assessments = data.get("assessments", [])
+    st.session_state["items"] = data.get("items", [])
+    st.session_state.records = data.get("records", {})
+    st.session_state.results = data.get("results", {})
+    if "selected_generation_student_id" in st.session_state:
+        del st.session_state["selected_generation_student_id"]
     sanitize_state()
+
+
+def load_sample_data():
+    sample_data = build_sample_project_data()
+    apply_project_data(sample_data)
 
 
 # =========================
@@ -1995,9 +2132,9 @@ with st.sidebar:
 
     st.divider()
 
-    if st.button("샘플 데이터 불러오기"):
+    if st.button("샘플 데이터 불러오기", help="가상 학생 15명, 3개 반, 임의 학생별 기록이 들어간 샘플 프로젝트를 불러옵니다."):
         load_sample_data()
-        st.success("샘플 데이터를 불러왔습니다.")
+        st.success("가상 학생 3개 반과 학생별 기록이 들어간 샘플 데이터를 불러왔습니다.")
         st.rerun()
 
     if st.button("전체 초기화", type="secondary"):
