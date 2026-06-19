@@ -23,8 +23,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v20"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v20"
+APP_TITLE = "🍯 BigHoneySangkibu v21"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v21"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -489,7 +489,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v20",
+        "version": "patched-20260619-v21",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1334,8 +1334,8 @@ STEP_LABELS = [
     "⑥ 생기부 생성/다운로드",
 ]
 
-NAV_WIDGET_KEY = "step_nav_radio_v20"
-PENDING_STEP_KEY = "pending_step_index_v20"
+NAV_WIDGET_KEY = "step_nav_radio_v21"
+PENDING_STEP_KEY = "pending_step_index_v21"
 
 if "current_step" not in st.session_state:
     st.session_state["current_step"] = 0
@@ -1788,7 +1788,11 @@ if current_step == 2:
         area_text = assessment.get("area", "") or "영역/단원 미입력"
         item_count = len(existing_items)
 
-        with st.container(border=True):
+        assessment_expander_title = (
+            f"📁 수행평가 {assess_index}. {assessment.get('name', '이름 없는 수행평가')} "
+            f"· 평가 요소 {item_count}개 · {status_badge}"
+        )
+        with st.expander(assessment_expander_title, expanded=True):
             st.markdown(
                 f"""
                 ### 📁 수행평가 {assess_index}. {assessment.get('name', '이름 없는 수행평가')}
@@ -1889,7 +1893,11 @@ if current_step == 2:
                     item_type_label = item_type_to_kor(item.get("type", "rubric"))
                     level_count = len(item.get("levels", [])) if item.get("type") != "comment" else 0
 
-                    with st.container(border=True):
+                    item_expander_title = (
+                        f"🧾 평가 요소 {item_index}. {item.get('name', '이름 없는 평가 요소')} "
+                        f"· {item_type_label}"
+                    )
+                    with st.expander(item_expander_title, expanded=True):
                         st.markdown(
                             f"##### 🧾 평가 요소 {item_index}. {item.get('name', '이름 없는 평가 요소')}"
                         )
