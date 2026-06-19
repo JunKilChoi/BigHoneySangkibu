@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v40"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v40"
+APP_TITLE = "🍯 BigHoneySangkibu v41"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v41"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -543,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v40",
+        "version": "patched-20260619-v41",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1006,6 +1006,23 @@ def render_add_item_expander(aid, item_count):
 # =========================
 # API 입력 자료 및 생성
 # =========================
+def format_selected_level_text(item, level):
+    """
+    API 입력 자료에서 선택 성취수준의 위치가 드러나도록 표기한다.
+    예: 전체 성취수준 A, B, C, D, E 중 A
+    """
+    level = clean_text(level)
+    levels = [clean_text(x) for x in item.get("levels", []) if clean_text(x)]
+
+    if level and levels:
+        return f"전체 성취수준 {', '.join(levels)} 중 {level}"
+    if level:
+        return f"성취수준 {level}"
+    if levels:
+        return f"전체 성취수준 {', '.join(levels)} 중 미입력"
+    return "성취수준 미입력"
+
+
 def build_student_material(student):
     student_id = student["student_id"]
     lines = []
@@ -1037,8 +1054,9 @@ def build_student_material(student):
 
             if item_type == "rubric":
                 if level or teacher_comment:
+                    level_text = format_selected_level_text(item, level)
                     chunks.append(
-                        f"- {item.get('name', '')}: 성취수준 {level} / 교사의 평가: {teacher_comment}"
+                        f"- {item.get('name', '')}: {level_text} / 교사의 평가: {teacher_comment}"
                     )
 
             elif item_type == "comment":
@@ -1047,7 +1065,8 @@ def build_student_material(student):
 
             elif item_type == "rubric_plus":
                 if level or teacher_comment or comment:
-                    text = f"- {item.get('name', '')}: 성취수준 {level} / 교사의 평가: {teacher_comment}"
+                    level_text = format_selected_level_text(item, level)
+                    text = f"- {item.get('name', '')}: {level_text} / 교사의 평가: {teacher_comment}"
                     if comment:
                         text += f" / 추가 코멘트: {comment}"
                     chunks.append(text)
