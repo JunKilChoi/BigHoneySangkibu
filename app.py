@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v38"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v38"
+APP_TITLE = "🍯 BigHoneySangkibu v39"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v39"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -543,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v38",
+        "version": "patched-20260619-v39",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1155,6 +1155,15 @@ def generate_with_openai(prompt, api_key, model):
 
 
 def export_excel():
+    """
+    최종 다운로드 엑셀을 만든다.
+    - 첫 번째 시트는 반드시 최종생기부로 배치한다.
+    - 학교 업무용으로 바로 확인하기 쉽도록 헤더, 고정틀, 너비, 줄바꿈, 테두리, byte 조건부 서식을 적용한다.
+    """
+    from openpyxl.formatting.rule import CellIsRule
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
     students = st.session_state.students.copy()
 
     result_rows = []
@@ -1169,11 +1178,11 @@ def export_excel():
                 "반": student.get("반", ""),
                 "번호": student.get("번호", ""),
                 "성명": student.get("성명", ""),
-                "API 입력자료": result.get("material", ""),
-                "생성 문구": result.get("generated", ""),
-                "교사 수정 문구": final_text,
+                "최종 생기부": final_text,
                 "byte": byte_count(final_text),
                 "생성일시": result.get("created_at", ""),
+                "생성 원문": result.get("generated", ""),
+                "API 입력자료": result.get("material", ""),
             }
         )
 
@@ -1215,26 +1224,141 @@ def export_excel():
 
     record_df = pd.DataFrame(record_rows)
 
+    def style_worksheet(ws, header_fill_color="#1F2937", tab_color="#64748B", freeze_cell="A2"):
+        """엑셀 시트를 읽기 좋게 공통 서식화한다."""
+        ws.sheet_view.showGridLines = False
+        ws.freeze_panes = freeze_cell
+        ws.sheet_properties.tabColor = tab_color
+
+        header_fill = PatternFill("solid", fgColor=header_fill_color.replace("#", ""))
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        body_font = Font(size=10, color="111827")
+        thin_side = Side(style="thin", color="D1D5DB")
+        border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+        header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        body_alignment = Alignment(vertical="top", wrap_text=True)
+
+        if ws.max_row >= 1:
+            for cell in ws[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = header_alignment
+                cell.border = border
+            ws.row_dimensions[1].height = 28
+
+        for row in ws.iter_rows(min_row=2):
+            for cell in row:
+                cell.font = body_font
+                cell.alignment = body_alignment
+                cell.border = border
+            ws.row_dimensions[row[0].row].height = 42
+
+        # 자동 필터는 표가 비어 있어도 헤더 확인에 도움이 된다.
+        if ws.max_column >= 1 and ws.max_row >= 1:
+            ws.auto_filter.ref = ws.dimensions
+
+        # 기본 폭 자동 산정. 긴 문장 열은 너무 넓어지지 않게 제한한다.
+        text_heavy_headers = {"최종 생기부", "생성 원문", "API 입력자료", "루브릭", "개별코멘트", "활동/성취기준", "description"}
+        for col_idx in range(1, ws.max_column + 1):
+            col_letter = get_column_letter(col_idx)
+            header_value = clean_text(ws.cell(row=1, column=col_idx).value)
+            max_len = max(8, len(header_value) + 2)
+
+            for row_idx in range(2, min(ws.max_row, 80) + 1):
+                value = clean_text(ws.cell(row=row_idx, column=col_idx).value)
+                if "\n" in value:
+                    value = max(value.splitlines(), key=len, default=value)
+                max_len = max(max_len, len(value) + 2)
+
+            if header_value in text_heavy_headers:
+                width = min(max(max_len, 32), 72)
+            elif header_value in ["학년", "반", "번호", "byte", "순서"]:
+                width = 9
+            elif header_value in ["성명", "기록방식", "성취수준"]:
+                width = min(max(max_len, 12), 18)
+            else:
+                width = min(max(max_len, 12), 34)
+
+            ws.column_dimensions[col_letter].width = width
+
+    def highlight_byte_column(ws):
+        """최종생기부 시트의 byte 열을 목표 범위 기준으로 표시한다."""
+        if ws.max_row < 2:
+            return
+
+        headers = [clean_text(cell.value) for cell in ws[1]]
+        if "byte" not in headers:
+            return
+
+        byte_col_idx = headers.index("byte") + 1
+        byte_col_letter = get_column_letter(byte_col_idx)
+        byte_range = f"{byte_col_letter}2:{byte_col_letter}{ws.max_row}"
+        target_min = int(st.session_state.settings.get("target_bytes_min", 700))
+        target_max = int(st.session_state.settings.get("target_bytes_max", 800))
+
+        low_fill = PatternFill("solid", fgColor="FEF3C7")
+        high_fill = PatternFill("solid", fgColor="FEE2E2")
+        ok_fill = PatternFill("solid", fgColor="DCFCE7")
+
+        ws.conditional_formatting.add(
+            byte_range,
+            CellIsRule(operator="lessThan", formula=[str(target_min)], fill=low_fill),
+        )
+        ws.conditional_formatting.add(
+            byte_range,
+            CellIsRule(operator="greaterThan", formula=[str(target_max)], fill=high_fill),
+        )
+        ws.conditional_formatting.add(
+            byte_range,
+            CellIsRule(operator="between", formula=[str(target_min), str(target_max)], fill=ok_fill),
+        )
+
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        students.drop(columns=["student_id"], errors="ignore").to_excel(
-            writer, sheet_name="학생명단", index=False
-        )
+        # 최종생기부를 첫 번째 시트로 먼저 작성한다.
+        result_df.to_excel(writer, sheet_name="최종생기부", index=False)
+        record_df.to_excel(writer, sheet_name="학생별기록", index=False)
+        item_df.to_excel(writer, sheet_name="평가요소_루브릭", index=False)
         pd.DataFrame(st.session_state.assessments).to_excel(
             writer, sheet_name="수행평가", index=False
         )
-        item_df.to_excel(writer, sheet_name="평가요소_루브릭", index=False)
-        record_df.to_excel(writer, sheet_name="학생별기록", index=False)
-        result_df.to_excel(writer, sheet_name="최종생기부", index=False)
+        students.drop(columns=["student_id"], errors="ignore").to_excel(
+            writer, sheet_name="학생명단", index=False
+        )
 
-        for worksheet in writer.book.worksheets:
-            for col in worksheet.columns:
-                max_len = 8
-                col_letter = col[0].column_letter
-                for cell in col:
-                    value = clean_text(cell.value)
-                    max_len = max(max_len, min(len(value), 60))
-                worksheet.column_dimensions[col_letter].width = max_len + 2
+        workbook = writer.book
+
+        # 첫 시트는 특히 왼쪽 학생 정보가 고정되도록 E2에서 틀 고정한다.
+        final_ws = workbook["최종생기부"]
+        style_worksheet(final_ws, header_fill_color="#1E3A8A", tab_color="#2563EB", freeze_cell="E2")
+        highlight_byte_column(final_ws)
+
+        # 최종 생기부 열은 실제 검토가 쉽도록 넓게 잡는다.
+        final_widths = {
+            "A": 8,
+            "B": 8,
+            "C": 8,
+            "D": 14,
+            "E": 72,
+            "F": 10,
+            "G": 20,
+            "H": 56,
+            "I": 72,
+        }
+        for col_letter, width in final_widths.items():
+            final_ws.column_dimensions[col_letter].width = width
+
+        if "학생별기록" in workbook.sheetnames:
+            style_worksheet(workbook["학생별기록"], header_fill_color="#0F766E", tab_color="#14B8A6", freeze_cell="E2")
+        if "평가요소_루브릭" in workbook.sheetnames:
+            style_worksheet(workbook["평가요소_루브릭"], header_fill_color="#92400E", tab_color="#F59E0B", freeze_cell="A2")
+        if "수행평가" in workbook.sheetnames:
+            style_worksheet(workbook["수행평가"], header_fill_color="#5B21B6", tab_color="#8B5CF6", freeze_cell="A2")
+        if "학생명단" in workbook.sheetnames:
+            style_worksheet(workbook["학생명단"], header_fill_color="#374151", tab_color="#9CA3AF", freeze_cell="A2")
+
+        # 첫 번째 시트가 실제로 최종생기부가 되도록 명시적으로 활성화한다.
+        workbook.active = workbook.sheetnames.index("최종생기부")
 
     output.seek(0)
     return output
