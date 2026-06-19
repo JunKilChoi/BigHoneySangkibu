@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v36"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v36"
+APP_TITLE = "🍯 BigHoneySangkibu v37"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v37"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -543,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v36",
+        "version": "patched-20260619-v37",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -3069,9 +3069,11 @@ if current_step == 5:
         result_df = pd.DataFrame(result_rows)
         display_result_df = result_df.drop(columns=["student_id"], errors="ignore")
 
-        # st.dataframe은 셀/행 클릭 기반 단일 행 선택을 지원한다.
-        # st.data_editor는 행 클릭 선택을 제공하지 않으므로, 메인 표는 선택 전용으로 두고
-        # 직접 수정은 아래 큰 수정창 또는 접힌 일괄 수정 표에서 처리한다.
+        # st.dataframe 선택 이벤트는 row 선택과 cell 선택을 모두 받을 수 있다.
+        # 사용자가 성명, byte, 생성 문구 등 어떤 셀을 클릭해도 해당 셀의 행 번호를 읽어
+        # 아래 큰 수정창의 대상 학생으로 연결한다.
+        # st.data_editor는 셀 클릭 이벤트와 표 편집을 동시에 안정적으로 제공하지 않으므로,
+        # 메인 표는 선택 전용으로 두고 직접 수정은 아래 큰 수정창 또는 접힌 일괄 수정 표에서 처리한다.
         selection_event = st.dataframe(
             display_result_df,
             use_container_width=True,
@@ -3079,7 +3081,7 @@ if current_step == 5:
             hide_index=True,
             key="generation_result_selector",
             on_select="rerun",
-            selection_mode="single-row",
+            selection_mode=["single-cell", "single-row"],
             column_config={
                 "학년": st.column_config.TextColumn("학년", width="small"),
                 "반": st.column_config.TextColumn("반", width="small"),
@@ -3091,20 +3093,43 @@ if current_step == 5:
             },
         )
 
+        selected_row_index = None
+        selected_cells = []
         selected_row_indices = []
+
         try:
-            selected_row_indices = list(selection_event.selection.rows)
+            selected_cells = list(selection_event.selection.cells)
         except Exception:
             try:
-                selected_row_indices = list(selection_event.get("selection", {}).get("rows", []))
+                selected_cells = list(selection_event.get("selection", {}).get("cells", []))
             except Exception:
-                selected_row_indices = []
+                selected_cells = []
 
-        if selected_row_indices:
-            selected_row_index = selected_row_indices[-1]
-            if 0 <= selected_row_index < len(result_df):
-                current_selected_sid = clean_text(result_df.iloc[selected_row_index].get("student_id", current_selected_sid))
-                st.session_state.selected_generation_student_id = current_selected_sid
+        if selected_cells:
+            first_cell = selected_cells[-1]
+            try:
+                selected_row_index = int(first_cell[0])
+            except Exception:
+                selected_row_index = None
+
+        if selected_row_index is None:
+            try:
+                selected_row_indices = list(selection_event.selection.rows)
+            except Exception:
+                try:
+                    selected_row_indices = list(selection_event.get("selection", {}).get("rows", []))
+                except Exception:
+                    selected_row_indices = []
+
+            if selected_row_indices:
+                try:
+                    selected_row_index = int(selected_row_indices[-1])
+                except Exception:
+                    selected_row_index = None
+
+        if selected_row_index is not None and 0 <= selected_row_index < len(result_df):
+            current_selected_sid = clean_text(result_df.iloc[selected_row_index].get("student_id", current_selected_sid))
+            st.session_state.selected_generation_student_id = current_selected_sid
 
         with st.expander("표 형태로 여러 학생 문구 한꺼번에 수정", expanded=False):
             st.caption(
