@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 BigHoneySangkibu v35"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v35"
+APP_TITLE = "🍯 BigHoneySangkibu v36"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v36"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -543,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "BigHoneySangkibu",
-        "version": "patched-20260619-v35",
+        "version": "patched-20260619-v36",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -3035,10 +3035,10 @@ if current_step == 5:
                 st.rerun()
 
         st.divider()
-        st.markdown("#### 전체 결과표 / 바로 수정")
+        st.markdown("#### 전체 결과표 / 학생 선택")
         st.caption(
-            "생성된 문구는 이 표에 바로 모이고, `생성/수정 문구` 칸에서 직접 고칠 수 있습니다. "
-            "아래 수정창에서 크게 보고 싶은 학생은 표의 `선택` 칸을 체크하세요."
+            "표에서 아무 셀이나 클릭하면 해당 학생 한 명만 아래 큰 수정창의 대상으로 선택됩니다. "
+            "문구 수정은 아래 큰 수정창에서 하거나, 필요하면 접힌 `표 형태로 여러 문구 한꺼번에 수정` 영역을 열어 처리하세요."
         )
 
         # 표 선택값이 없으면, 위의 '생성할 학생' 선택값을 기본 수정 대상으로 사용한다.
@@ -3055,7 +3055,6 @@ if current_step == 5:
             text = result.get("edited", result.get("generated", ""))
             result_rows.append(
                 {
-                    "선택": sid == current_selected_sid,
                     "student_id": sid,
                     "학년": student.get("학년", ""),
                     "반": student.get("반", ""),
@@ -3068,16 +3067,20 @@ if current_step == 5:
             )
 
         result_df = pd.DataFrame(result_rows)
-        edited_result_df = st.data_editor(
-            result_df,
+        display_result_df = result_df.drop(columns=["student_id"], errors="ignore")
+
+        # st.dataframe은 셀/행 클릭 기반 단일 행 선택을 지원한다.
+        # st.data_editor는 행 클릭 선택을 제공하지 않으므로, 메인 표는 선택 전용으로 두고
+        # 직접 수정은 아래 큰 수정창 또는 접힌 일괄 수정 표에서 처리한다.
+        selection_event = st.dataframe(
+            display_result_df,
             use_container_width=True,
             height=360,
             hide_index=True,
-            key="generation_result_editor",
-            disabled=["student_id", "학년", "반", "번호", "성명", "byte", "생성일시"],
+            key="generation_result_selector",
+            on_select="rerun",
+            selection_mode="single-row",
             column_config={
-                "선택": st.column_config.CheckboxColumn("선택", help="아래 큰 수정창에서 볼 학생을 체크하세요."),
-                "student_id": None,
                 "학년": st.column_config.TextColumn("학년", width="small"),
                 "반": st.column_config.TextColumn("반", width="small"),
                 "번호": st.column_config.TextColumn("번호", width="small"),
@@ -3088,48 +3091,82 @@ if current_step == 5:
             },
         )
 
-        selected_rows = edited_result_df[edited_result_df["선택"] == True] if "선택" in edited_result_df.columns else pd.DataFrame()
-        if not selected_rows.empty:
-            # 여러 명이 체크되면 아래쪽에 있는 체크값을 우선 사용한다.
-            current_selected_sid = clean_text(selected_rows.iloc[-1].get("student_id", current_selected_sid))
-            st.session_state.selected_generation_student_id = current_selected_sid
+        selected_row_indices = []
+        try:
+            selected_row_indices = list(selection_event.selection.rows)
+        except Exception:
+            try:
+                selected_row_indices = list(selection_event.get("selection", {}).get("rows", []))
+            except Exception:
+                selected_row_indices = []
 
-        col_save_table, col_table_info = st.columns([1.5, 4])
-        with col_save_table:
-            if st.button("표에서 수정한 문구 저장", type="primary", use_container_width=True):
-                student_map = {
-                    row["student_id"]: row
-                    for _, row in students.iterrows()
-                }
-                saved_count = 0
-                now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if selected_row_indices:
+            selected_row_index = selected_row_indices[-1]
+            if 0 <= selected_row_index < len(result_df):
+                current_selected_sid = clean_text(result_df.iloc[selected_row_index].get("student_id", current_selected_sid))
+                st.session_state.selected_generation_student_id = current_selected_sid
 
-                for _, row in edited_result_df.iterrows():
-                    sid = clean_text(row.get("student_id", ""))
-                    if not sid or sid not in student_map:
-                        continue
+        with st.expander("표 형태로 여러 학생 문구 한꺼번에 수정", expanded=False):
+            st.caption(
+                "여러 학생의 문구를 표에서 한꺼번에 고칠 때만 사용하세요. "
+                "학생 선택은 위 표에서 아무 셀이나 클릭해서 합니다."
+            )
 
-                    edited_text = clean_text(row.get("생성/수정 문구", ""))
-                    existing_result = st.session_state.results.get(sid, {})
+            edited_result_df = st.data_editor(
+                result_df,
+                use_container_width=True,
+                height=360,
+                hide_index=True,
+                key="generation_result_bulk_editor",
+                disabled=["student_id", "학년", "반", "번호", "성명", "byte", "생성일시"],
+                column_config={
+                    "student_id": None,
+                    "학년": st.column_config.TextColumn("학년", width="small"),
+                    "반": st.column_config.TextColumn("반", width="small"),
+                    "번호": st.column_config.TextColumn("번호", width="small"),
+                    "성명": st.column_config.TextColumn("성명", width="medium"),
+                    "생성/수정 문구": st.column_config.TextColumn("생성/수정 문구", width="large"),
+                    "byte": st.column_config.NumberColumn("byte", width="small"),
+                    "생성일시": st.column_config.TextColumn("생성일시", width="medium"),
+                },
+            )
 
-                    # 이미 생성된 결과가 있거나, 표에서 새 문구를 직접 입력한 경우 저장한다.
-                    if existing_result or edited_text:
-                        existing_result["edited"] = edited_text
-                        existing_result["bytes"] = byte_count(edited_text)
-                        if not existing_result.get("generated"):
-                            existing_result["generated"] = edited_text
-                        if not existing_result.get("material"):
-                            existing_result["material"] = build_student_material(student_map[sid])
-                        if not existing_result.get("created_at"):
-                            existing_result["created_at"] = now_text
-                        st.session_state.results[sid] = existing_result
-                        saved_count += 1
+            col_save_table, col_table_info = st.columns([1.5, 4])
+            with col_save_table:
+                if st.button("표에서 수정한 문구 저장", type="primary", use_container_width=True):
+                    student_map = {
+                        row["student_id"]: row
+                        for _, row in students.iterrows()
+                    }
+                    saved_count = 0
+                    now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                st.success(f"표에서 수정한 문구 {saved_count}건을 저장했습니다.")
-                st.rerun()
+                    for _, row in edited_result_df.iterrows():
+                        sid = clean_text(row.get("student_id", ""))
+                        if not sid or sid not in student_map:
+                            continue
 
-        with col_table_info:
-            st.caption("표의 byte는 저장 후 다시 계산되어 반영됩니다. 긴 문장은 아래 큰 수정창에서 고치면 현재 byte를 바로 확인하기 쉽습니다.")
+                        edited_text = clean_text(row.get("생성/수정 문구", ""))
+                        existing_result = st.session_state.results.get(sid, {})
+
+                        # 이미 생성된 결과가 있거나, 표에서 새 문구를 직접 입력한 경우 저장한다.
+                        if existing_result or edited_text:
+                            existing_result["edited"] = edited_text
+                            existing_result["bytes"] = byte_count(edited_text)
+                            if not existing_result.get("generated"):
+                                existing_result["generated"] = edited_text
+                            if not existing_result.get("material"):
+                                existing_result["material"] = build_student_material(student_map[sid])
+                            if not existing_result.get("created_at"):
+                                existing_result["created_at"] = now_text
+                            st.session_state.results[sid] = existing_result
+                            saved_count += 1
+
+                    st.success(f"표에서 수정한 문구 {saved_count}건을 저장했습니다.")
+                    st.rerun()
+
+            with col_table_info:
+                st.caption("표의 byte는 저장 후 다시 계산되어 반영됩니다. 긴 문장은 아래 큰 수정창에서 고치면 현재 byte를 바로 확인하기 쉽습니다.")
 
         st.divider()
 
