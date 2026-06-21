@@ -4,6 +4,9 @@ import re
 import uuid
 from datetime import datetime
 from io import BytesIO
+from urllib import error as urllib_error
+from urllib import parse as urllib_parse
+from urllib import request as urllib_request
 
 import pandas as pd
 import streamlit as st
@@ -28,8 +31,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v48"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v48"
+APP_TITLE = "🍯 개꿀 생기부 v49"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v49"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -39,6 +42,34 @@ DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함
 - 제공된 평가 자료에 근거한 내용만 작성한다.
 - 한 문단으로 작성하고, 중복되는 내용은 자연스럽게 통합한다.
 - 평가 자료에 없는 인성, 진로, 성격, 태도 내용을 임의로 추가하지 않는다."""
+
+
+# 2026-06-21 공식 문서 확인 기준 기본 모델값.
+# 사용자는 ⑥ 생성 화면에서 모델명을 직접 수정할 수 있다.
+AI_PROVIDER_OPTIONS = ["ChatGPT", "Gemini", "Claude"]
+AI_DEFAULT_MODELS = {
+    "ChatGPT": "gpt-5.5",
+    "Gemini": "gemini-3.1-pro-preview",
+    "Claude": "claude-fable-5",
+}
+AI_SECRET_KEY_NAMES = {
+    "ChatGPT": "OPENAI_API_KEY",
+    "Gemini": "GEMINI_API_KEY",
+    "Claude": "ANTHROPIC_API_KEY",
+}
+
+
+def get_default_ai_model(provider: str) -> str:
+    provider = provider if provider in AI_DEFAULT_MODELS else "ChatGPT"
+    return AI_DEFAULT_MODELS[provider]
+
+
+def get_default_ai_key(provider: str) -> str:
+    secret_name = AI_SECRET_KEY_NAMES.get(provider, "OPENAI_API_KEY")
+    try:
+        return st.secrets.get(secret_name, "")
+    except Exception:
+        return ""
 
 
 MASTER_PROMPT = """너는 학교생활기록부 교과 세부능력 및 특기사항을 작성하는 교사 보조 도구이다.
@@ -269,6 +300,7 @@ def init_state():
             "student_ids": [],
             "index": 0,
             "log": [],
+            "ai_provider": "ChatGPT",
             "api_key": "",
             "model": "",
             "started_at": "",
@@ -543,7 +575,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260619-v48",
+        "version": "patched-20260621-v49",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1169,8 +1201,95 @@ def generate_with_openai(prompt, api_key, model):
         return response.output_text.strip()
 
     except Exception as e:
-        st.error(f"API 생성 중 오류가 발생했습니다: {e}")
+        st.error(f"ChatGPT API 생성 중 오류가 발생했습니다: {e}")
         return None
+
+
+def _post_json(url, headers, payload, timeout=90):
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = urllib_request.Request(url, data=data, headers=headers, method="POST")
+    try:
+        with urllib_request.urlopen(req, timeout=timeout) as response:
+            body = response.read().decode("utf-8")
+            return json.loads(body) if body else {}
+    except urllib_error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"HTTP {e.code}: {detail[:700]}") from e
+
+
+def generate_with_gemini(prompt, api_key, model):
+    if not api_key:
+        return None
+
+    try:
+        model_path = urllib_parse.quote(clean_text(model), safe="")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_path}:generateContent?key={urllib_parse.quote(api_key)}"
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": prompt}],
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.3,
+            },
+        }
+        data = _post_json(
+            url,
+            headers={"Content-Type": "application/json"},
+            payload=payload,
+        )
+        parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+        text = "".join([part.get("text", "") for part in parts if isinstance(part, dict)]).strip()
+        return text or None
+    except Exception as e:
+        st.error(f"Gemini API 생성 중 오류가 발생했습니다: {e}")
+        return None
+
+
+def generate_with_claude(prompt, api_key, model):
+    if not api_key:
+        return None
+
+    try:
+        payload = {
+            "model": model,
+            "max_tokens": 2000,
+            "temperature": 0.3,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+        }
+        data = _post_json(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+            },
+            payload=payload,
+        )
+        blocks = data.get("content", [])
+        text = "".join([block.get("text", "") for block in blocks if isinstance(block, dict) and block.get("type") == "text"]).strip()
+        return text or None
+    except Exception as e:
+        st.error(f"Claude API 생성 중 오류가 발생했습니다: {e}")
+        return None
+
+
+def generate_with_ai(prompt, ai_provider, api_key, model):
+    provider = ai_provider if ai_provider in AI_PROVIDER_OPTIONS else "ChatGPT"
+    model = clean_text(model) or get_default_ai_model(provider)
+
+    if provider == "Gemini":
+        return generate_with_gemini(prompt, api_key, model)
+    if provider == "Claude":
+        return generate_with_claude(prompt, api_key, model)
+    return generate_with_openai(prompt, api_key, model)
 
 
 def export_excel():
@@ -1944,7 +2063,7 @@ def build_sample_project_data():
         "results": {},
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "sample-project-v48",
+        "version": "sample-project-v49",
     }
 
 
@@ -3028,21 +3147,38 @@ if current_step == 5:
     if st.session_state.students.empty:
         st.warning("먼저 학생 명단을 입력하세요.")
     else:
-        try:
-            default_api_key = st.secrets.get("OPENAI_API_KEY", "")
-        except Exception:
-            default_api_key = ""
+        st.markdown("#### AI 선택 및 API 설정")
+        col_provider, col_model, col_key = st.columns([1.25, 1.7, 2.6], gap="small")
 
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            api_key = st.text_input(
-                "OpenAI API Key",
-                value=default_api_key,
-                type="password",
-                help="입력하지 않으면 API 없이 간단 조합 방식으로 생성됩니다.",
+        with col_provider:
+            ai_provider = st.selectbox(
+                "사용할 AI",
+                AI_PROVIDER_OPTIONS,
+                index=0,
+                help="생기부 문장을 생성할 AI 제공자를 선택합니다.",
             )
-        with col2:
-            model = st.text_input("모델명", value="gpt-4o-mini")
+
+        with col_model:
+            model = st.text_input(
+                "모델명",
+                value=get_default_ai_model(ai_provider),
+                key=f"ai_model_name_{ai_provider}",
+                help="접속 시점의 최신 기본 모델명을 넣어두었습니다. 필요하면 직접 수정할 수 있습니다.",
+            )
+
+        with col_key:
+            api_key = st.text_input(
+                f"{ai_provider} API Key",
+                value=get_default_ai_key(ai_provider),
+                type="password",
+                key=f"api_key_{ai_provider}",
+                help=f"Streamlit Secrets에는 {AI_SECRET_KEY_NAMES.get(ai_provider, 'OPENAI_API_KEY')} 이름으로 저장해둘 수 있습니다. 입력하지 않으면 API 없이 간단 조합 방식으로 생성됩니다.",
+            )
+
+        st.caption(
+            f"현재 기본 모델: {get_default_ai_model(ai_provider)} · "
+            "모델명 칸은 직접 수정할 수 있습니다. API 키는 화면에 표시되지 않는 암호 입력칸입니다."
+        )
 
         students = st.session_state.students.copy()
         student_labels = {
@@ -3063,7 +3199,7 @@ if current_step == 5:
                 generated = None
                 if api_key:
                     with st.spinner("API로 생성 중..."):
-                        generated = generate_with_openai(prompt, api_key, model)
+                        generated = generate_with_ai(prompt, ai_provider, api_key, model)
 
                 if not generated:
                     generated = fallback_generate(material)
@@ -3090,6 +3226,7 @@ if current_step == 5:
                         "student_ids": students["student_id"].tolist(),
                         "index": 0,
                         "log": [],
+                        "ai_provider": ai_provider,
                         "api_key": api_key,
                         "model": model,
                         "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -3158,7 +3295,12 @@ if current_step == 5:
 
                 generated = None
                 if job.get("api_key"):
-                    generated = generate_with_openai(prompt, job.get("api_key", ""), job.get("model", model))
+                    generated = generate_with_ai(
+                        prompt,
+                        job.get("ai_provider", ai_provider),
+                        job.get("api_key", ""),
+                        job.get("model", model),
+                    )
 
                 if not generated:
                     generated = fallback_generate(material)
