@@ -28,8 +28,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v47"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v47"
+APP_TITLE = "🍯 개꿀 생기부 v48"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260619-v48"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -543,7 +543,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260619-v47",
+        "version": "patched-20260619-v48",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1881,183 +1881,49 @@ def import_student_record_excel(uploaded_file):
 def build_sample_project_data():
     """
     사이드바의 샘플 데이터 불러오기 버튼에서 사용하는 내장 샘플 프로젝트.
-    실제 학생 정보가 아닌 가상 학생 3개 반과 임의 학생별 기록을 포함한다.
+    실제 학생 정보가 아닌 가상 학생 3개 반, 반별 10명과 임의 학생별 기록을 포함한다.
     """
-    assessments = [
-        {
-            "assessment_id": "assess_sample_matter",
-            "name": "물질의 특성을 활용하여 혼합물 분리하기",
-            "area": "물질 - (8) 물질의 특성",
-            "description": "[9과08-03] 물질의 특성을 이용하여 혼합물이 분리되는 원리를 이해하고, 이를 이용한 사례를 주변에서 찾을 수 있다.",
-            "order": 1,
-            "use": True,
-        },
-        {
-            "assessment_id": "assess_sample_photo",
-            "name": "환경 요인과 광합성의 관계를 알아보는 실험 설계하기",
-            "area": "생명 - (12) 식물과 에너지",
-            "description": "[9과12-01] 광합성 과정을 이해하고, 환경 요인과 광합성의 관계를 탐구하는 실험을 설계할 수 있다.",
-            "order": 2,
-            "use": True,
-        },
-    ]
-
-    items = [
-        {
-            "item_id": "item_sample_matter_comment",
-            "assessment_id": "assess_sample_matter",
-            "name": "물질의 특성을 혼합물 분리 과정과 연결 짓기",
-            "type": "comment",
-            "levels": [],
-            "rubrics": {},
-            "order": 1,
-        },
-        {
-            "item_id": "item_sample_matter_rubric",
-            "assessment_id": "assess_sample_matter",
-            "name": "혼합물 분리하기",
-            "type": "rubric",
-            "levels": ["A", "B", "C", "D", "E"],
-            "rubrics": {
-                "A": "우수한 수준으로 수행함",
-                "B": "대체로 적절하게 수행함",
-                "C": "일부 보완이 필요함",
-                "D": "기본적인 참여가 이루어짐",
-                "E": "지속적인 보완이 필요함",
-            },
-            "order": 2,
-        },
-        {
-            "item_id": "item_sample_report",
-            "assessment_id": "assess_sample_matter",
-            "name": "과학 탐구 보고서 작성하기",
-            "type": "rubric_plus",
-            "levels": ["A", "B", "C", "D", "E"],
-            "rubrics": {
-                "A": "우수한 수준으로 수행함",
-                "B": "대체로 적절하게 수행함",
-                "C": "일부 보완이 필요함",
-                "D": "기본적인 참여가 이루어짐",
-                "E": "지속적인 보완이 필요함",
-            },
-            "order": 3,
-        },
-        {
-            "item_id": "item_sample_variable",
-            "assessment_id": "assess_sample_photo",
-            "name": "환경요인과 광합성의 관계를 탐구하기 위한 적절한 변인 통제",
-            "type": "rubric",
-            "levels": ["A", "B", "C", "D", "E"],
-            "rubrics": {
-                "A": "우수한 수준으로 수행함",
-                "B": "대체로 적절하게 수행함",
-                "C": "일부 보완이 필요함",
-                "D": "기본적인 참여가 이루어짐",
-                "E": "지속적인 보완이 필요함",
-            },
-            "order": 1,
-        },
-        {
-            "item_id": "item_sample_process",
-            "assessment_id": "assess_sample_photo",
-            "name": "실험 과정",
-            "type": "rubric",
-            "levels": ["A", "B", "C", "D", "E"],
-            "rubrics": {
-                "A": "우수한 수준으로 수행함",
-                "B": "대체로 적절하게 수행함",
-                "C": "일부 보완이 필요함",
-                "D": "기본적인 참여가 이루어짐",
-                "E": "지속적인 보완이 필요함",
-            },
-            "order": 2,
-        },
-        {
-            "item_id": "item_sample_interpret",
-            "assessment_id": "assess_sample_photo",
-            "name": "자료 해석 및 결과 예측",
-            "type": "comment",
-            "levels": [],
-            "rubrics": {},
-            "order": 3,
-        },
-    ]
+    assessments = [{'assessment_id': 'assess_sample_matter', 'name': '물질의 특성을 활용하여 혼합물 분리하기', 'area': '물질 - (8) 물질의 특성', 'description': '[9과08-03] 물질의 특성을 이용하여 혼합물이 분리되는 원리를 이해하고, 이를 이용한 사례를 주변에서 찾을 수 있다.', 'order': 1, 'use': True}, {'assessment_id': 'assess_sample_photo', 'name': '환경 요인과 광합성의 관계를 알아보는 실험 설계하기', 'area': '생명 - (12) 식물과 에너지', 'description': '[9과12-01] 광합성 과정을 이해하고, 환경 요인과 광합성의 관계를 탐구하는 실험을 설계할 수 있다.', 'order': 2, 'use': True}]
+    items = [{'item_id': 'item_sample_matter_comment', 'assessment_id': 'assess_sample_matter', 'name': '물질의 특성을 혼합물 분리 과정과 연결 짓기', 'type': 'comment', 'levels': [], 'rubrics': {}, 'order': 1}, {'item_id': 'item_sample_matter_rubric', 'assessment_id': 'assess_sample_matter', 'name': '혼합물 분리하기', 'type': 'rubric', 'levels': ['A', 'B', 'C', 'D', 'E'], 'rubrics': {'A': '우수한 수준으로 수행함', 'B': '대체로 적절하게 수행함', 'C': '핵심 개념을 부분적으로 파악하여 수행함', 'D': '기본 절차를 중심으로 수행함', 'E': '기초 내용을 바탕으로 과제 수행 경험을 쌓음'}, 'order': 2}, {'item_id': 'item_sample_report', 'assessment_id': 'assess_sample_matter', 'name': '과학 탐구 보고서 작성하기', 'type': 'rubric_plus', 'levels': ['A', 'B', 'C', 'D', 'E'], 'rubrics': {'A': '우수한 수준으로 수행함', 'B': '대체로 적절하게 수행함', 'C': '핵심 개념을 부분적으로 파악하여 수행함', 'D': '기본 절차를 중심으로 수행함', 'E': '기초 내용을 바탕으로 과제 수행 경험을 쌓음'}, 'order': 3}, {'item_id': 'item_sample_variable', 'assessment_id': 'assess_sample_photo', 'name': '환경요인과 광합성의 관계를 탐구하기 위한 적절한 변인 통제', 'type': 'rubric', 'levels': ['A', 'B', 'C', 'D', 'E'], 'rubrics': {'A': '우수한 수준으로 수행함', 'B': '대체로 적절하게 수행함', 'C': '핵심 개념을 부분적으로 파악하여 수행함', 'D': '기본 절차를 중심으로 수행함', 'E': '기초 내용을 바탕으로 과제 수행 경험을 쌓음'}, 'order': 1}, {'item_id': 'item_sample_process', 'assessment_id': 'assess_sample_photo', 'name': '실험 과정', 'type': 'rubric', 'levels': ['A', 'B', 'C', 'D', 'E'], 'rubrics': {'A': '우수한 수준으로 수행함', 'B': '대체로 적절하게 수행함', 'C': '핵심 개념을 부분적으로 파악하여 수행함', 'D': '기본 절차를 중심으로 수행함', 'E': '기초 내용을 바탕으로 과제 수행 경험을 쌓음'}, 'order': 2}, {'item_id': 'item_sample_interpret', 'assessment_id': 'assess_sample_photo', 'name': '자료 해석 및 결과 예측', 'type': 'comment', 'levels': [], 'rubrics': {}, 'order': 3}]
+    sample_students = [{'class': '1', 'no': '1', 'name': '김민준', 'matter': '커피 여과 장면을 예로 들어 입자 크기 차이가 분리 방법 선택에 영향을 준다는 점을 설명함', 'report': '실험 조건을 표로 먼저 정리한 뒤 관찰 결과를 문장으로 옮겨 보고서의 구조를 분명하게 구성함', 'photo': '빛의 세기를 바꿀 때 물의 양과 잎의 크기를 일정하게 두어야 한다는 점을 스스로 지적함', 'levels': ('A', 'A', 'A', 'A')}, {'class': '1', 'no': '2', 'name': '박서연', 'matter': '바닷물에서 소금을 얻는 사례를 끌어와 증발과 끓음의 차이를 혼합물 분리 맥락에서 설명함', 'report': '결과를 그림으로 표현한 뒤 핵심 문장을 덧붙여 실험 과정을 시각적으로 정리함', 'photo': '광합성량을 직접 재기 어렵다는 점을 언급하고 산소 발생량을 관찰 지표로 삼는 방법을 제안함', 'levels': ('B', 'A', 'B', 'A')}, {'class': '1', 'no': '3', 'name': '최도윤', 'matter': '철가루와 모래 분리 사례에서 자석에 붙는 성질을 분리 기준으로 삼는 과정을 구체적으로 설명함', 'report': '보고서의 결론 부분에서 관찰 사실과 분리 원리를 연결하려는 시도가 잘 드러남', 'photo': '온도를 바꾸는 실험에서 빛의 세기까지 함께 변하면 결과 해석이 어려워진다는 점을 설명함', 'levels': ('A', 'B', 'A', 'B')}, {'class': '1', 'no': '4', 'name': '이하은', 'matter': '밀도 차이를 이용한 분리 사례를 찾아 물에 뜨고 가라앉는 현상과 연결하여 정리함', 'report': '실험 절차를 번호로 나누어 작성해 다른 사람이 따라 할 수 있는 형태로 보고서를 구성함', 'photo': '이산화 탄소 농도를 조절할 때 같은 식물 종을 사용해야 한다는 조건을 제시함', 'levels': ('B', 'B', 'B', 'B')}, {'class': '1', 'no': '5', 'name': '정우진', 'matter': '잉크의 색소 분리를 크로마토그래피와 연결하고 색소마다 이동 거리가 달라지는 이유를 질문함', 'report': '관찰 결과를 단순히 나열하지 않고 예상과 실제 결과를 비교하여 정리함', 'photo': '실험 결과가 예상과 다를 때 통제하지 못한 조건을 먼저 확인해야 한다는 점을 정리함', 'levels': ('C', 'A', 'C', 'B')}, {'class': '1', 'no': '6', 'name': '한지우', 'matter': '소금물과 모래 혼합물을 분리하는 순서를 여과와 증발의 조합으로 설명함', 'report': '실험 중 생긴 작은 오차를 따로 적어 결과 해석에 영향을 줄 수 있음을 나타냄', 'photo': '빛의 색이 달라질 때 광합성 정도가 달라질 수 있다는 가설을 세우고 비교 실험을 떠올림', 'levels': ('B', 'C', 'B', 'C')}, {'class': '1', 'no': '7', 'name': '오서준', 'matter': '분리 방법을 고를 때 용해도, 입자 크기, 자성 중 어떤 성질을 먼저 확인할지 순서화함', 'report': '자료를 표로 정리하는 데 강점을 보였고 결론에서 핵심 개념을 짧게 요약함', 'photo': '식물의 잎 수가 서로 다르면 실험 결과 비교가 공정하지 않을 수 있음을 설명함', 'levels': ('A', 'C', 'A', 'C')}, {'class': '1', 'no': '8', 'name': '윤채아', 'matter': '생활 속 정수기 필터를 예로 들어 여과가 모든 물질을 분리하는 방법은 아니라는 점을 설명함', 'report': '사진 자료와 관찰 문장을 함께 사용하여 실험 장면을 구체적으로 기록함', 'photo': '결과 예측에서 기포 수의 변화를 시간 간격별로 기록하는 방법을 제안함', 'levels': ('C', 'B', 'C', 'A')}, {'class': '1', 'no': '9', 'name': 'Kim Alex', 'matter': '혼합물 분리 방법을 고를 때 먼저 물질의 성질 목록을 만드는 방식으로 문제를 해결함', 'report': '영어 단어와 한글 설명을 함께 적어 개념어를 정리하고 보고서 용어를 정확히 쓰려는 모습을 보임', 'photo': '빛의 세기와 거리의 관계를 손전등 실험 상황으로 비유해 변인 설정을 설명함', 'levels': ('B', 'A', 'B', 'B')}, {'class': '1', 'no': '10', 'name': '임하준', 'matter': '증류가 끓는점 차이를 이용한다는 점을 물의 상태 변화와 연결하여 설명함', 'report': '실험 과정의 누락된 부분을 스스로 찾아 보충하며 보고서 흐름을 다듬음', 'photo': '실험군과 대조군을 구분해 광합성에 영향을 주는 요인을 비교하려는 관점을 보임', 'levels': ('D', 'B', 'D', 'B')}, {'class': '2', 'no': '1', 'name': '강민서', 'matter': '물과 기름이 섞이지 않는 현상을 밀도와 용해성의 차이로 구분하여 설명함', 'report': '실험 결과를 친구의 자료와 비교하고 차이가 생긴 원인을 조건 차이에서 찾으려 함', 'photo': '온도 조건을 바꿀 때 물의 양과 조명 거리를 일정하게 유지해야 함을 제시함', 'levels': ('A', 'A', 'B', 'A')}, {'class': '2', 'no': '2', 'name': '송예린', 'matter': '혼합물 분리 과정에서 한 가지 방법만 쓰기보다 여러 방법을 순서대로 조합할 수 있음을 설명함', 'report': '보고서의 제목과 소제목을 구분해 탐구 내용이 한눈에 보이도록 구성함', 'photo': '빛을 차단한 식물과 빛을 받은 식물을 비교하는 대조 실험을 구상함', 'levels': ('B', 'A', 'A', 'A')}, {'class': '2', 'no': '3', 'name': '장도현', 'matter': '물질의 특성을 기준으로 분류표를 만들어 혼합물 분리 방법을 선택하는 과정을 정리함', 'report': '실험 과정에서 관찰한 색 변화와 남은 물질의 차이를 근거로 결론을 작성함', 'photo': '광합성 결과를 잎의 색 변화만으로 판단하기 어렵다는 점을 말하고 추가 관찰 기준을 생각함', 'levels': ('A', 'B', 'A', 'B')}, {'class': '2', 'no': '4', 'name': '유나경', 'matter': '체 거름과 여과의 차이를 입자 크기와 장치의 차이로 비교하여 설명함', 'report': '탐구 결과를 친구에게 설명할 수 있도록 핵심 문장을 짧게 다시 정리함', 'photo': '실험 시간까지 통제해야 결과 비교가 가능하다는 점을 구체적인 예로 제시함', 'levels': ('C', 'A', 'C', 'A')}, {'class': '2', 'no': '5', 'name': '조현우', 'matter': '끓는점 차이를 이용한 분리 사례를 찾고 소금물 분리와 증류의 차이를 구분함', 'report': '관찰값이 예상과 다르게 나온 부분을 표시하고 가능한 이유를 두 가지로 나누어 적음', 'photo': '이산화 탄소 공급량을 달리하는 실험에서 같은 조명 조건을 유지하는 이유를 설명함', 'levels': ('B', 'C', 'B', 'B')}, {'class': '2', 'no': '6', 'name': '신아린', 'matter': '자석을 이용한 분리를 철가루 회수 사례와 연결하고 재활용 과정에 적용할 수 있음을 제시함', 'report': '실험 장치 그림에 화살표를 넣어 물질이 이동하거나 분리되는 흐름을 표현함', 'photo': '광합성에 필요한 조건을 빛, 물, 이산화 탄소로 나누고 각각을 변인으로 바꾸는 방법을 정리함', 'levels': ('A', 'C', 'A', 'C')}, {'class': '2', 'no': '7', 'name': '배준서', 'matter': '용해도 차이를 설명할 때 같은 온도 조건에서 비교해야 한다는 점을 언급함', 'report': '실험 후 남은 물질의 모습과 처음 혼합물의 모습을 비교하여 결과를 정리함', 'photo': '식물의 종류가 다르면 결과 비교가 어려워진다는 점을 통제 조건으로 제시함', 'levels': ('C', 'B', 'C', 'B')}, {'class': '2', 'no': '8', 'name': 'Park Lina', 'matter': '혼합물 분리 순서를 그림 카드처럼 배열해 여과 후 증발 과정이 필요한 이유를 설명함', 'report': '관찰 결과를 한글 문장으로 정리한 뒤 핵심 과학 용어를 따로 표시함', 'photo': '빛의 세기 조건을 숫자로 기록하면 비교가 더 분명해진다는 점을 제안함', 'levels': ('B', 'B', 'B', 'A')}, {'class': '2', 'no': '9', 'name': '문태오', 'matter': '혼합물 분리 방법을 음식 조리 과정과 연결해 생활 속 과학 사례로 설명함', 'report': '실험의 한계를 적고 다음 실험에서 바꾸어 볼 조건을 제시함', 'photo': '기포 수를 일정 시간마다 세어 그래프로 나타내면 경향을 보기 쉽다고 설명함', 'levels': ('D', 'B', 'D', 'C')}, {'class': '2', 'no': '10', 'name': '서지민', 'matter': '입자 크기 차이를 이용한 분리와 용해도 차이를 이용한 분리를 상황별로 구분함', 'report': '결과 정리에서 관찰 사실과 해석을 분리해 쓰려는 모습을 보임', 'photo': '광합성량을 비교할 때 시작 조건을 같게 맞추는 이유를 공정한 비교와 연결함', 'levels': ('B', 'D', 'B', 'D')}, {'class': '3', 'no': '1', 'name': '홍시우', 'matter': '해수 담수화 사례를 찾아 증발과 응축이 분리 과정에 함께 쓰일 수 있음을 설명함', 'report': '자료 조사 내용을 실험 결과와 구분하여 적고 자신의 관찰을 중심으로 결론을 정리함', 'photo': '광합성 실험에서 잎의 크기와 물의 양을 통제해야 한다는 점을 설계 조건에 포함함', 'levels': ('A', 'A', 'A', 'A')}, {'class': '3', 'no': '2', 'name': '권예준', 'matter': '분리 방법을 선택하기 전에 혼합물의 성분을 먼저 추정해야 함을 문제 해결 과정으로 제시함', 'report': '실험 결과를 표와 문장으로 함께 나타내어 보고서의 가독성을 높임', 'photo': '대조군을 설정하면 환경 요인의 영향을 더 분명하게 비교할 수 있음을 설명함', 'levels': ('B', 'A', 'B', 'A')}, {'class': '3', 'no': '3', 'name': '남서아', 'matter': '종이 크로마토그래피에서 색소가 이동한 거리를 비교하며 물질의 특성 차이를 설명함', 'report': '관찰 자료를 색깔, 위치, 남은 물질로 나누어 세부적으로 기록함', 'photo': '빛의 방향이 달라질 때 식물의 반응이 어떻게 달라질지 예상하고 관찰 방법을 제안함', 'levels': ('A', 'B', 'A', 'B')}, {'class': '3', 'no': '4', 'name': '구민재', 'matter': '모래와 소금 분리 과정을 직접 순서도로 그려 용해, 여과, 증발의 역할을 구분함', 'report': '실험 과정 중 실수하기 쉬운 부분을 표시하고 주의할 점을 덧붙임', 'photo': '온도 변화가 결과에 영향을 줄 수 있어 같은 장소에서 실험해야 한다는 점을 언급함', 'levels': ('C', 'A', 'C', 'A')}, {'class': '3', 'no': '5', 'name': '하은별', 'matter': '혼합물 분리 사례를 환경 정화와 연결하며 오염 물질을 분리하는 원리를 생각함', 'report': '보고서 결론에서 실험 결과가 처음 예상과 어떻게 달랐는지 비교함', 'photo': '광합성 조건을 바꾸는 실험에서 한 번에 하나의 요인만 바꾸어야 한다는 점을 설명함', 'levels': ('B', 'B', 'B', 'B')}, {'class': '3', 'no': '6', 'name': 'Choi Ryan', 'matter': '자성과 용해도 차이를 동시에 고려해 혼합물 분리 전략을 두 단계로 제시함', 'report': '영어로 적은 관찰 키워드를 한글 과학 용어와 연결하여 보고서에 정리함', 'photo': '광합성 실험에서 측정 기준을 미리 정해야 결과 비교가 가능하다는 점을 강조함', 'levels': ('A', 'C', 'A', 'B')}, {'class': '3', 'no': '7', 'name': '백다온', 'matter': '생활 속 체 거름 사례를 찾아 입자 크기가 다른 물질을 분리하는 원리를 설명함', 'report': '실험 사진을 바탕으로 각 단계에서 어떤 변화가 있었는지 순서대로 정리함', 'photo': '빛을 받는 시간과 세기를 구분하여 각각 다른 변인으로 볼 수 있음을 설명함', 'levels': ('C', 'B', 'C', 'C')}, {'class': '3', 'no': '8', 'name': '민서율', 'matter': '끓는점과 녹는점의 차이를 구분하며 증류가 가능한 상황을 예로 들어 설명함', 'report': '실험 결과의 핵심 수치를 찾아 표 제목과 단위를 함께 적음', 'photo': '기포 발생 정도를 일정한 시간 간격으로 관찰하는 방법을 구체적으로 제안함', 'levels': ('B', 'C', 'B', 'A')}, {'class': '3', 'no': '9', 'name': '노하윤', 'matter': '혼합물 분리 방법을 고르는 이유를 물질의 특성이라는 기준으로 다시 설명하려는 모습을 보임', 'report': '보고서에서 관찰 사실과 자신의 해석을 구분해 쓰며 과학적 표현을 다듬음', 'photo': '변인을 통제하지 않았을 때 결과 해석이 흔들릴 수 있음을 실험 예시와 연결함', 'levels': ('D', 'B', 'D', 'B')}, {'class': '3', 'no': '10', 'name': '차지호', 'matter': '여러 분리 방법 중 실험 상황에 맞는 방법을 고르기 위해 성질 차이를 비교함', 'report': '탐구 보고서의 결론을 짧게 정리하고 근거가 되는 관찰 내용을 덧붙임', 'photo': '광합성량을 비교하는 실험에서 동일한 식물 조건을 맞추는 이유를 설명함', 'levels': ('E', 'C', 'E', 'C')}]
 
     students = []
-    names_by_class = {
-        "1": ["가온", "나래", "다윤", "라온", "마루"],
-        "2": ["바다", "사랑", "아람", "이든", "지안"],
-        "3": ["하민", "서우", "도윤", "예준", "채원"],
-    }
-    for class_no, names in names_by_class.items():
-        for idx, name in enumerate(names, start=1):
-            students.append(
-                {
-                    "student_id": f"sample_stu_{class_no}_{idx:02d}",
-                    "학년": "2",
-                    "반": class_no,
-                    "번호": str(idx),
-                    "성명": f"가상{name}",
-                }
-            )
-
-    matter_comments = [
-        "소금과 모래의 성질 차이를 바탕으로 알맞은 분리 방법을 설명함",
-        "용해도와 입자 크기 차이를 활용해 혼합물 분리 과정을 정리함",
-        "분리 방법을 선택하는 과정에서 물질의 특성을 근거로 제시함",
-        "여과와 증발의 차이를 사례와 연결하여 설명하려는 모습을 보임",
-        "혼합물 분리 과정을 순서대로 정리하고 관찰 결과를 기록함",
-    ]
-    report_comments = [
-        "실험 결과를 표로 정리하고 분리 원리와 연결하여 해석함",
-        "탐구 목적과 과정을 구분하여 보고서의 흐름을 분명하게 구성함",
-        "관찰 사실을 중심으로 결과를 정리하고 해석 근거를 보충함",
-        "실험 절차를 순서에 맞게 정리하며 보고서 형식을 갖춤",
-        "활동 내용을 바탕으로 보고서의 기본 항목을 채워 감",
-    ]
-    photo_comments = [
-        "빛의 세기 변화에 따른 광합성량 차이를 예상하고 근거를 제시함",
-        "이산화 탄소 농도와 광합성 결과의 관계를 실험 조건과 연결함",
-        "온도 조건 변화가 실험 결과에 미칠 영향을 자료와 연결하여 설명함",
-        "통제해야 할 조건을 확인하고 결과 해석과 연결하려는 과정을 보임",
-        "관찰 결과를 바탕으로 광합성에 영향을 주는 요인을 정리함",
-    ]
-
-    level_patterns = [
-        ("A", "A", "A", "A"),
-        ("B", "A", "B", "A"),
-        ("C", "B", "C", "B"),
-        ("D", "B", "D", "C"),
-        ("E", "C", "E", "D"),
-    ]
-
     records = {}
-    for idx, student in enumerate(students):
-        sid = student["student_id"]
-        pattern = level_patterns[idx % len(level_patterns)]
+    for row in sample_students:
+        sid = f"sample_stu_{row['class']}_{int(row['no']):02d}"
+        students.append(
+            {
+                "student_id": sid,
+                "학년": "2",
+                "반": row["class"],
+                "번호": row["no"],
+                "성명": row["name"],
+            }
+        )
+        level_matter, level_report, level_variable, level_process = row["levels"]
         records[f"{sid}::item_sample_matter_comment"] = {
             "level": "",
-            "comment": matter_comments[idx % len(matter_comments)],
+            "comment": row["matter"],
         }
         records[f"{sid}::item_sample_matter_rubric"] = {
-            "level": pattern[0],
+            "level": level_matter,
             "comment": "",
         }
         records[f"{sid}::item_sample_report"] = {
-            "level": pattern[1],
-            "comment": report_comments[idx % len(report_comments)],
+            "level": level_report,
+            "comment": row["report"],
         }
         records[f"{sid}::item_sample_variable"] = {
-            "level": pattern[2],
+            "level": level_variable,
             "comment": "",
         }
         records[f"{sid}::item_sample_process"] = {
-            "level": pattern[3],
+            "level": level_process,
             "comment": "",
         }
         records[f"{sid}::item_sample_interpret"] = {
             "level": "",
-            "comment": photo_comments[idx % len(photo_comments)],
+            "comment": row["photo"],
         }
 
     return {
@@ -2078,7 +1944,7 @@ def build_sample_project_data():
         "results": {},
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "sample-project-v47",
+        "version": "sample-project-v48",
     }
 
 
