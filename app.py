@@ -32,8 +32,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v57"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v57"
+APP_TITLE = "🍯 개꿀 생기부 v58"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v58"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -829,7 +829,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260621-v57",
+        "version": "patched-20260621-v58",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -2256,69 +2256,1224 @@ def build_sample_project_data():
     사이드바의 샘플 데이터 불러오기 버튼에서 사용하는 내장 샘플 프로젝트.
     실제 학생 정보가 아닌 가상 학생 3개 반, 반별 10명과 임의 학생별 기록을 포함한다.
     """
-    assessments = [{'assessment_id': 'assess_sample_matter', 'name': '물질의 특성을 활용하여 혼합물 분리하기', 'area': '물질 - (8) 물질의 특성', 'description': '[9과08-03] 물질의 특성을 이용하여 혼합물이 분리되는 원리를 이해하고, 이를 이용한 사례를 주변에서 찾을 수 있다.', 'order': 1, 'use': True}, {'assessment_id': 'assess_sample_photo', 'name': '환경 요인과 광합성의 관계를 알아보는 실험 설계하기', 'area': '생명 - (12) 식물과 에너지', 'description': '[9과12-01] 광합성 과정을 이해하고, 환경 요인과 광합성의 관계를 탐구하는 실험을 설계할 수 있다.', 'order': 2, 'use': True}]
-    items = [{'item_id': 'item_sample_matter_comment', 'assessment_id': 'assess_sample_matter', 'name': '물질의 특성을 혼합물 분리 과정과 연결 짓기', 'type': 'comment', 'levels': [], 'rubrics': {}, 'order': 1}, {'item_id': 'item_sample_matter_rubric', 'assessment_id': 'assess_sample_matter', 'name': '혼합물 분리하기', 'type': 'rubric', 'levels': ['A', 'B', 'C', 'D', 'E'], 'rubrics': {'A': '우수한 수준으로 수행함', 'B': '대체로 적절하게 수행함', 'C': '핵심 개념을 부분적으로 파악하여 수행함', 'D': '기본 절차를 중심으로 수행함', 'E': '기초 내용을 바탕으로 과제 수행 경험을 쌓음'}, 'order': 2}, {'item_id': 'item_sample_report', 'assessment_id': 'assess_sample_matter', 'name': '과학 탐구 보고서 작성하기', 'type': 'rubric_plus', 'levels': ['A', 'B', 'C', 'D', 'E'], 'rubrics': {'A': '우수한 수준으로 수행함', 'B': '대체로 적절하게 수행함', 'C': '핵심 개념을 부분적으로 파악하여 수행함', 'D': '기본 절차를 중심으로 수행함', 'E': '기초 내용을 바탕으로 과제 수행 경험을 쌓음'}, 'order': 3}, {'item_id': 'item_sample_variable', 'assessment_id': 'assess_sample_photo', 'name': '환경요인과 광합성의 관계를 탐구하기 위한 적절한 변인 통제', 'type': 'rubric', 'levels': ['A', 'B', 'C', 'D', 'E'], 'rubrics': {'A': '우수한 수준으로 수행함', 'B': '대체로 적절하게 수행함', 'C': '핵심 개념을 부분적으로 파악하여 수행함', 'D': '기본 절차를 중심으로 수행함', 'E': '기초 내용을 바탕으로 과제 수행 경험을 쌓음'}, 'order': 1}, {'item_id': 'item_sample_process', 'assessment_id': 'assess_sample_photo', 'name': '실험 과정', 'type': 'rubric', 'levels': ['A', 'B', 'C', 'D', 'E'], 'rubrics': {'A': '우수한 수준으로 수행함', 'B': '대체로 적절하게 수행함', 'C': '핵심 개념을 부분적으로 파악하여 수행함', 'D': '기본 절차를 중심으로 수행함', 'E': '기초 내용을 바탕으로 과제 수행 경험을 쌓음'}, 'order': 2}, {'item_id': 'item_sample_interpret', 'assessment_id': 'assess_sample_photo', 'name': '자료 해석 및 결과 예측', 'type': 'comment', 'levels': [], 'rubrics': {}, 'order': 3}]
-    sample_students = [{'class': '1', 'no': '1', 'name': '김민준', 'matter': '커피 여과 장면을 예로 들어 입자 크기 차이가 분리 방법 선택에 영향을 준다는 점을 설명함', 'report': '실험 조건을 표로 먼저 정리한 뒤 관찰 결과를 문장으로 옮겨 보고서의 구조를 분명하게 구성함', 'photo': '빛의 세기를 바꿀 때 물의 양과 잎의 크기를 일정하게 두어야 한다는 점을 스스로 지적함', 'levels': ('A', 'A', 'A', 'A')}, {'class': '1', 'no': '2', 'name': '박서연', 'matter': '바닷물에서 소금을 얻는 사례를 끌어와 증발과 끓음의 차이를 혼합물 분리 맥락에서 설명함', 'report': '결과를 그림으로 표현한 뒤 핵심 문장을 덧붙여 실험 과정을 시각적으로 정리함', 'photo': '광합성량을 직접 재기 어렵다는 점을 언급하고 산소 발생량을 관찰 지표로 삼는 방법을 제안함', 'levels': ('B', 'A', 'B', 'A')}, {'class': '1', 'no': '3', 'name': '최도윤', 'matter': '철가루와 모래 분리 사례에서 자석에 붙는 성질을 분리 기준으로 삼는 과정을 구체적으로 설명함', 'report': '보고서의 결론 부분에서 관찰 사실과 분리 원리를 연결하려는 시도가 잘 드러남', 'photo': '온도를 바꾸는 실험에서 빛의 세기까지 함께 변하면 결과 해석이 어려워진다는 점을 설명함', 'levels': ('A', 'B', 'A', 'B')}, {'class': '1', 'no': '4', 'name': '이하은', 'matter': '밀도 차이를 이용한 분리 사례를 찾아 물에 뜨고 가라앉는 현상과 연결하여 정리함', 'report': '실험 절차를 번호로 나누어 작성해 다른 사람이 따라 할 수 있는 형태로 보고서를 구성함', 'photo': '이산화 탄소 농도를 조절할 때 같은 식물 종을 사용해야 한다는 조건을 제시함', 'levels': ('B', 'B', 'B', 'B')}, {'class': '1', 'no': '5', 'name': '정우진', 'matter': '잉크의 색소 분리를 크로마토그래피와 연결하고 색소마다 이동 거리가 달라지는 이유를 질문함', 'report': '관찰 결과를 단순히 나열하지 않고 예상과 실제 결과를 비교하여 정리함', 'photo': '실험 결과가 예상과 다를 때 통제하지 못한 조건을 먼저 확인해야 한다는 점을 정리함', 'levels': ('C', 'A', 'C', 'B')}, {'class': '1', 'no': '6', 'name': '한지우', 'matter': '소금물과 모래 혼합물을 분리하는 순서를 여과와 증발의 조합으로 설명함', 'report': '실험 중 생긴 작은 오차를 따로 적어 결과 해석에 영향을 줄 수 있음을 나타냄', 'photo': '빛의 색이 달라질 때 광합성 정도가 달라질 수 있다는 가설을 세우고 비교 실험을 떠올림', 'levels': ('B', 'C', 'B', 'C')}, {'class': '1', 'no': '7', 'name': '오서준', 'matter': '분리 방법을 고를 때 용해도, 입자 크기, 자성 중 어떤 성질을 먼저 확인할지 순서화함', 'report': '자료를 표로 정리하는 데 강점을 보였고 결론에서 핵심 개념을 짧게 요약함', 'photo': '식물의 잎 수가 서로 다르면 실험 결과 비교가 공정하지 않을 수 있음을 설명함', 'levels': ('A', 'C', 'A', 'C')}, {'class': '1', 'no': '8', 'name': '윤채아', 'matter': '생활 속 정수기 필터를 예로 들어 여과가 모든 물질을 분리하는 방법은 아니라는 점을 설명함', 'report': '사진 자료와 관찰 문장을 함께 사용하여 실험 장면을 구체적으로 기록함', 'photo': '결과 예측에서 기포 수의 변화를 시간 간격별로 기록하는 방법을 제안함', 'levels': ('C', 'B', 'C', 'A')}, {'class': '1', 'no': '9', 'name': 'Kim Alex', 'matter': '혼합물 분리 방법을 고를 때 먼저 물질의 성질 목록을 만드는 방식으로 문제를 해결함', 'report': '영어 단어와 한글 설명을 함께 적어 개념어를 정리하고 보고서 용어를 정확히 쓰려는 모습을 보임', 'photo': '빛의 세기와 거리의 관계를 손전등 실험 상황으로 비유해 변인 설정을 설명함', 'levels': ('B', 'A', 'B', 'B')}, {'class': '1', 'no': '10', 'name': '임하준', 'matter': '증류가 끓는점 차이를 이용한다는 점을 물의 상태 변화와 연결하여 설명함', 'report': '실험 과정의 누락된 부분을 스스로 찾아 보충하며 보고서 흐름을 다듬음', 'photo': '실험군과 대조군을 구분해 광합성에 영향을 주는 요인을 비교하려는 관점을 보임', 'levels': ('D', 'B', 'D', 'B')}, {'class': '2', 'no': '1', 'name': '강민서', 'matter': '물과 기름이 섞이지 않는 현상을 밀도와 용해성의 차이로 구분하여 설명함', 'report': '실험 결과를 친구의 자료와 비교하고 차이가 생긴 원인을 조건 차이에서 찾으려 함', 'photo': '온도 조건을 바꿀 때 물의 양과 조명 거리를 일정하게 유지해야 함을 제시함', 'levels': ('A', 'A', 'B', 'A')}, {'class': '2', 'no': '2', 'name': '송예린', 'matter': '혼합물 분리 과정에서 한 가지 방법만 쓰기보다 여러 방법을 순서대로 조합할 수 있음을 설명함', 'report': '보고서의 제목과 소제목을 구분해 탐구 내용이 한눈에 보이도록 구성함', 'photo': '빛을 차단한 식물과 빛을 받은 식물을 비교하는 대조 실험을 구상함', 'levels': ('B', 'A', 'A', 'A')}, {'class': '2', 'no': '3', 'name': '장도현', 'matter': '물질의 특성을 기준으로 분류표를 만들어 혼합물 분리 방법을 선택하는 과정을 정리함', 'report': '실험 과정에서 관찰한 색 변화와 남은 물질의 차이를 근거로 결론을 작성함', 'photo': '광합성 결과를 잎의 색 변화만으로 판단하기 어렵다는 점을 말하고 추가 관찰 기준을 생각함', 'levels': ('A', 'B', 'A', 'B')}, {'class': '2', 'no': '4', 'name': '유나경', 'matter': '체 거름과 여과의 차이를 입자 크기와 장치의 차이로 비교하여 설명함', 'report': '탐구 결과를 친구에게 설명할 수 있도록 핵심 문장을 짧게 다시 정리함', 'photo': '실험 시간까지 통제해야 결과 비교가 가능하다는 점을 구체적인 예로 제시함', 'levels': ('C', 'A', 'C', 'A')}, {'class': '2', 'no': '5', 'name': '조현우', 'matter': '끓는점 차이를 이용한 분리 사례를 찾고 소금물 분리와 증류의 차이를 구분함', 'report': '관찰값이 예상과 다르게 나온 부분을 표시하고 가능한 이유를 두 가지로 나누어 적음', 'photo': '이산화 탄소 공급량을 달리하는 실험에서 같은 조명 조건을 유지하는 이유를 설명함', 'levels': ('B', 'C', 'B', 'B')}, {'class': '2', 'no': '6', 'name': '신아린', 'matter': '자석을 이용한 분리를 철가루 회수 사례와 연결하고 재활용 과정에 적용할 수 있음을 제시함', 'report': '실험 장치 그림에 화살표를 넣어 물질이 이동하거나 분리되는 흐름을 표현함', 'photo': '광합성에 필요한 조건을 빛, 물, 이산화 탄소로 나누고 각각을 변인으로 바꾸는 방법을 정리함', 'levels': ('A', 'C', 'A', 'C')}, {'class': '2', 'no': '7', 'name': '배준서', 'matter': '용해도 차이를 설명할 때 같은 온도 조건에서 비교해야 한다는 점을 언급함', 'report': '실험 후 남은 물질의 모습과 처음 혼합물의 모습을 비교하여 결과를 정리함', 'photo': '식물의 종류가 다르면 결과 비교가 어려워진다는 점을 통제 조건으로 제시함', 'levels': ('C', 'B', 'C', 'B')}, {'class': '2', 'no': '8', 'name': 'Park Lina', 'matter': '혼합물 분리 순서를 그림 카드처럼 배열해 여과 후 증발 과정이 필요한 이유를 설명함', 'report': '관찰 결과를 한글 문장으로 정리한 뒤 핵심 과학 용어를 따로 표시함', 'photo': '빛의 세기 조건을 숫자로 기록하면 비교가 더 분명해진다는 점을 제안함', 'levels': ('B', 'B', 'B', 'A')}, {'class': '2', 'no': '9', 'name': '문태오', 'matter': '혼합물 분리 방법을 음식 조리 과정과 연결해 생활 속 과학 사례로 설명함', 'report': '실험의 한계를 적고 다음 실험에서 바꾸어 볼 조건을 제시함', 'photo': '기포 수를 일정 시간마다 세어 그래프로 나타내면 경향을 보기 쉽다고 설명함', 'levels': ('D', 'B', 'D', 'C')}, {'class': '2', 'no': '10', 'name': '서지민', 'matter': '입자 크기 차이를 이용한 분리와 용해도 차이를 이용한 분리를 상황별로 구분함', 'report': '결과 정리에서 관찰 사실과 해석을 분리해 쓰려는 모습을 보임', 'photo': '광합성량을 비교할 때 시작 조건을 같게 맞추는 이유를 공정한 비교와 연결함', 'levels': ('B', 'D', 'B', 'D')}, {'class': '3', 'no': '1', 'name': '홍시우', 'matter': '해수 담수화 사례를 찾아 증발과 응축이 분리 과정에 함께 쓰일 수 있음을 설명함', 'report': '자료 조사 내용을 실험 결과와 구분하여 적고 자신의 관찰을 중심으로 결론을 정리함', 'photo': '광합성 실험에서 잎의 크기와 물의 양을 통제해야 한다는 점을 설계 조건에 포함함', 'levels': ('A', 'A', 'A', 'A')}, {'class': '3', 'no': '2', 'name': '권예준', 'matter': '분리 방법을 선택하기 전에 혼합물의 성분을 먼저 추정해야 함을 문제 해결 과정으로 제시함', 'report': '실험 결과를 표와 문장으로 함께 나타내어 보고서의 가독성을 높임', 'photo': '대조군을 설정하면 환경 요인의 영향을 더 분명하게 비교할 수 있음을 설명함', 'levels': ('B', 'A', 'B', 'A')}, {'class': '3', 'no': '3', 'name': '남서아', 'matter': '종이 크로마토그래피에서 색소가 이동한 거리를 비교하며 물질의 특성 차이를 설명함', 'report': '관찰 자료를 색깔, 위치, 남은 물질로 나누어 세부적으로 기록함', 'photo': '빛의 방향이 달라질 때 식물의 반응이 어떻게 달라질지 예상하고 관찰 방법을 제안함', 'levels': ('A', 'B', 'A', 'B')}, {'class': '3', 'no': '4', 'name': '구민재', 'matter': '모래와 소금 분리 과정을 직접 순서도로 그려 용해, 여과, 증발의 역할을 구분함', 'report': '실험 과정 중 실수하기 쉬운 부분을 표시하고 주의할 점을 덧붙임', 'photo': '온도 변화가 결과에 영향을 줄 수 있어 같은 장소에서 실험해야 한다는 점을 언급함', 'levels': ('C', 'A', 'C', 'A')}, {'class': '3', 'no': '5', 'name': '하은별', 'matter': '혼합물 분리 사례를 환경 정화와 연결하며 오염 물질을 분리하는 원리를 생각함', 'report': '보고서 결론에서 실험 결과가 처음 예상과 어떻게 달랐는지 비교함', 'photo': '광합성 조건을 바꾸는 실험에서 한 번에 하나의 요인만 바꾸어야 한다는 점을 설명함', 'levels': ('B', 'B', 'B', 'B')}, {'class': '3', 'no': '6', 'name': 'Choi Ryan', 'matter': '자성과 용해도 차이를 동시에 고려해 혼합물 분리 전략을 두 단계로 제시함', 'report': '영어로 적은 관찰 키워드를 한글 과학 용어와 연결하여 보고서에 정리함', 'photo': '광합성 실험에서 측정 기준을 미리 정해야 결과 비교가 가능하다는 점을 강조함', 'levels': ('A', 'C', 'A', 'B')}, {'class': '3', 'no': '7', 'name': '백다온', 'matter': '생활 속 체 거름 사례를 찾아 입자 크기가 다른 물질을 분리하는 원리를 설명함', 'report': '실험 사진을 바탕으로 각 단계에서 어떤 변화가 있었는지 순서대로 정리함', 'photo': '빛을 받는 시간과 세기를 구분하여 각각 다른 변인으로 볼 수 있음을 설명함', 'levels': ('C', 'B', 'C', 'C')}, {'class': '3', 'no': '8', 'name': '민서율', 'matter': '끓는점과 녹는점의 차이를 구분하며 증류가 가능한 상황을 예로 들어 설명함', 'report': '실험 결과의 핵심 수치를 찾아 표 제목과 단위를 함께 적음', 'photo': '기포 발생 정도를 일정한 시간 간격으로 관찰하는 방법을 구체적으로 제안함', 'levels': ('B', 'C', 'B', 'A')}, {'class': '3', 'no': '9', 'name': '노하윤', 'matter': '혼합물 분리 방법을 고르는 이유를 물질의 특성이라는 기준으로 다시 설명하려는 모습을 보임', 'report': '보고서에서 관찰 사실과 자신의 해석을 구분해 쓰며 과학적 표현을 다듬음', 'photo': '변인을 통제하지 않았을 때 결과 해석이 흔들릴 수 있음을 실험 예시와 연결함', 'levels': ('D', 'B', 'D', 'B')}, {'class': '3', 'no': '10', 'name': '차지호', 'matter': '여러 분리 방법 중 실험 상황에 맞는 방법을 고르기 위해 성질 차이를 비교함', 'report': '탐구 보고서의 결론을 짧게 정리하고 근거가 되는 관찰 내용을 덧붙임', 'photo': '광합성량을 비교하는 실험에서 동일한 식물 조건을 맞추는 이유를 설명함', 'levels': ('E', 'C', 'E', 'C')}]
-
-    students = []
-    records = {}
-    for row in sample_students:
-        sid = f"sample_stu_{row['class']}_{int(row['no']):02d}"
-        students.append(
-            {
-                "student_id": sid,
-                "학년": "2",
-                "반": row["class"],
-                "번호": row["no"],
-                "성명": row["name"],
-            }
-        )
-        level_matter, level_report, level_variable, level_process = row["levels"]
-        records[f"{sid}::item_sample_matter_comment"] = {
-            "level": "",
-            "comment": row["matter"],
-        }
-        records[f"{sid}::item_sample_matter_rubric"] = {
-            "level": level_matter,
-            "comment": "",
-        }
-        records[f"{sid}::item_sample_report"] = {
-            "level": level_report,
-            "comment": row["report"],
-        }
-        records[f"{sid}::item_sample_variable"] = {
-            "level": level_variable,
-            "comment": "",
-        }
-        records[f"{sid}::item_sample_process"] = {
-            "level": level_process,
-            "comment": "",
-        }
-        records[f"{sid}::item_sample_interpret"] = {
-            "level": "",
-            "comment": row["photo"],
-        }
-
-    return {
-        "settings": {
-            "school_year": "2026",
-            "semester": "1학기",
-            "school_level": "중학교",
-            "grade": "2",
-            "subject": "과학",
-            "target_bytes_min": 700,
-            "target_bytes_max": 800,
-            "custom_rules": "- 꾸며내지 말 것\n- 교사의 관찰이 드러나도록 할 것",
-        },
-        "students": students,
-        "assessments": assessments,
-        "items": items,
-        "records": records,
-        "results": {},
-        "saved_at": datetime.now().isoformat(timespec="seconds"),
-        "app": "개꿀 생기부",
-        "version": "sample-project-v57",
+    data = json.loads(r'''{
+  "settings": {
+    "school_year": "2026",
+    "semester": "1학기",
+    "school_level": "고등학교",
+    "grade": "2",
+    "subject": "통합과학",
+    "target_bytes_min": 700,
+    "target_bytes_max": 800,
+    "custom_rules": "- 꾸며내지 말 것
+- 교사의 관찰이 드러나도록 할 것"
+  },
+  "students": [
+    {
+      "student_id": "sample_stu_1_01",
+      "학년": "2",
+      "반": "1",
+      "번호": "1",
+      "성명": "김민준"
+    },
+    {
+      "student_id": "sample_stu_1_02",
+      "학년": "2",
+      "반": "1",
+      "번호": "2",
+      "성명": "박서연"
+    },
+    {
+      "student_id": "sample_stu_1_03",
+      "학년": "2",
+      "반": "1",
+      "번호": "3",
+      "성명": "최도윤"
+    },
+    {
+      "student_id": "sample_stu_1_04",
+      "학년": "2",
+      "반": "1",
+      "번호": "4",
+      "성명": "이하은"
+    },
+    {
+      "student_id": "sample_stu_1_05",
+      "학년": "2",
+      "반": "1",
+      "번호": "5",
+      "성명": "정우진"
+    },
+    {
+      "student_id": "sample_stu_1_06",
+      "학년": "2",
+      "반": "1",
+      "번호": "6",
+      "성명": "한지우"
+    },
+    {
+      "student_id": "sample_stu_1_07",
+      "학년": "2",
+      "반": "1",
+      "번호": "7",
+      "성명": "오서준"
+    },
+    {
+      "student_id": "sample_stu_1_08",
+      "학년": "2",
+      "반": "1",
+      "번호": "8",
+      "성명": "윤채아"
+    },
+    {
+      "student_id": "sample_stu_1_09",
+      "학년": "2",
+      "반": "1",
+      "번호": "9",
+      "성명": "Kim Alex"
+    },
+    {
+      "student_id": "sample_stu_1_10",
+      "학년": "2",
+      "반": "1",
+      "번호": "10",
+      "성명": "임하준"
+    },
+    {
+      "student_id": "sample_stu_2_01",
+      "학년": "2",
+      "반": "2",
+      "번호": "1",
+      "성명": "강민서"
+    },
+    {
+      "student_id": "sample_stu_2_02",
+      "학년": "2",
+      "반": "2",
+      "번호": "2",
+      "성명": "송예린"
+    },
+    {
+      "student_id": "sample_stu_2_03",
+      "학년": "2",
+      "반": "2",
+      "번호": "3",
+      "성명": "장도현"
+    },
+    {
+      "student_id": "sample_stu_2_04",
+      "학년": "2",
+      "반": "2",
+      "번호": "4",
+      "성명": "유나경"
+    },
+    {
+      "student_id": "sample_stu_2_05",
+      "학년": "2",
+      "반": "2",
+      "번호": "5",
+      "성명": "조현우"
+    },
+    {
+      "student_id": "sample_stu_2_06",
+      "학년": "2",
+      "반": "2",
+      "번호": "6",
+      "성명": "신아린"
+    },
+    {
+      "student_id": "sample_stu_2_07",
+      "학년": "2",
+      "반": "2",
+      "번호": "7",
+      "성명": "배준서"
+    },
+    {
+      "student_id": "sample_stu_2_08",
+      "학년": "2",
+      "반": "2",
+      "번호": "8",
+      "성명": "Park Lina"
+    },
+    {
+      "student_id": "sample_stu_2_09",
+      "학년": "2",
+      "반": "2",
+      "번호": "9",
+      "성명": "문태오"
+    },
+    {
+      "student_id": "sample_stu_2_10",
+      "학년": "2",
+      "반": "2",
+      "번호": "10",
+      "성명": "서지민"
+    },
+    {
+      "student_id": "sample_stu_3_01",
+      "학년": "2",
+      "반": "3",
+      "번호": "1",
+      "성명": "홍시우"
+    },
+    {
+      "student_id": "sample_stu_3_02",
+      "학년": "2",
+      "반": "3",
+      "번호": "2",
+      "성명": "권예준"
+    },
+    {
+      "student_id": "sample_stu_3_03",
+      "학년": "2",
+      "반": "3",
+      "번호": "3",
+      "성명": "남서아"
+    },
+    {
+      "student_id": "sample_stu_3_04",
+      "학년": "2",
+      "반": "3",
+      "번호": "4",
+      "성명": "구민재"
+    },
+    {
+      "student_id": "sample_stu_3_05",
+      "학년": "2",
+      "반": "3",
+      "번호": "5",
+      "성명": "하은별"
+    },
+    {
+      "student_id": "sample_stu_3_06",
+      "학년": "2",
+      "반": "3",
+      "번호": "6",
+      "성명": "Choi Ryan"
+    },
+    {
+      "student_id": "sample_stu_3_07",
+      "학년": "2",
+      "반": "3",
+      "번호": "7",
+      "성명": "백다온"
+    },
+    {
+      "student_id": "sample_stu_3_08",
+      "학년": "2",
+      "반": "3",
+      "번호": "8",
+      "성명": "민서율"
+    },
+    {
+      "student_id": "sample_stu_3_09",
+      "학년": "2",
+      "반": "3",
+      "번호": "9",
+      "성명": "노하윤"
+    },
+    {
+      "student_id": "sample_stu_3_10",
+      "학년": "2",
+      "반": "3",
+      "번호": "10",
+      "성명": "차지호"
     }
+  ],
+  "assessments": [
+    {
+      "assessment_id": "assess_feaff4e0",
+      "name": "우리 주변의 다양한 물질 탐구하기",
+      "area": "Ⅰ. 물질과 규칙성",
+      "description": "[10통과01-03]세상을 이루는 물질은 원소들로 이루어져 있으며, 원소들의 성질이 주기성을 나타내는 현상을 통해 자연의 규칙성을찾아낼 수 있다.
+[10통과01-04]지구와 생명체를 구성하는 주요 원소들이 결합을 형성하는 이유와 원소들의 성질에 따라 형성되는 결합의 종류를 추론할 수 있다.
+
+수행 평가 요약
+우리 주변의 흥미로운 물질 3가지를 조사하여 특징 및 구성 원소의 배열을 이해하고 주어진 조건에 맞게 원자 결합을 비유적으로 표현하기",
+      "order": 1,
+      "use": true
+    },
+    {
+      "assessment_id": "assess_7289a43c",
+      "name": "중력을 받는 물체의 운동 탐구",
+      "area": "Ⅱ. 시스템과 상호 작용",
+      "description": "[10통과03-01]자유 낙하와 수평으로 던진 물체의 운동을 이용하여 중력의 작용에 의한 역학적 시스템을 설명할 수 있다.
+
+수행 평가 요약
+중력을 받는 물체가 자유 낙하할 때와 수평 방향으로 던졌을 때 운동을 분석하고 중력가속도를 측정하기",
+      "order": 2,
+      "use": true
+    }
+  ],
+  "items": [
+    {
+      "item_id": "item_03972701",
+      "assessment_id": "assess_feaff4e0",
+      "name": "물질 선정과 특징",
+      "type": "rubric",
+      "levels": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "rubrics": {
+        "A": "화합물의 종류와 선정 이유를 분명하게 밝히고 그 특징에 대해 명확하게 서술함",
+        "B": "화합물의 종류와 선정 이유 및 특징을 대부분 명확하게 서술함",
+        "C": "화합물의 종류와 선정 이유 및 특징을 일부만 명확하게 서술함",
+        "D": "화합물의 선정 이유와 특징 모두 미흡하게 설명함"
+      },
+      "order": 1
+    },
+    {
+      "item_id": "item_95d74cad",
+      "assessment_id": "assess_feaff4e0",
+      "name": "결합 종류와 원자 배치 모형",
+      "type": "rubric",
+      "levels": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E"
+      ],
+      "rubrics": {
+        "A": "결합 종류를 분명하게 밝히고 원자 배치 모형 명확하게 제시함",
+        "B": "결합 종류와 원자 배치 모형을 대부분 명확하게 제시함",
+        "C": "결합 종류와 원자 배치 모형을 일부만 명확하게 제시함",
+        "D": "결합 종류와 원자 배치 모형 모두 미흡하게 제시함",
+        "E": "제출하지 않음. (이 영역 작성 X)"
+      },
+      "order": 2
+    },
+    {
+      "item_id": "item_f41fa21a",
+      "assessment_id": "assess_feaff4e0",
+      "name": "화학 결합 비유적 표현",
+      "type": "rubric_plus",
+      "levels": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "rubrics": {
+        "A": "화학 결합을 과학적 원리가 드러나도록 그림으로 표현하고 담긴 의도를 적절하게 설명함",
+        "B": "화학 결합을 그림으로 표현하고 그림에 담긴 의도를 적절하게 설명하지 못했으나 과학적인 원리가 잘 표현됨",
+        "C": "화학 결합을 그림으로 표현하고 그림에 담긴 의도를 적절하게 설명하였으나 과학적인 원리가 잘 표현하지 못함",
+        "D": "화학 결합을 그린 그림 및 그림에 담긴 의도 모두 미흡하게 표현함"
+      },
+      "order": 3
+    },
+    {
+      "item_id": "item_299588fe",
+      "assessment_id": "assess_feaff4e0",
+      "name": "전체 총평",
+      "type": "comment",
+      "levels": [],
+      "rubrics": {},
+      "order": 4
+    },
+    {
+      "item_id": "item_e058012d",
+      "assessment_id": "assess_7289a43c",
+      "name": "실험 결과를 정리해 보고서 상의 표에 정리하기",
+      "type": "rubric",
+      "levels": [
+        "A",
+        "B1",
+        "B2",
+        "B3",
+        "C"
+      ],
+      "rubrics": {
+        "A": "실험 보고서에 빈 칸 없이 정확하게 기록함",
+        "B1": "실험 보고서에 대체로 정확하게 기록하였으나, 단위가 잘못됨",
+        "B2": "실험 보고서에 대체로 정확하게 기록하였으나, 계산이 잘못됨",
+        "B3": "실험 보고서에 대체로 정확하게 기록하였으나, 사소한 실수가 있음",
+        "C": "실험 보고서 작성이 미흡함"
+      },
+      "order": 1
+    },
+    {
+      "item_id": "item_aa648d0f",
+      "assessment_id": "assess_7289a43c",
+      "name": "실험 결과를 토대로 연직 아래 방향으로 던진 물체의 운동을 분석하기",
+      "type": "rubric",
+      "levels": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "rubrics": {
+        "A": "자유 낙하하는 물체의 속도 변화를 물체에 작용하는 힘과 관련지어 구체적으로 분석함.",
+        "B": "자유 낙하하는 물체의 속도 변화를 물체에 작용하는 힘과 관련지어 대체로 잘 분석함.",
+        "C": "자유 낙하하는 물체의 속도 변화를 물체에 작용하는 힘과 관련짓지는 못했지만, 속도 변화 또는 물체에 작용하는 힘을 분석함.",
+        "D": "자유 낙하하는 물체의 속도 변화와 물체에 작용하는 힘을 분석하지 못함."
+      },
+      "order": 2
+    },
+    {
+      "item_id": "item_2494ee70",
+      "assessment_id": "assess_7289a43c",
+      "name": "총평",
+      "type": "comment",
+      "levels": [],
+      "rubrics": {},
+      "order": 3
+    }
+  ],
+  "records": {
+    "sample_stu_1_01::item_03972701": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_01::item_95d74cad": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_01::item_f41fa21a": {
+      "level": "A",
+      "comment": "카페인과 향료 성분을 예로 들며 같은 물질도 쓰임에 따라 관심 지점이 달라질 수 있음을 질문함"
+    },
+    "sample_stu_1_01::item_e058012d": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_01::item_aa648d0f": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_01::item_299588fe": {
+      "level": "",
+      "comment": "조사한 물질을 단순 나열하지 않고 구성 원소와 쓰임을 함께 비교하여 물질 선택의 이유를 분명히 하려는 모습이 드러남"
+    },
+    "sample_stu_1_01::item_2494ee70": {
+      "level": "",
+      "comment": "낙하 시간과 이동 거리의 관계를 표로 정리한 뒤 값의 변화가 일정하지 않다는 점을 스스로 확인함"
+    },
+    "sample_stu_1_02::item_03972701": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_1_02::item_95d74cad": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_1_02::item_f41fa21a": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_1_02::item_e058012d": {
+      "level": "B1",
+      "comment": ""
+    },
+    "sample_stu_1_02::item_aa648d0f": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_1_02::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_1_02::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_1_03::item_03972701": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_1_03::item_95d74cad": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_1_03::item_f41fa21a": {
+      "level": "C",
+      "comment": "샴푸 성분표에서 계면활성제를 찾아보고 분자 구조와 생활 속 기능을 연결하려는 시도가 드러남"
+    },
+    "sample_stu_1_03::item_e058012d": {
+      "level": "B2",
+      "comment": ""
+    },
+    "sample_stu_1_03::item_aa648d0f": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_1_03::item_299588fe": {
+      "level": "",
+      "comment": "생활 속 성분표와 교과 개념을 연결해 물질의 특징을 설명하려고 하였고, 낯선 화합물 이름을 스스로 찾아 정리함"
+    },
+    "sample_stu_1_03::item_2494ee70": {
+      "level": "",
+      "comment": "동영상 분석에서 기준점을 잡는 위치가 결과에 영향을 줄 수 있음을 언급하며 측정 오차를 고려함"
+    },
+    "sample_stu_1_04::item_03972701": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_04::item_95d74cad": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_04::item_f41fa21a": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_1_04::item_e058012d": {
+      "level": "B3",
+      "comment": ""
+    },
+    "sample_stu_1_04::item_aa648d0f": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_04::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_1_04::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_1_05::item_03972701": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_1_05::item_95d74cad": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_1_05::item_f41fa21a": {
+      "level": "A",
+      "comment": "소금과 설탕을 비교하며 겉보기 성질만으로 물질의 결합 방식을 판단하기 어렵다는 점을 언급함"
+    },
+    "sample_stu_1_05::item_e058012d": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_05::item_aa648d0f": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_1_05::item_299588fe": {
+      "level": "",
+      "comment": "원소의 배열과 결합 종류를 모형으로 표현하는 과정에서 실제 물질의 성질을 근거로 삼으려는 시도가 나타남"
+    },
+    "sample_stu_1_05::item_2494ee70": {
+      "level": "",
+      "comment": "수평으로 던진 물체의 운동을 가로 방향과 세로 방향으로 나누어 보려는 관점이 나타남"
+    },
+    "sample_stu_1_06::item_03972701": {
+      "level": "D",
+      "comment": ""
+    },
+    "sample_stu_1_06::item_95d74cad": {
+      "level": "D",
+      "comment": ""
+    },
+    "sample_stu_1_06::item_f41fa21a": {
+      "level": "D",
+      "comment": ""
+    },
+    "sample_stu_1_06::item_e058012d": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_1_06::item_aa648d0f": {
+      "level": "D",
+      "comment": ""
+    },
+    "sample_stu_1_06::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_1_06::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_1_07::item_03972701": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_07::item_95d74cad": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_07::item_f41fa21a": {
+      "level": "B",
+      "comment": "탄산음료 속 이산화 탄소를 사례로 들어 분자 모형이 실제 물질의 성질 설명에 어떻게 쓰이는지 궁금해함"
+    },
+    "sample_stu_1_07::item_e058012d": {
+      "level": "B1",
+      "comment": ""
+    },
+    "sample_stu_1_07::item_aa648d0f": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_07::item_299588fe": {
+      "level": "",
+      "comment": "선정한 물질의 사용 장면을 먼저 떠올린 뒤 그 성질이 어떤 구성 원소와 관련되는지 탐색함"
+    },
+    "sample_stu_1_07::item_2494ee70": {
+      "level": "",
+      "comment": "중력가속도 계산 과정에서 단위 변환을 다시 확인하며 실험값과 이론값의 차이를 비교함"
+    },
+    "sample_stu_1_08::item_03972701": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_1_08::item_95d74cad": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_1_08::item_f41fa21a": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_1_08::item_e058012d": {
+      "level": "B2",
+      "comment": ""
+    },
+    "sample_stu_1_08::item_aa648d0f": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_1_08::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_1_08::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_1_09::item_03972701": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_1_09::item_95d74cad": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_1_09::item_f41fa21a": {
+      "level": "A",
+      "comment": "유리와 플라스틱의 구성 원소를 비교하며 같은 생활용품도 원소 조합에 따라 성질이 달라진다는 점을 정리함"
+    },
+    "sample_stu_1_09::item_e058012d": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_09::item_aa648d0f": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_1_09::item_299588fe": {
+      "level": "",
+      "comment": "물질의 겉보기 특징과 내부 구조를 구분하려고 하였으며, 조사 자료를 자신의 표현으로 다시 정리함"
+    },
+    "sample_stu_1_09::item_2494ee70": {
+      "level": "",
+      "comment": "자유 낙하 운동을 속도 변화와 힘의 방향으로 연결하여 설명하려고 하였고, 그래프의 기울기 의미를 질문함"
+    },
+    "sample_stu_1_10::item_03972701": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_10::item_95d74cad": {
+      "level": "E",
+      "comment": ""
+    },
+    "sample_stu_1_10::item_f41fa21a": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_1_10::item_e058012d": {
+      "level": "B3",
+      "comment": ""
+    },
+    "sample_stu_1_10::item_aa648d0f": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_1_10::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_1_10::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_2_01::item_03972701": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_2_01::item_95d74cad": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_01::item_f41fa21a": {
+      "level": "A",
+      "comment": "비누가 기름때를 제거하는 과정을 조사하며 물질의 구조와 기능을 연결하려는 관점이 나타남"
+    },
+    "sample_stu_2_01::item_e058012d": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_01::item_aa648d0f": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_2_01::item_299588fe": {
+      "level": "",
+      "comment": "생활 속 사례를 과학 개념으로 설명하려는 태도가 나타났고, 화학 결합을 비유로 표현하는 데 자신만의 관점을 반영함"
+    },
+    "sample_stu_2_01::item_2494ee70": {
+      "level": "",
+      "comment": "실험 장치의 높이와 출발 시점 설정이 결과에 영향을 줄 수 있음을 찾아 보고서에 반영함"
+    },
+    "sample_stu_2_02::item_03972701": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_2_02::item_95d74cad": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_2_02::item_f41fa21a": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_2_02::item_e058012d": {
+      "level": "B1",
+      "comment": ""
+    },
+    "sample_stu_2_02::item_aa648d0f": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_2_02::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_2_02::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_2_03::item_03972701": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_03::item_95d74cad": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_2_03::item_f41fa21a": {
+      "level": "B",
+      "comment": "배터리 소재에 쓰이는 리튬을 찾아보고 원소의 성질이 기술 활용과 연결될 수 있음을 제시함"
+    },
+    "sample_stu_2_03::item_e058012d": {
+      "level": "B2",
+      "comment": ""
+    },
+    "sample_stu_2_03::item_aa648d0f": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_03::item_299588fe": {
+      "level": "",
+      "comment": "주기율표와 조사 자료를 함께 확인하며 원소의 성질이 물질의 특징과 연결되는 과정을 정리함"
+    },
+    "sample_stu_2_03::item_2494ee70": {
+      "level": "",
+      "comment": "연속 사진 자료에서 물체 사이 간격이 점점 커지는 모습을 근거로 속도 변화를 설명함"
+    },
+    "sample_stu_2_04::item_03972701": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_2_04::item_95d74cad": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_04::item_f41fa21a": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_04::item_e058012d": {
+      "level": "B3",
+      "comment": ""
+    },
+    "sample_stu_2_04::item_aa648d0f": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_2_04::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_2_04::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_2_05::item_03972701": {
+      "level": "D",
+      "comment": ""
+    },
+    "sample_stu_2_05::item_95d74cad": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_2_05::item_f41fa21a": {
+      "level": "D",
+      "comment": "치약 속 플루오린 화합물을 사례로 들어 원소 이름과 실제 화합물의 성질을 구분하려는 모습을 보임"
+    },
+    "sample_stu_2_05::item_e058012d": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_2_05::item_aa648d0f": {
+      "level": "D",
+      "comment": ""
+    },
+    "sample_stu_2_05::item_299588fe": {
+      "level": "",
+      "comment": "익숙한 물질을 과학적으로 다시 바라보며 구성 원소, 결합 방식, 쓰임 사이의 관계를 설명하려고 함"
+    },
+    "sample_stu_2_05::item_2494ee70": {
+      "level": "",
+      "comment": "계산값이 예상과 다르게 나온 이유를 측정 간격, 영상 프레임, 반응 시간 측면에서 나누어 검토함"
+    },
+    "sample_stu_2_06::item_03972701": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_06::item_95d74cad": {
+      "level": "D",
+      "comment": ""
+    },
+    "sample_stu_2_06::item_f41fa21a": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_2_06::item_e058012d": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_06::item_aa648d0f": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_06::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_2_06::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_2_07::item_03972701": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_2_07::item_95d74cad": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_07::item_f41fa21a": {
+      "level": "C",
+      "comment": "스마트폰 화면 소재를 조사하며 투명성과 전기적 성질이 모두 요구되는 물질의 특징을 정리함"
+    },
+    "sample_stu_2_07::item_e058012d": {
+      "level": "B1",
+      "comment": ""
+    },
+    "sample_stu_2_07::item_aa648d0f": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_2_07::item_299588fe": {
+      "level": "",
+      "comment": "자료 조사 과정에서 용어를 그대로 옮기기보다 핵심 개념을 골라 모형과 설명에 반영하려는 모습이 보임"
+    },
+    "sample_stu_2_07::item_2494ee70": {
+      "level": "",
+      "comment": "수평 방향 운동과 연직 방향 운동을 독립적으로 분석하는 과정에서 힘이 작용하는 방향을 구분함"
+    },
+    "sample_stu_2_08::item_03972701": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_2_08::item_95d74cad": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_2_08::item_f41fa21a": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_08::item_e058012d": {
+      "level": "B2",
+      "comment": ""
+    },
+    "sample_stu_2_08::item_aa648d0f": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_2_08::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_2_08::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_2_09::item_03972701": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_09::item_95d74cad": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_2_09::item_f41fa21a": {
+      "level": "B",
+      "comment": "건조제 속 실리카겔을 사례로 들어 물질의 구조가 물 흡착 성질과 관련될 수 있음을 탐색함"
+    },
+    "sample_stu_2_09::item_e058012d": {
+      "level": "B3",
+      "comment": ""
+    },
+    "sample_stu_2_09::item_aa648d0f": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_09::item_299588fe": {
+      "level": "",
+      "comment": "물질을 선정한 이유가 분명하고, 원자 배치 모형과 비유적 표현을 연결해 설명하려는 흐름이 나타남"
+    },
+    "sample_stu_2_09::item_2494ee70": {
+      "level": "",
+      "comment": "그래프를 먼저 그린 뒤 운동의 특징을 설명하려고 하였고, 표와 그래프의 정보가 서로 연결됨을 확인함"
+    },
+    "sample_stu_2_10::item_03972701": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_2_10::item_95d74cad": {
+      "level": "E",
+      "comment": ""
+    },
+    "sample_stu_2_10::item_f41fa21a": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_2_10::item_e058012d": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_2_10::item_aa648d0f": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_2_10::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_2_10::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_3_01::item_03972701": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_3_01::item_95d74cad": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_3_01::item_f41fa21a": {
+      "level": "A",
+      "comment": "철의 부식과 스테인리스강을 비교하며 원소 조합이 물질의 안정성에 영향을 준다는 점을 정리함"
+    },
+    "sample_stu_3_01::item_e058012d": {
+      "level": "B1",
+      "comment": ""
+    },
+    "sample_stu_3_01::item_aa648d0f": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_3_01::item_299588fe": {
+      "level": "",
+      "comment": "복합적인 물질의 성질을 하나의 원인으로 단정하지 않고 여러 구성 요소를 함께 고려하려는 관점이 드러남"
+    },
+    "sample_stu_3_01::item_2494ee70": {
+      "level": "",
+      "comment": "낙하 물체의 운동을 일상적 낙하 사례와 비교하며 공기 저항이 결과에 미치는 가능성을 언급함"
+    },
+    "sample_stu_3_02::item_03972701": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_3_02::item_95d74cad": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_3_02::item_f41fa21a": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_3_02::item_e058012d": {
+      "level": "B2",
+      "comment": ""
+    },
+    "sample_stu_3_02::item_aa648d0f": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_3_02::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_3_02::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_3_03::item_03972701": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_3_03::item_95d74cad": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_3_03::item_f41fa21a": {
+      "level": "C",
+      "comment": "화장품 성분을 조사하며 물질 이름이 복잡해도 구성 원소와 결합을 기준으로 살펴볼 수 있음을 말함"
+    },
+    "sample_stu_3_03::item_e058012d": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_3_03::item_aa648d0f": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_3_03::item_299588fe": {
+      "level": "",
+      "comment": "화합물의 이름, 구성 원소, 결합 특징을 구분해 정리하면서 물질을 체계적으로 이해하려는 모습을 보임"
+    },
+    "sample_stu_3_03::item_2494ee70": {
+      "level": "",
+      "comment": "측정값을 평균 내는 이유를 실험 오차 감소와 연결해 설명하고, 반복 측정의 필요성을 제시함"
+    },
+    "sample_stu_3_04::item_03972701": {
+      "level": "D",
+      "comment": ""
+    },
+    "sample_stu_3_04::item_95d74cad": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_3_04::item_f41fa21a": {
+      "level": "D",
+      "comment": ""
+    },
+    "sample_stu_3_04::item_e058012d": {
+      "level": "B3",
+      "comment": ""
+    },
+    "sample_stu_3_04::item_aa648d0f": {
+      "level": "D",
+      "comment": ""
+    },
+    "sample_stu_3_04::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_3_04::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_3_05::item_03972701": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_3_05::item_95d74cad": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_3_05::item_f41fa21a": {
+      "level": "A",
+      "comment": "물과 과산화수소를 비교하며 비슷한 원소로 이루어진 물질도 배열에 따라 성질이 달라짐을 설명함"
+    },
+    "sample_stu_3_05::item_e058012d": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_3_05::item_aa648d0f": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_3_05::item_299588fe": {
+      "level": "",
+      "comment": "일상적 소재를 교과 개념과 연결해 설명하려는 시도가 꾸준했고, 모형 표현에서 과학적 의미를 담으려 함"
+    },
+    "sample_stu_3_05::item_2494ee70": {
+      "level": "",
+      "comment": "보고서 정리 과정에서 계산 과정과 해석 문장을 분리해 적어 결과를 확인하기 쉽게 구성함"
+    },
+    "sample_stu_3_06::item_03972701": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_3_06::item_95d74cad": {
+      "level": "D",
+      "comment": ""
+    },
+    "sample_stu_3_06::item_f41fa21a": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_3_06::item_e058012d": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_3_06::item_aa648d0f": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_3_06::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_3_06::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_3_07::item_03972701": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_3_07::item_95d74cad": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_3_07::item_f41fa21a": {
+      "level": "C",
+      "comment": "제설제의 원리를 찾아보고 이온 결합 물질이 물에 녹을 때 나타나는 특징과 연결함"
+    },
+    "sample_stu_3_07::item_e058012d": {
+      "level": "B1",
+      "comment": ""
+    },
+    "sample_stu_3_07::item_aa648d0f": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_3_07::item_299588fe": {
+      "level": "",
+      "comment": "조사한 물질의 쓰임과 성질을 연결하면서 원소의 주기성과 결합 개념을 실제 사례에 적용하려는 모습이 나타남"
+    },
+    "sample_stu_3_07::item_2494ee70": {
+      "level": "",
+      "comment": "수평으로 던진 물체가 아래로 휘어지는 이유를 중력의 지속적인 작용과 연결해 설명함"
+    },
+    "sample_stu_3_08::item_03972701": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_3_08::item_95d74cad": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_3_08::item_f41fa21a": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_3_08::item_e058012d": {
+      "level": "B2",
+      "comment": ""
+    },
+    "sample_stu_3_08::item_aa648d0f": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_3_08::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_3_08::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_3_09::item_03972701": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_3_09::item_95d74cad": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_3_09::item_f41fa21a": {
+      "level": "B",
+      "comment": "단열재 소재를 조사하며 가벼움과 열전도성 같은 성질이 물질 선택 기준이 될 수 있음을 제시함"
+    },
+    "sample_stu_3_09::item_e058012d": {
+      "level": "B3",
+      "comment": ""
+    },
+    "sample_stu_3_09::item_aa648d0f": {
+      "level": "B",
+      "comment": ""
+    },
+    "sample_stu_3_09::item_299588fe": {
+      "level": "",
+      "comment": "화학 결합을 비유적으로 표현하는 과정에서 핵심 원리를 놓치지 않으려는 시도가 보이며 설명의 맥락이 분명함"
+    },
+    "sample_stu_3_09::item_2494ee70": {
+      "level": "",
+      "comment": "속도 변화, 가속도, 힘의 방향을 함께 고려하며 중력을 받는 물체의 운동을 분석하려는 모습이 드러남"
+    },
+    "sample_stu_3_10::item_03972701": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_3_10::item_95d74cad": {
+      "level": "E",
+      "comment": ""
+    },
+    "sample_stu_3_10::item_f41fa21a": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_3_10::item_e058012d": {
+      "level": "A",
+      "comment": ""
+    },
+    "sample_stu_3_10::item_aa648d0f": {
+      "level": "C",
+      "comment": ""
+    },
+    "sample_stu_3_10::item_299588fe": {
+      "level": "",
+      "comment": ""
+    },
+    "sample_stu_3_10::item_2494ee70": {
+      "level": "",
+      "comment": ""
+    }
+  },
+  "results": {},
+  "saved_at": "2026-06-23T07:28:50",
+  "app": "개꿀 생기부",
+  "version": "sample-project-v58"
+}''')
+    data["saved_at"] = datetime.now().isoformat(timespec="seconds")
+    data["version"] = "sample-project-v58"
+    return data
 
 
 def apply_project_data(data):
@@ -2371,9 +3526,9 @@ with st.sidebar:
 
     st.divider()
 
-    if st.button("샘플 데이터 불러오기", help="가상 학생 15명, 3개 반, 임의 학생별 기록이 들어간 샘플 프로젝트를 불러옵니다."):
+    if st.button("샘플 데이터 불러오기", help="고등학교 통합과학 예시 학생 3개 반, 반별 10명과 학생별 기록이 들어간 샘플 프로젝트를 불러옵니다."):
         load_sample_data()
-        st.success("가상 학생 3개 반과 학생별 기록이 들어간 샘플 데이터를 불러왔습니다.")
+        st.success("고등학교 통합과학 예시 학생 3개 반과 학생별 기록이 들어간 샘플 데이터를 불러왔습니다.")
         st.rerun()
 
     if st.button("전체 초기화", type="secondary"):
