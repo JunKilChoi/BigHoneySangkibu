@@ -32,8 +32,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v58"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v58"
+APP_TITLE = "🍯 개꿀 생기부 v59"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v59"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -829,7 +829,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260621-v58",
+        "version": "patched-20260621-v59",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -2265,8 +2265,7 @@ def build_sample_project_data():
     "subject": "통합과학",
     "target_bytes_min": 700,
     "target_bytes_max": 800,
-    "custom_rules": "- 꾸며내지 말 것
-- 교사의 관찰이 드러나도록 할 것"
+    "custom_rules": "- 꾸며내지 말 것\n- 교사의 관찰이 드러나도록 할 것"
   },
   "students": [
     {
@@ -2485,11 +2484,7 @@ def build_sample_project_data():
       "assessment_id": "assess_feaff4e0",
       "name": "우리 주변의 다양한 물질 탐구하기",
       "area": "Ⅰ. 물질과 규칙성",
-      "description": "[10통과01-03]세상을 이루는 물질은 원소들로 이루어져 있으며, 원소들의 성질이 주기성을 나타내는 현상을 통해 자연의 규칙성을찾아낼 수 있다.
-[10통과01-04]지구와 생명체를 구성하는 주요 원소들이 결합을 형성하는 이유와 원소들의 성질에 따라 형성되는 결합의 종류를 추론할 수 있다.
-
-수행 평가 요약
-우리 주변의 흥미로운 물질 3가지를 조사하여 특징 및 구성 원소의 배열을 이해하고 주어진 조건에 맞게 원자 결합을 비유적으로 표현하기",
+      "description": "[10통과01-03]세상을 이루는 물질은 원소들로 이루어져 있으며, 원소들의 성질이 주기성을 나타내는 현상을 통해 자연의 규칙성을찾아낼 수 있다.\n[10통과01-04]지구와 생명체를 구성하는 주요 원소들이 결합을 형성하는 이유와 원소들의 성질에 따라 형성되는 결합의 종류를 추론할 수 있다.\n\n수행 평가 요약\n우리 주변의 흥미로운 물질 3가지를 조사하여 특징 및 구성 원소의 배열을 이해하고 주어진 조건에 맞게 원자 결합을 비유적으로 표현하기",
       "order": 1,
       "use": true
     },
@@ -2497,10 +2492,7 @@ def build_sample_project_data():
       "assessment_id": "assess_7289a43c",
       "name": "중력을 받는 물체의 운동 탐구",
       "area": "Ⅱ. 시스템과 상호 작용",
-      "description": "[10통과03-01]자유 낙하와 수평으로 던진 물체의 운동을 이용하여 중력의 작용에 의한 역학적 시스템을 설명할 수 있다.
-
-수행 평가 요약
-중력을 받는 물체가 자유 낙하할 때와 수평 방향으로 던졌을 때 운동을 분석하고 중력가속도를 측정하기",
+      "description": "[10통과03-01]자유 낙하와 수평으로 던진 물체의 운동을 이용하여 중력의 작용에 의한 역학적 시스템을 설명할 수 있다.\n\n수행 평가 요약\n중력을 받는 물체가 자유 낙하할 때와 수평 방향으로 던졌을 때 운동을 분석하고 중력가속도를 측정하기",
       "order": 2,
       "use": true
     }
@@ -3467,12 +3459,12 @@ def build_sample_project_data():
     }
   },
   "results": {},
-  "saved_at": "2026-06-23T07:28:50",
+  "saved_at": "2026-06-23T07:35:00",
   "app": "개꿀 생기부",
-  "version": "sample-project-v58"
+  "version": "sample-project-v59"
 }''')
     data["saved_at"] = datetime.now().isoformat(timespec="seconds")
-    data["version"] = "sample-project-v58"
+    data["version"] = "sample-project-v59"
     return data
 
 
