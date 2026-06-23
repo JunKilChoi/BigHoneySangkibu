@@ -32,8 +32,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v56"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v56"
+APP_TITLE = "🍯 개꿀 생기부 v57"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v57"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -829,7 +829,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260621-v56",
+        "version": "patched-20260621-v57",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -2317,7 +2317,7 @@ def build_sample_project_data():
         "results": {},
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "sample-project-v56",
+        "version": "sample-project-v57",
     }
 
 
@@ -3531,7 +3531,7 @@ if current_step == 5:
                     st.success("전체 생성 작업을 시작합니다.")
                     st.rerun()
             else:
-                if st.button("생기부 생성 중지", type="secondary"):
+                if st.button("생기부 생성 중지", type="primary", use_container_width=True):
                     job["active"] = False
                     job["stop_requested"] = True
                     job["finished_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
