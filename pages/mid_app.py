@@ -17,7 +17,7 @@ from openpyxl.utils import get_column_letter
 
 
 # =========================
-# 중학교 간편 생기부 v15
+# 중학교 간편 생기부 v16
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -25,9 +25,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v15"
-MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v15"
-MID_APP_VERSION = "patched-20260623-mid-v15"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v16"
+MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v16"
+MID_APP_VERSION = "patched-20260623-mid-v16"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -501,6 +501,22 @@ def init_mid_state():
     if "mid_selected_result_student_id" not in st.session_state:
         st.session_state.mid_selected_result_student_id = ""
 
+    if "mid_generation_job" not in st.session_state:
+        st.session_state.mid_generation_job = {
+            "active": False,
+            "stop_requested": False,
+            "student_ids": [],
+            "index": 0,
+            "log": [],
+            "ai_provider": "ChatGPT",
+            "api_key": "",
+            "model": "",
+            "variation_level": "보통",
+            "started_at": "",
+            "loading_started_at": "",
+            "finished_at": "",
+        }
+
 
 def sanitize_mid_state():
     settings = st.session_state.get("mid_settings", {})
@@ -587,6 +603,33 @@ def sanitize_mid_state():
         if sid in valid_student_ids and isinstance(result, dict):
             clean_results[sid] = result
     st.session_state.mid_results = clean_results
+
+    job_defaults = {
+        "active": False,
+        "stop_requested": False,
+        "student_ids": [],
+        "index": 0,
+        "log": [],
+        "ai_provider": "ChatGPT",
+        "api_key": "",
+        "model": "",
+        "variation_level": "보통",
+        "started_at": "",
+        "loading_started_at": "",
+        "finished_at": "",
+    }
+    raw_job = st.session_state.get("mid_generation_job", {})
+    raw_job = raw_job if isinstance(raw_job, dict) else {}
+    job = {**job_defaults, **raw_job}
+    if not isinstance(job.get("student_ids"), list):
+        job["student_ids"] = []
+    if not isinstance(job.get("log"), list):
+        job["log"] = []
+    try:
+        job["index"] = int(job.get("index", 0) or 0)
+    except Exception:
+        job["index"] = 0
+    st.session_state.mid_generation_job = job
 
 
 init_mid_state()
@@ -1500,6 +1543,7 @@ with st.sidebar:
             "mid_records",
             "mid_results",
             "mid_selected_result_student_id",
+            "mid_generation_job",
             "mid_current_step",
         ]:
             if key in st.session_state:
@@ -1997,71 +2041,161 @@ if current_step == 2:
                 st.success("생성했습니다.")
                 st.rerun()
         with col_b:
-            if st.button("전체 학생 생기부 생성 시작", type="primary", use_container_width=True):
-                progress = st.progress(0)
-                status_slot = st.empty()
-                overlay_slot = None
-                total = len(students)
-                completed_preview_items = []
-                overlay_loading_started_at = datetime.now()
-                for idx, (_, student) in enumerate(students.iterrows(), start=1):
-                    sid = student.get("student_id", "")
-                    label = f"{student.get('학년', '')}학년 {student.get('반', '')}반 {student.get('번호', '')}번 {student.get('성명', '')}"
-                    overlay_slot = show_generation_overlay(
-                        overlay_slot,
-                        "전체 학생 생기부 생성 중",
-                        f"{idx}/{total} 처리 중 · {label}",
-                        (idx - 1) / total if total else 0,
-                        ["관찰 영역별 성취수준 확인", "AI 입력 자료 구성", "문장 생성", "결과 저장"],
-                        recent_items=completed_preview_items[-1:],
-                        loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
-                    )
-                    status_slot.info(f"현재 생성 중: {idx}/{total} · {label}")
-                    material = build_student_material(student)
-                    prompt = build_prompt(material, variation_level=variation_level, variant_no=idx)
-                    generated = None
-                    if api_key:
-                        overlay_slot = show_generation_overlay(
-                            overlay_slot,
-                            "전체 학생 생기부 생성 중",
-                            f"{idx}/{total} · {label}의 문장을 AI가 생성하고 있습니다.",
-                            (idx - 0.45) / total if total else 0,
-                            ["AI 응답 대기 중", "응답 후 결과표에 저장", "다음 학생으로 이동"],
-                            recent_items=completed_preview_items[-1:],
-                            loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
-                        )
-                        generated = generate_with_ai(prompt, ai_provider, api_key, model)
-                    if not generated:
-                        overlay_slot = show_generation_overlay(
-                            overlay_slot,
-                            "전체 학생 생기부 생성 중",
-                            f"{idx}/{total} · {label}의 문장을 내부 조합 방식으로 구성하고 있습니다.",
-                            (idx - 0.25) / total if total else 0,
-                            ["교사의 평가 문구 추출", "변주 표현 적용", "중학교 생기부 문체 정리"],
-                            recent_items=completed_preview_items[-1:],
-                            loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
-                        )
-                        generated = fallback_generate(material, variant_no=idx)
-                    generated = normalize_sentence(generated)
-                    st.session_state.mid_results[sid] = {
-                        "material": material,
-                        "generated": generated,
-                        "edited": generated,
-                        "bytes": byte_count(generated),
-                        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            mid_job = st.session_state.mid_generation_job
+            if not mid_job.get("active", False):
+                if st.button("전체 학생 생기부 생성 시작", type="primary", use_container_width=True):
+                    now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    st.session_state.mid_generation_job = {
+                        "active": True,
+                        "stop_requested": False,
+                        "student_ids": students["student_id"].astype(str).tolist(),
+                        "index": 0,
+                        "log": [],
+                        "ai_provider": ai_provider,
+                        "api_key": api_key,
+                        "model": model,
+                        "variation_level": variation_level,
+                        "started_at": now_text,
+                        "loading_started_at": now_text,
+                        "finished_at": "",
                     }
-                    completed_preview_items.append({"label": f"{idx}번 생성 · {label}", "text": generated})
-                    progress.progress(idx / total)
-                    overlay_slot = show_generation_overlay(
-                        overlay_slot,
-                        "전체 학생 생기부 생성 중",
-                        f"{idx}/{total} 저장 완료 · 다음 학생으로 이동합니다.",
-                        idx / total if total else 1,
-                        ["생성 원문 저장", "교사 수정 문구 초기화", "byte 계산 완료"],
-                        recent_items=completed_preview_items[-1:],
-                        loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
-                    )
+                    st.success("전체 생성 작업을 시작합니다.")
+                    st.rerun()
+            else:
+                if st.button("생기부 생성 중지", type="primary", use_container_width=True):
+                    mid_job["active"] = False
+                    mid_job["stop_requested"] = True
+                    mid_job["finished_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    st.session_state.mid_generation_job = mid_job
+                    st.warning("생성 중지를 요청했습니다. 이미 생성된 학생 결과는 저장되어 있습니다.")
+                    st.rerun()
+
+        mid_job = st.session_state.mid_generation_job
+        if mid_job.get("active", False) or mid_job.get("log"):
+            st.markdown("#### 전체 생성 진행 상황")
+            total = len(mid_job.get("student_ids", []))
+            done = int(mid_job.get("index", 0) or 0)
+            if total > 0:
+                st.progress(min(done / total, 1.0))
+                st.caption(f"진행률: {done}/{total}명")
+
+            if mid_job.get("active", False):
+                st.info("전체 생성이 진행 중입니다. 위의 빨간색 '생기부 생성 중지' 버튼을 누르면 현재 처리 중인 학생 완료 후 멈춥니다.")
+            elif mid_job.get("stop_requested", False):
+                st.warning("전체 생성이 중지되었습니다. 중지 전까지 생성된 문구는 아래 결과표와 다운로드 엑셀에 반영됩니다.")
+            elif mid_job.get("log"):
+                st.success("전체 생성 작업이 완료되었습니다.")
+
+            if mid_job.get("log"):
+                latest_log = mid_job.get("log", [])[-1]
+                latest_label = f"{latest_log.get('학년', '')}학년 {latest_log.get('반', '')}반 {latest_log.get('번호', '')}번 {latest_log.get('성명', '')}"
+                st.caption(f"최근 생성 완료: {latest_label}")
+
+        if mid_job.get("active", False) and not mid_job.get("stop_requested", False):
+            student_ids = mid_job.get("student_ids", [])
+            index = int(mid_job.get("index", 0) or 0)
+            total = len(student_ids)
+
+            if index >= total:
+                mid_job["active"] = False
+                mid_job["finished_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                st.session_state.mid_generation_job = mid_job
                 st.success("전체 학생 생기부 생성을 완료했습니다.")
+                st.rerun()
+
+            current_sid = clean_text(student_ids[index])
+            matched = students[students["student_id"].astype(str) == current_sid]
+            if matched.empty:
+                mid_job["index"] = index + 1
+                st.session_state.mid_generation_job = mid_job
+                st.rerun()
+
+            student = matched.iloc[0]
+            label = f"{student.get('학년', '')}학년 {student.get('반', '')}반 {student.get('번호', '')}번 {student.get('성명', '')}"
+            latest_preview = []
+            if mid_job.get("log"):
+                latest_log = mid_job.get("log", [])[-1]
+                latest_label = f"{latest_log.get('학년', '')}학년 {latest_log.get('반', '')}반 {latest_log.get('번호', '')}번 {latest_log.get('성명', '')}"
+                latest_preview = [{
+                    "label": f"{latest_log.get('순서', '')}번 생성 · {latest_label}",
+                    "text": latest_log.get("생성 문구", ""),
+                }]
+
+            overlay_slot = None
+            loading_started_at = mid_job.get("loading_started_at") or mid_job.get("started_at")
+            overlay_slot = show_generation_overlay(
+                overlay_slot,
+                "전체 학생 생기부 생성 중",
+                f"{index + 1}/{total} 처리 중 · {label}",
+                index / total if total else 0,
+                ["관찰 영역별 성취수준 확인", "AI 입력 자료 구성", "문장 생성", "결과 저장"],
+                recent_items=latest_preview,
+                loading_offset_seconds=loading_elapsed_seconds(loading_started_at),
+            )
+
+            material = build_student_material(student)
+            prompt = build_prompt(
+                material,
+                variation_level=mid_job.get("variation_level", variation_level),
+                variant_no=index + 1,
+            )
+            generated = None
+            if mid_job.get("api_key"):
+                overlay_slot = show_generation_overlay(
+                    overlay_slot,
+                    "전체 학생 생기부 생성 중",
+                    f"{index + 1}/{total} · {label}의 문장을 AI가 생성하고 있습니다.",
+                    (index + 0.55) / total if total else 0.55,
+                    ["AI 응답 대기 중", "응답 후 결과표에 저장", "다음 학생으로 이동"],
+                    recent_items=latest_preview,
+                    loading_offset_seconds=loading_elapsed_seconds(loading_started_at),
+                )
+                generated = generate_with_ai(
+                    prompt,
+                    mid_job.get("ai_provider", ai_provider),
+                    mid_job.get("api_key", ""),
+                    mid_job.get("model", model),
+                )
+            if not generated:
+                overlay_slot = show_generation_overlay(
+                    overlay_slot,
+                    "전체 학생 생기부 생성 중",
+                    f"{index + 1}/{total} · {label}의 문장을 내부 조합 방식으로 구성하고 있습니다.",
+                    (index + 0.75) / total if total else 0.75,
+                    ["교사의 평가 문구 추출", "변주 표현 적용", "중학교 생기부 문체 정리"],
+                    recent_items=latest_preview,
+                    loading_offset_seconds=loading_elapsed_seconds(loading_started_at),
+                )
+                generated = fallback_generate(material, variant_no=index + 1)
+
+            generated = normalize_sentence(generated)
+            sid = student.get("student_id", "")
+            st.session_state.mid_results[sid] = {
+                "material": material,
+                "generated": generated,
+                "edited": generated,
+                "bytes": byte_count(generated),
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            mid_job.setdefault("log", []).append({
+                "순서": index + 1,
+                "학년": student.get("학년", ""),
+                "반": student.get("반", ""),
+                "번호": student.get("번호", ""),
+                "성명": student.get("성명", ""),
+                "생성 문구": generated,
+                "byte": byte_count(generated),
+                "상태": "저장 완료",
+            })
+            mid_job["index"] = index + 1
+
+            if mid_job["index"] >= total:
+                mid_job["active"] = False
+                mid_job["finished_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                st.session_state.mid_generation_job = mid_job
+                st.success("전체 학생 생기부 생성을 완료했습니다.")
+            else:
+                st.session_state.mid_generation_job = mid_job
                 st.rerun()
 
         st.divider()
