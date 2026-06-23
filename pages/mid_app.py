@@ -17,7 +17,7 @@ from openpyxl.utils import get_column_letter
 
 
 # =========================
-# 중학교 간편 생기부 v05
+# 중학교 간편 생기부 v06
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -25,9 +25,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v05"
-MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v05"
-MID_APP_VERSION = "patched-20260623-mid-v05"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v06"
+MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v06"
+MID_APP_VERSION = "patched-20260623-mid-v06"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -1099,8 +1099,10 @@ st.markdown(
         overflow-x: auto;
         border: 1px solid #D1D5DB;
         border-radius: 14px;
-        margin: 0.6rem 0 1rem 0;
+        margin: 0.6rem 0 0 0;
         background: #FFFFFF;
+        border-bottom: none;
+        border-radius: 14px 14px 0 0;
     }
     table.mid-header-preview {
         border-collapse: separate;
@@ -1139,7 +1141,7 @@ st.markdown(
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
-        margin: 0.25rem 0 0.5rem 0;
+        margin: 0.25rem 0 0.35rem 0;
         font-size: 0.9rem;
     }
     .mid-color-chip {
@@ -1160,6 +1162,13 @@ st.markdown(
     }
     .mid-blue-dot { background: #DBEAFE; border: 1px solid #93C5FD; }
     .mid-yellow-dot { background: #FFEDD5; border: 1px solid #FED7AA; }
+.mid-header-preview-wrap + div[data-testid="stDataFrame"],
+    .mid-header-preview-wrap + div[data-testid="stDataEditor"] {
+        margin-top: 0 !important;
+    }
+    div[data-testid="stDataFrame"], div[data-testid="stDataEditor"] {
+        margin-top: 0 !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -1542,7 +1551,9 @@ if current_step == 1:
         for item in items:
             item_id = item.get("item_id", "")
             assessment_name = get_assessment_name(item.get("assessment_id", ""))
-            label = f"{assessment_name}\n{item.get('name', '')}"
+            # 웹 입력표 자체에는 실제 입력값 중심으로 간단히 표시한다.
+            # 수행평가명/관찰 영역명은 바로 위의 색상 2단 헤더와 연결해서 보도록 한다.
+            label = "성취수준"
             levels = [clean_text(x) for x in item.get("levels", []) if clean_text(x)]
             column_config[item_id] = st.column_config.SelectboxColumn(
                 label,
@@ -1552,16 +1563,16 @@ if current_step == 1:
                 help=f"{assessment_name} / {item.get('name', '')}",
             )
 
-        st.markdown("#### 입력표 헤더 미리보기")
+        st.markdown("#### 학생별 성취수준 입력표")
+        st.caption("수행평가명/관찰 영역명 색상 헤더와 실제 입력표를 붙여 한 덩어리처럼 보이도록 정리했습니다.")
         render_level_header_preview(items)
-        st.caption("아래 실제 입력표의 영역 열은 Streamlit 표 제약 때문에 한 줄 제목으로 보이지만, 위 미리보기와 같은 구조입니다. 수행평가는 파란색, 관찰 영역은 노란색입니다.")
 
         edited_df = st.data_editor(
             visible_df,
             num_rows="dynamic",
             use_container_width=True,
             height=560,
-            key="mid_record_matrix_editor_v05",
+            key="mid_record_matrix_editor_v06",
             column_config=column_config,
         )
 
@@ -1581,7 +1592,11 @@ if current_step == 1:
             )
 
         with st.expander("표 헤더 구조 설명", expanded=False):
-            st.markdown("웹 입력표에서는 열 제목에 줄바꿈으로 `수행평가명 / 관찰 영역명`을 표시합니다. 엑셀 다운로드 파일에서는 윗줄에 수행평가명, 아랫줄에 관찰 영역명이 2단 헤더로 들어갑니다.")
+            st.markdown(
+                "Streamlit 기본 `st.data_editor`는 엑셀처럼 셀 병합이 들어간 진짜 2단 컬러 헤더를 직접 지원하지 않습니다. "
+                "그래서 웹에서는 색상 헤더를 실제 입력표 바로 위에 붙여 한 표처럼 보이게 하고, "
+                "엑셀 다운로드 파일에서는 윗줄 수행평가명, 아랫줄 관찰 영역명의 2단 병합 헤더를 실제로 적용했습니다."
+            )
 
     render_next_step_button(1)
 
@@ -1605,14 +1620,14 @@ if current_step == 2:
             model = st.text_input(
                 "모델명",
                 value=get_default_ai_model(ai_provider),
-                key=f"mid_ai_model_name_{ai_provider}_v05",
+                key=f"mid_ai_model_name_{ai_provider}_v06",
             )
         with col_key:
             api_key = st.text_input(
                 f"{ai_provider} API Key",
                 value=get_default_ai_key(ai_provider),
                 type="password",
-                key=f"mid_api_key_{ai_provider}_v05",
+                key=f"mid_api_key_{ai_provider}_v06",
                 help=f"Streamlit Secrets에는 {AI_SECRET_KEY_NAMES.get(ai_provider, 'OPENAI_API_KEY')} 이름으로 저장해둘 수 있습니다.",
             )
         with col_variation:
