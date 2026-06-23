@@ -16,7 +16,7 @@ from openpyxl.utils import get_column_letter
 
 
 # =========================
-# 중학교 간편 생기부 v03
+# 중학교 간편 생기부 v04
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -24,9 +24,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v03"
-MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v03"
-MID_APP_VERSION = "patched-20260623-mid-v03"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v04"
+MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v04"
+MID_APP_VERSION = "patched-20260623-mid-v04"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -122,6 +122,11 @@ def default_level_code(index: int) -> str:
     if 0 <= index < len(default_codes):
         return default_codes[index]
     return str(index + 1)
+
+
+def as_dict(value):
+    """이전 버전 세션/JSON에서 list 등으로 남은 값을 안전하게 dict로 바꾼다."""
+    return value if isinstance(value, dict) else {}
 
 
 def get_default_ai_model(provider: str) -> str:
@@ -327,8 +332,9 @@ def sanitize_mid_state():
     valid_student_ids = set(st.session_state.mid_students["student_id"].astype(str).tolist()) if not st.session_state.mid_students.empty else set()
     valid_item_ids = {item.get("item_id", "") for item in st.session_state.mid_items}
 
+    raw_records = as_dict(st.session_state.get("mid_records", {}))
     clean_records = {}
-    for key, value in st.session_state.get("mid_records", {}).items():
+    for key, value in raw_records.items():
         key = str(key)
         if "::" not in key:
             continue
@@ -337,8 +343,12 @@ def sanitize_mid_state():
             clean_records[key] = clean_text(value)
     st.session_state.mid_records = clean_records
 
+    raw_results = st.session_state.get("mid_results", {})
+    # v01~v02에서는 mid_results가 list였기 때문에 v03 진입 시 AttributeError가 날 수 있다.
+    # v04부터는 dict가 아닐 경우 빈 결과로 안전하게 초기화한다.
+    raw_results = raw_results if isinstance(raw_results, dict) else {}
     clean_results = {}
-    for sid, result in st.session_state.get("mid_results", {}).items():
+    for sid, result in raw_results.items():
         sid = clean_text(sid)
         if sid in valid_student_ids and isinstance(result, dict):
             clean_results[sid] = result
@@ -469,7 +479,7 @@ def build_mid_sample_project_data():
         "results": {},
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부 - 중학교 간편",
-        "version": "sample-mid-v03",
+        "version": "sample-mid-v04",
     }
 
 
@@ -1075,9 +1085,9 @@ STEP_LABELS = [
     "② 학생별 성취수준 입력",
     "③ 생기부 생성/다운로드",
 ]
-NAV_WIDGET_KEY = "mid_step_nav_radio_v03"
-PENDING_STEP_KEY = "mid_pending_step_index_v03"
-SCROLL_TO_TOP_KEY = "mid_scroll_to_top_after_step_change_v03"
+NAV_WIDGET_KEY = "mid_step_nav_radio_v04"
+PENDING_STEP_KEY = "mid_pending_step_index_v04"
+SCROLL_TO_TOP_KEY = "mid_scroll_to_top_after_step_change_v04"
 
 if "mid_current_step" not in st.session_state:
     st.session_state.mid_current_step = 0
@@ -1213,7 +1223,7 @@ if current_step == 0:
     st.caption("중학교용은 수행평가 안에 관찰 영역을 만들고, 각 영역별 성취수준 코드와 평가 문구만 정해두면 됩니다.")
 
     with st.expander("➕ 새 수행평가 추가", expanded=True):
-        with st.form("mid_add_assessment_form_v03"):
+        with st.form("mid_add_assessment_form_v04"):
             col_a, col_b = st.columns([2, 1])
             with col_a:
                 new_name = st.text_input("수행평가명", placeholder="예: 소화 기관 모형 만들기")
@@ -1270,7 +1280,7 @@ if current_step == 0:
                         item_ids = [item.get("item_id", "") for item in get_items_for_assessment(aid)]
                         st.session_state.mid_assessments = [a for a in st.session_state.mid_assessments if a.get("assessment_id", "") != aid]
                         st.session_state.mid_items = [item for item in st.session_state.mid_items if item.get("assessment_id", "") != aid]
-                        st.session_state.mid_records = {k: v for k, v in st.session_state.mid_records.items() if k.split("::")[-1] not in item_ids}
+                        st.session_state.mid_records = {k: v for k, v in as_dict(st.session_state.mid_records).items() if k.split("::")[-1] not in item_ids}
                         st.success("수행평가를 삭제했습니다.")
                         st.rerun()
 
@@ -1289,7 +1299,7 @@ if current_step == 0:
                         st.caption(f"현재 {item_index}번째")
                         if st.button("관찰 영역 삭제", key=f"mid_delete_item_{item_id}"):
                             st.session_state.mid_items = [x for x in st.session_state.mid_items if x.get("item_id", "") != item_id]
-                            st.session_state.mid_records = {k: v for k, v in st.session_state.mid_records.items() if not k.endswith(f"::{item_id}")}
+                            st.session_state.mid_records = {k: v for k, v in as_dict(st.session_state.mid_records).items() if not k.endswith(f"::{item_id}")}
                             st.success("관찰 영역을 삭제했습니다.")
                             st.rerun()
 
@@ -1416,7 +1426,7 @@ if current_step == 1:
             num_rows="dynamic",
             use_container_width=True,
             height=560,
-            key="mid_record_matrix_editor_v03",
+            key="mid_record_matrix_editor_v04",
             column_config=column_config,
         )
 
@@ -1460,14 +1470,14 @@ if current_step == 2:
             model = st.text_input(
                 "모델명",
                 value=get_default_ai_model(ai_provider),
-                key=f"mid_ai_model_name_{ai_provider}_v03",
+                key=f"mid_ai_model_name_{ai_provider}_v04",
             )
         with col_key:
             api_key = st.text_input(
                 f"{ai_provider} API Key",
                 value=get_default_ai_key(ai_provider),
                 type="password",
-                key=f"mid_api_key_{ai_provider}_v03",
+                key=f"mid_api_key_{ai_provider}_v04",
                 help=f"Streamlit Secrets에는 {AI_SECRET_KEY_NAMES.get(ai_provider, 'OPENAI_API_KEY')} 이름으로 저장해둘 수 있습니다.",
             )
         with col_variation:
@@ -1543,7 +1553,7 @@ if current_step == 2:
             use_container_width=True,
             height=340,
             hide_index=True,
-            key="mid_generation_result_selector_v03",
+            key="mid_generation_result_selector_v04",
             on_select="rerun",
             selection_mode="single-cell",
             column_config={
@@ -1580,7 +1590,7 @@ if current_step == 2:
         st.markdown(f"#### 표에서 선택한 학생 수정: {selected_detail_label}")
         if not result:
             st.info("아직 이 학생의 생기부 문구가 생성되지 않았습니다. 직접 입력하거나 위에서 생성을 먼저 실행하세요.")
-        editor_key = f"mid_generation_detail_text_v03_{current_selected_sid}"
+        editor_key = f"mid_generation_detail_text_v04_{current_selected_sid}"
         if editor_key not in st.session_state:
             st.session_state[editor_key] = initial_text
         edited = st.text_area("교사 수정 문구", key=editor_key, height=200)
