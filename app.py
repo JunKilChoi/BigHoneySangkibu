@@ -32,8 +32,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v55"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v55"
+APP_TITLE = "🍯 개꿀 생기부 v56"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v56"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -141,6 +141,31 @@ def byte_count(text: str) -> int:
     return len(clean_text(text).encode("utf-8"))
 
 
+def loading_elapsed_seconds(started_at=None) -> float:
+    """전체 생성 중 Streamlit이 rerun되어도 로딩 문구 순서가 처음으로 돌아가지 않게 경과 시간을 계산한다."""
+    if started_at is None:
+        return 0.0
+    if isinstance(started_at, datetime):
+        base = started_at
+    else:
+        text = clean_text(started_at)
+        if not text:
+            return 0.0
+        base = None
+        for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"]:
+            try:
+                base = datetime.strptime(text[:19], fmt)
+                break
+            except Exception:
+                pass
+        if base is None:
+            return 0.0
+    try:
+        return max(0.0, (datetime.now() - base).total_seconds())
+    except Exception:
+        return 0.0
+
+
 GENERATION_LOADING_MESSAGES = [
     '칭찬 쥐어짜는 중...',
     '학생의 작은 성취를 확대 해석하지 않게 조심하는 중...',
@@ -189,7 +214,7 @@ GENERATION_LOADING_MESSAGES = [
     '마지막 문장까지 명사형 종결로 착지 준비 중...',
 ]
 
-def generation_loading_ticker_html() -> str:
+def generation_loading_ticker_html(loading_offset_seconds=0) -> str:
     """생성 대기 중에도 화면에서 7초마다 바뀌는 짧은 안내 문구를 만든다."""
     if not GENERATION_LOADING_MESSAGES:
         return ""
@@ -198,6 +223,10 @@ def generation_loading_ticker_html() -> str:
     line_height = 30
     interval_seconds = 7
     total_seconds = len(GENERATION_LOADING_MESSAGES) * interval_seconds
+    try:
+        offset_seconds = float(loading_offset_seconds or 0) % total_seconds
+    except Exception:
+        offset_seconds = 0.0
     message_lines = "".join([
         f'<div class="generation-loading-line">{html.escape(message)}</div>'
         for message in display_messages
@@ -205,21 +234,21 @@ def generation_loading_ticker_html() -> str:
     return f"""
     <div class="generation-loading-box">
 <div class="generation-loading-window" style="height:{line_height}px;">
-            <div class="generation-loading-track" style="animation: generationLoadingTicker {total_seconds}s steps({len(GENERATION_LOADING_MESSAGES)}) infinite;">
+            <div class="generation-loading-track" style="animation: generationLoadingTicker {total_seconds}s steps({len(GENERATION_LOADING_MESSAGES)}) infinite; animation-delay:-{offset_seconds:.2f}s;">
                 {message_lines}
             </div>
         </div>
     </div>
     """
 
-def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines=None, recent_items=None):
+def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines=None, recent_items=None, loading_offset_seconds=0):
     """AI 생성 중 진행 상황을 화면 안쪽에 표시하고, 직전 생성 완료 문장 1개만 보여준다."""
     if slot is None:
         slot = st.empty()
 
     safe_title = html.escape(clean_text(title))
     safe_detail = html.escape(clean_text(detail))
-    loading_html = generation_loading_ticker_html()
+    loading_html = generation_loading_ticker_html(loading_offset_seconds=loading_offset_seconds)
 
     recent_items = recent_items or []
     previous_html = ""
@@ -800,7 +829,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260621-v55",
+        "version": "patched-20260621-v56",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -2288,7 +2317,7 @@ def build_sample_project_data():
         "results": {},
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "sample-project-v55",
+        "version": "sample-project-v56",
     }
 
 
@@ -3418,6 +3447,7 @@ if current_step == 5:
 
         with col_a:
             if st.button("선택 학생 생기부 생성", type="secondary", use_container_width=True):
+                overlay_loading_started_at = datetime.now()
                 overlay_slot = None
                 recent_preview_items = generation_preview_items_from_results(
                     students, st.session_state.results, selected_student.get("student_id", "")
@@ -3429,6 +3459,7 @@ if current_step == 5:
                     0.20,
                     ["학생별 수행평가 자료 수집", "AI 입력 프롬프트 구성", "생기부 문장 생성 준비"],
                     recent_items=recent_preview_items,
+                    loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                 )
                 material = build_student_material(selected_student)
 
@@ -3439,6 +3470,7 @@ if current_step == 5:
                     0.45,
                     ["개인정보 제외 확인", "성취수준 문구 연결", "선택한 AI 모델 호출"],
                     recent_items=recent_preview_items,
+                    loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                 )
                 prompt = build_prompt(material)
 
@@ -3455,6 +3487,7 @@ if current_step == 5:
                         0.75,
                         ["교사의 평가 문구 추출", "중복 문구 정리", "명사형 종결 형태로 정리"],
                         recent_items=recent_preview_items,
+                        loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                     )
                     generated = fallback_generate(material)
 
@@ -3465,6 +3498,7 @@ if current_step == 5:
                     0.95,
                     ["생성 원문 저장", "교사 수정 문구 초기화", "byte 계산"],
                     recent_items=recent_preview_items,
+                    loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                 )
                 sid = selected_student["student_id"]
                 st.session_state.results[sid] = {
@@ -3552,6 +3586,7 @@ if current_step == 5:
             label = f"{student.get('반', '')}반 {student.get('번호', '')}번 {student.get('성명', '')}"
 
             overlay_slot = None
+            overlay_loading_started_at = job.get("started_at", "")
             progress_base = index / total if total else 0
             recent_preview_items = generation_preview_items_from_log(job.get("log", []))
             overlay_slot = show_generation_overlay(
@@ -3561,6 +3596,7 @@ if current_step == 5:
                 progress_base,
                 ["현재 학생 평가 자료 정리", "프롬프트 구성", "AI 생성 또는 내부 조합", "결과 저장"],
                 recent_items=recent_preview_items,
+                loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
             )
             with st.spinner(f"{index + 1}/{total} 생성 중: {label}"):
                 material = build_student_material(student)
@@ -3571,6 +3607,7 @@ if current_step == 5:
                     (index + 0.25) / total if total else 0,
                     ["개인정보 제외", "수행평가별 자료 정리", "성취수준 평가 문구 연결"],
                     recent_items=recent_preview_items,
+                    loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                 )
                 prompt = build_prompt(material)
 
@@ -3583,6 +3620,7 @@ if current_step == 5:
                         (index + 0.55) / total if total else 0,
                         ["AI 응답 대기 중", "응답이 끝나면 결과표에 자동 저장", "다음 학생으로 자동 이동"],
                         recent_items=recent_preview_items,
+                        loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                     )
                     generated = generate_with_ai(
                         prompt,
@@ -3599,6 +3637,7 @@ if current_step == 5:
                         (index + 0.75) / total if total else 0,
                         ["교사의 평가 문구 추출", "중복 표현 정리", "생기부 문체로 변환"],
                         recent_items=recent_preview_items,
+                        loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                     )
                     generated = fallback_generate(material)
 
