@@ -32,8 +32,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v54"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v54"
+APP_TITLE = "🍯 개꿀 생기부 v55"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v55"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -190,13 +190,13 @@ GENERATION_LOADING_MESSAGES = [
 ]
 
 def generation_loading_ticker_html() -> str:
-    """생성 대기 중에도 화면에서 4초마다 바뀌는 짧은 안내 문구를 만든다."""
+    """생성 대기 중에도 화면에서 7초마다 바뀌는 짧은 안내 문구를 만든다."""
     if not GENERATION_LOADING_MESSAGES:
         return ""
 
     display_messages = GENERATION_LOADING_MESSAGES + [GENERATION_LOADING_MESSAGES[0]]
     line_height = 30
-    interval_seconds = 4
+    interval_seconds = 7
     total_seconds = len(GENERATION_LOADING_MESSAGES) * interval_seconds
     message_lines = "".join([
         f'<div class="generation-loading-line">{html.escape(message)}</div>'
@@ -204,8 +204,7 @@ def generation_loading_ticker_html() -> str:
     ])
     return f"""
     <div class="generation-loading-box">
-        <div class="generation-loading-label">기다리는 동안</div>
-        <div class="generation-loading-window" style="height:{line_height}px;">
+<div class="generation-loading-window" style="height:{line_height}px;">
             <div class="generation-loading-track" style="animation: generationLoadingTicker {total_seconds}s steps({len(GENERATION_LOADING_MESSAGES)}) infinite;">
                 {message_lines}
             </div>
@@ -261,143 +260,57 @@ def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines
         <div class="generation-inline-percent">{progress_value}%</div>
         """
 
-    slot.markdown(
-        f"""
-        <style>
-        .generation-inline-card {{
-            width: 100%;
-            background: #FFFFFF;
-            border: 1px solid #CBD5E1;
-            border-left: 8px solid #D92D20;
-            border-radius: 16px;
-            box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
-            padding: 15px 17px 14px 17px;
-            color: #111827;
-            margin: 0.75rem 0 1.1rem 0;
-        }}
-        .generation-inline-title {{
-            font-size: 1.02rem;
-            font-weight: 900;
-            margin-bottom: 5px;
-        }}
-        .generation-inline-detail {{
-            font-size: 0.93rem;
-            font-weight: 700;
-            color: #334155;
-            margin-bottom: 9px;
-        }}
-        .generation-inline-progress-wrap {{
-            width: 100%;
-            height: 10px;
-            border-radius: 999px;
-            background: #E5E7EB;
-            overflow: hidden;
-            margin-top: 8px;
-        }}
-        .generation-inline-progress-bar {{
-            height: 10px;
-            border-radius: 999px;
-            background: linear-gradient(90deg, #EF4444 0%, #D92D20 100%);
-            transition: width 0.25s ease;
-        }}
-        .generation-inline-percent {{
-            margin-top: 4px;
-            text-align: right;
-            color: #64748B;
-            font-size: 0.78rem;
-            font-weight: 800;
-        }}
-        .generation-loading-box {{
-            margin-top: 10px;
-            background: #FFF7ED;
-            border: 1px solid #FED7AA;
-            border-radius: 12px;
-            padding: 8px 11px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            overflow: hidden;
-        }}
-        .generation-loading-label {{
-            flex: 0 0 auto;
-            color: #9A3412;
-            font-size: 0.78rem;
-            font-weight: 900;
-            background: #FFEDD5;
-            border: 1px solid #FDBA74;
-            border-radius: 999px;
-            padding: 4px 8px;
-        }}
-        .generation-loading-window {{
-            flex: 1 1 auto;
-            overflow: hidden;
-            min-width: 0;
-        }}
-        .generation-loading-track {{
-            will-change: transform;
-        }}
-        .generation-loading-line {{
-            height: 30px;
-            line-height: 30px;
-            color: #7C2D12;
-            font-size: 0.91rem;
-            font-weight: 900;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }}
-        @keyframes generationLoadingTicker {{
-            from {{ transform: translateY(0); }}
-            to {{ transform: translateY(-1350px); }}
-        }}
-        .generation-inline-previous {{
-            margin-top: 12px;
-            background: #F8FAFC;
-            border: 1px solid #E2E8F0;
-            border-radius: 12px;
-            padding: 11px 13px;
-        }}
-        .generation-inline-previous-title {{
-            font-weight: 900;
-            color: #0F172A;
-            font-size: 0.9rem;
-            margin-bottom: 6px;
-        }}
-        .generation-inline-previous-label {{
-            font-weight: 900;
-            color: #1E3A8A;
-            font-size: 0.84rem;
-            margin-bottom: 5px;
-        }}
-        .generation-inline-previous-text {{
-            color: #111827;
-            font-size: 0.9rem;
-            line-height: 1.6;
-            white-space: pre-wrap;
-            word-break: keep-all;
-            overflow-wrap: anywhere;
-        }}
-        .generation-inline-empty {{
-            margin-top: 10px;
-            color: #64748B;
-            background: #F8FAFC;
-            border: 1px dashed #CBD5E1;
-            border-radius: 12px;
-            padding: 10px 12px;
-            font-size: 0.88rem;
-            font-weight: 700;
-        }}
-        </style>
-        <div class="generation-inline-card">
-            <div class="generation-inline-title">{safe_title}</div>
-            <div class="generation-inline-detail">{safe_detail}</div>
-            {loading_html}
-            {progress_html}
-            {previous_html}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    card_html = f"""
+    <!doctype html>
+    <html>
+    <head>
+    <meta charset="utf-8">
+    <style>
+    html, body {{ margin: 0; padding: 0; background: transparent; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }}
+    .generation-inline-card {{
+        width: calc(100% - 2px);
+        background: #FFFFFF;
+        border: 1px solid #CBD5E1;
+        border-left: 8px solid #D92D20;
+        border-radius: 16px;
+        box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+        padding: 15px 17px 14px 17px;
+        color: #111827;
+        box-sizing: border-box;
+        margin: 0;
+    }}
+    .generation-inline-title {{ font-size: 1.02rem; font-weight: 900; margin-bottom: 5px; }}
+    .generation-inline-detail {{ font-size: 0.93rem; font-weight: 700; color: #334155; margin-bottom: 9px; }}
+    .generation-inline-progress-wrap {{ width: 100%; height: 10px; border-radius: 999px; background: #E5E7EB; overflow: hidden; margin-top: 8px; }}
+    .generation-inline-progress-bar {{ height: 10px; border-radius: 999px; background: linear-gradient(90deg, #EF4444 0%, #D92D20 100%); transition: width 0.25s ease; }}
+    .generation-inline-percent {{ margin-top: 4px; text-align: right; color: #64748B; font-size: 0.78rem; font-weight: 800; }}
+    .generation-loading-box {{ margin-top: 10px; background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 12px; padding: 8px 11px; display: flex; align-items: center; overflow: hidden; }}
+    .generation-loading-label {{ display: none; }}
+    .generation-loading-window {{ flex: 1 1 auto; overflow: hidden; min-width: 0; }}
+    .generation-loading-track {{ will-change: transform; }}
+    .generation-loading-line {{ height: 30px; line-height: 30px; color: #7C2D12; font-size: 0.91rem; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+    @keyframes generationLoadingTicker {{ from {{ transform: translateY(0); }} to {{ transform: translateY(-1350px); }} }}
+    .generation-inline-previous {{ margin-top: 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 11px 13px; }}
+    .generation-inline-previous-title {{ font-weight: 900; color: #0F172A; font-size: 0.9rem; margin-bottom: 6px; }}
+    .generation-inline-previous-label {{ font-weight: 900; color: #1E3A8A; font-size: 0.84rem; margin-bottom: 5px; }}
+    .generation-inline-previous-text {{ color: #111827; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }}
+    .generation-inline-empty {{ margin-top: 10px; color: #64748B; background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 12px; padding: 10px 12px; font-size: 0.88rem; font-weight: 700; }}
+    </style>
+    </head>
+    <body>
+    <div class="generation-inline-card">
+        <div class="generation-inline-title">{safe_title}</div>
+        <div class="generation-inline-detail">{safe_detail}</div>
+        {loading_html}
+        {progress_html}
+        {previous_html}
+    </div>
+    </body>
+    </html>
+    """
+    slot.empty()
+    with slot.container():
+        components.html(card_html, height=360, scrolling=True)
     return slot
 
 def generation_preview_items_from_log(log_entries):
@@ -887,7 +800,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260621-v54",
+        "version": "patched-20260621-v55",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -2375,7 +2288,7 @@ def build_sample_project_data():
         "results": {},
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "sample-project-v54",
+        "version": "sample-project-v55",
     }
 
 
