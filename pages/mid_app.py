@@ -17,7 +17,7 @@ from openpyxl.utils import get_column_letter
 
 
 # =========================
-# 중학교 간편 생기부 v07
+# 중학교 간편 생기부 v08
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -25,9 +25,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v07"
-MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v07"
-MID_APP_VERSION = "patched-20260623-mid-v07"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v08"
+MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v08"
+MID_APP_VERSION = "patched-20260623-mid-v08"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -960,12 +960,13 @@ def export_final_excel():
 
 
 def render_level_header_preview(items):
-    # 웹 입력표 위에 수행평가명/관찰 영역명을 app.py 색상 규칙으로 보여준다.
+    """② 입력표 위에서 수행평가-관찰 영역 구조를 색상으로 확인한다.
+    실제 입력표 헤더는 영역명만 표시하고, 이 구조표에서 상위 수행평가를 확인한다.
+    """
     items = list(items or [])
     if not items:
         return
 
-    base_headers = ["학년", "반", "번호", "성명"]
     assessment_groups = []
     current_name = None
     current_items = []
@@ -982,32 +983,34 @@ def render_level_header_preview(items):
     if current_name is not None:
         assessment_groups.append((current_name, current_items))
 
-    first_row = "".join([
-        f'<th class="mid-student-head" rowspan="2">{html.escape(header)}</th>'
-        for header in base_headers
-    ])
-    for assessment_name, group_items in assessment_groups:
-        first_row += (
-            f'<th class="mid-assessment-head" colspan="{len(group_items)}">'
-            f'📁 {html.escape(assessment_name)}</th>'
+    cards = []
+    for assessment_index, (assessment_name, group_items) in enumerate(assessment_groups, start=1):
+        item_chips = "".join([
+            '<span class="mid-structure-item-chip">'
+            f'🧾 {html.escape(clean_text(item.get("name", "이름 없는 관찰 영역")))}'
+            '</span>'
+            for item in group_items
+        ])
+        cards.append(
+            '<div class="mid-structure-card">'
+            '<div class="mid-structure-assessment">'
+            f'<span class="mid-structure-number">수행평가 {assessment_index}</span>'
+            f'<span>📁 {html.escape(assessment_name)}</span>'
+            '</div>'
+            f'<div class="mid-structure-items">{item_chips}</div>'
+            '</div>'
         )
-
-    second_row = "".join([
-        f'<th class="mid-item-head">🧾 {html.escape(clean_text(item.get("name", "이름 없는 관찰 영역")))}</th>'
-        for _, group_items in assessment_groups
-        for item in group_items
-    ])
 
     html_block = (
         '<div class="mid-color-guide">'
         '<span class="mid-color-chip"><span class="mid-blue-dot"></span>수행평가명</span>'
         '<span class="mid-color-chip"><span class="mid-yellow-dot"></span>관찰 영역명</span>'
         '</div>'
-        '<div class="mid-header-preview-wrap"><table class="mid-header-preview"><thead>'
-        f'<tr>{first_row}</tr><tr>{second_row}</tr>'
-        '</thead></table></div>'
+        '<div class="mid-structure-wrap">'
+        + "".join(cards) +
+        '</div>'
     )
-    st.markdown("".join(html_block), unsafe_allow_html=True)
+    st.markdown(html_block, unsafe_allow_html=True)
 
 # =========================
 # UI 스타일 / 이동
@@ -1162,6 +1165,60 @@ st.markdown(
     }
     .mid-blue-dot { background: #DBEAFE; border: 1px solid #93C5FD; }
     .mid-yellow-dot { background: #FFEDD5; border: 1px solid #FED7AA; }
+    .mid-structure-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin: 0.45rem 0 1.0rem 0;
+    }
+    .mid-structure-card {
+        border: 1px solid #BFDBFE;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #FFFFFF;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+    }
+    .mid-structure-assessment {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #DBEAFE;
+        color: #1E3A8A;
+        border-bottom: 1px solid #BFDBFE;
+        padding: 10px 12px;
+        font-weight: 900;
+    }
+    .mid-structure-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #93C5FD;
+        border-radius: 999px;
+        background: #EFF6FF;
+        color: #1E3A8A;
+        padding: 3px 9px;
+        font-size: 0.82rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+    .mid-structure-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 12px;
+        background: #FFFBF5;
+    }
+    .mid-structure-item-chip {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid #FED7AA;
+        border-radius: 999px;
+        background: #FFEDD5;
+        color: #92400E;
+        padding: 6px 11px;
+        font-weight: 900;
+        line-height: 1.25;
+    }
 .mid-header-preview-wrap + div[data-testid="stDataFrame"],
     .mid-header-preview-wrap + div[data-testid="stDataEditor"] {
         margin-top: 0 !important;
@@ -1534,12 +1591,15 @@ if current_step == 1:
         st.markdown(
             """
             학생은 행으로, 관찰 영역은 열로 입력합니다.  
-            영역 열은 **수행평가명 / 관찰 영역명** 형태로 표시됩니다. 이름은 관리용이며 AI 프롬프트에는 들어가지 않습니다.
+            위에는 ①에서 설정한 **수행평가-관찰 영역 구조**를 색으로 보여주고, 실제 입력표의 성취수준 열 제목은 **관찰 영역명만** 표시합니다. 이름은 관리용이며 AI 프롬프트에는 들어가지 않습니다.
             """
         )
 
         matrix_df, items = build_record_matrix_df()
         visible_df = matrix_df.copy()
+
+        st.markdown("#### 수행평가/관찰 영역 구조")
+        render_level_header_preview(items)
 
         column_config = {
             "student_id": None,
@@ -1565,14 +1625,14 @@ if current_step == 1:
             )
 
         st.markdown("#### 학생별 성취수준 입력표")
-        st.caption("각 영역 열 제목을 2줄로 표시했습니다. 위 줄은 수행평가명, 아래 줄은 관찰 영역명입니다.")
+        st.caption("표 헤더에는 관찰 영역명만 표시합니다. 어느 수행평가에 속한 영역인지는 위의 구조표에서 확인하세요.")
 
         edited_df = st.data_editor(
             visible_df,
             num_rows="dynamic",
             use_container_width=True,
             height=560,
-            key="mid_record_matrix_editor_v07",
+            key="mid_record_matrix_editor_v08",
             column_config=column_config,
         )
 
@@ -1593,8 +1653,8 @@ if current_step == 1:
 
         with st.expander("표 헤더 구조 설명", expanded=False):
             st.markdown(
-                "웹 입력표는 병합 헤더 대신 각 성취수준 열 제목에 수행평가명과 관찰 영역명을 2줄로 반복 표시합니다. "
-                "그래서 별도 헤더 미리보기 없이 실제 입력표 안에서 바로 구분할 수 있습니다. "
+                "웹 입력표의 성취수준 열 제목에는 관찰 영역명만 표시합니다. "
+                "대신 입력표 바로 위에 ①에서 설정한 수행평가명과 관찰 영역명을 구조화해서 보여줍니다. "
                 "엑셀 다운로드 파일에서는 윗줄 수행평가명, 아랫줄 관찰 영역명의 2단 헤더를 적용했습니다."
             )
 
