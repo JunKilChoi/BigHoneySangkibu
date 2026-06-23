@@ -1,4 +1,3 @@
-import hashlib
 import json
 import re
 import uuid
@@ -11,17 +10,13 @@ from urllib import request as urllib_request
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-try:
-    from streamlit_sortables import sort_items
-except Exception:
-    sort_items = None
-
 
 # =========================
-# 중학교 간편 생성기 기본 설정
+# 중학교 간편 생기부 v03
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -29,9 +24,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v02"
-MID_APP_SUBTITLE = "수행평가 기반 중학교 생기부 문장 변주 도우미 · patched-20260623-mid-v02"
-MID_APP_VERSION = "patched-20260623-mid-v02"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v03"
+MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v03"
+MID_APP_VERSION = "patched-20260623-mid-v03"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -40,6 +35,19 @@ MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및
 - '깊은 이해', '창의융합', '혁신적', '흥미와 전문성 심화', '본인은', '의지를 밝힘' 같은 표현을 피한다.
 - 한 문장 또는 짧은 한 문단으로 작성한다.
 - 명사형 종결을 사용한다. 예: 수행함, 설명함, 정리함, 제시함, 해석함, 이해한 것으로 보임."""
+
+MASTER_PROMPT = """너는 중학교 학교생활기록부 교과 세부능력 및 특기사항을 작성하는 교사 보조 도구이다.
+
+[기본 원칙]
+- 제공된 수행평가와 관찰 영역별 성취수준 자료만 근거로 사용한다.
+- 학생 이름, 학년, 반, 번호, 학교명 등 개인정보는 포함하지 않는다.
+- 학생은, 이 학생은, 해당 학생은으로 문장을 시작하지 않는다.
+- 성취수준 코드를 그대로 나열하지 않고 교사의 평가 문구를 자연스럽게 바꾸어 작성한다.
+- 근거 없는 인성 평가, 성격 판단, 진로 추정, 태도 평가는 작성하지 않는다.
+- 부정적 표현을 직접 쓰지 않고 현재 수행한 내용 중심으로 서술한다.
+- 한 문단으로 작성한다.
+- 문장은 명사형 종결 어미로 마무리한다.
+- 제목, 번호, 설명, 따옴표, 안내 문구 없이 생기부 문장만 출력한다."""
 
 AI_PROVIDER_OPTIONS = ["ChatGPT", "Gemini", "Claude"]
 AI_DEFAULT_MODELS = {
@@ -53,10 +61,10 @@ AI_SECRET_KEY_NAMES = {
     "Claude": "ANTHROPIC_API_KEY",
 }
 
-VARIATION_OPTIONS = {
-    "낮음": "문장 구조는 크게 바꾸지 말고 어휘와 순서만 조금씩 바꾼다.",
-    "보통": "의미는 유지하되 문장 구조와 표현을 적당히 다르게 만든다.",
-    "높음": "활동 결과의 의미는 유지하면서 문장 흐름과 표현을 다양하게 만든다.",
+VARIATION_GUIDES = {
+    "낮음": "평가 내용은 그대로 유지하고 어휘와 문장 순서만 조금씩 바꾼다.",
+    "보통": "평가 내용은 유지하되 문장 구조와 표현을 적당히 다르게 만든다.",
+    "높음": "평가 내용은 벗어나지 않으면서 문장 흐름과 표현을 다양하게 구성한다.",
 }
 
 
@@ -109,6 +117,13 @@ def json_safe(obj):
     return obj
 
 
+def default_level_code(index: int) -> str:
+    default_codes = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
+    if 0 <= index < len(default_codes):
+        return default_codes[index]
+    return str(index + 1)
+
+
 def get_default_ai_model(provider: str) -> str:
     provider = provider if provider in AI_DEFAULT_MODELS else "ChatGPT"
     return AI_DEFAULT_MODELS[provider]
@@ -122,45 +137,93 @@ def get_default_ai_key(provider: str) -> str:
         return ""
 
 
-def default_level_code(index: int) -> str:
-    default_codes = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
-    if 0 <= index < len(default_codes):
-        return default_codes[index]
-    return str(index + 1)
+def sort_students_df(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    result = df.copy()
+    for col in ["student_id", "학년", "반", "번호", "성명"]:
+        if col not in result.columns:
+            result[col] = ""
+    result["_학년정렬"] = result["학년"].map(to_int_or_big)
+    result["_반정렬"] = result["반"].map(to_int_or_big)
+    result["_번호정렬"] = result["번호"].map(to_int_or_big)
+    result = result.sort_values(
+        by=["_학년정렬", "_반정렬", "_번호정렬", "성명"],
+        kind="stable",
+    ).drop(columns=["_학년정렬", "_반정렬", "_번호정렬"])
+    return result.reset_index(drop=True)
+
+
+def sort_assessments():
+    return sorted(
+        st.session_state.get("mid_assessments", []),
+        key=lambda x: (
+            int(x.get("order", 999) or 999),
+            clean_text(x.get("name", "")),
+            clean_text(x.get("assessment_id", "")),
+        ),
+    )
+
+
+def get_items_for_assessment(assessment_id):
+    return [
+        item for item in st.session_state.get("mid_items", [])
+        if isinstance(item, dict) and item.get("assessment_id", "") == assessment_id
+    ]
+
+
+def sort_items_for_assessment(assessment_id):
+    return sorted(
+        get_items_for_assessment(assessment_id),
+        key=lambda x: (
+            int(x.get("order", 999) or 999),
+            clean_text(x.get("name", "")),
+            clean_text(x.get("item_id", "")),
+        ),
+    )
+
+
+def get_assessment_name(assessment_id):
+    for assessment in st.session_state.get("mid_assessments", []):
+        if assessment.get("assessment_id", "") == assessment_id:
+            return assessment.get("name", "")
+    return ""
+
+
+def get_item_by_id(item_id):
+    for item in st.session_state.get("mid_items", []):
+        if item.get("item_id", "") == item_id:
+            return item
+    return None
+
+
+def all_used_items():
+    rows = []
+    for assessment in sort_assessments():
+        if not assessment.get("use", True):
+            continue
+        for item in sort_items_for_assessment(assessment.get("assessment_id", "")):
+            rows.append(item)
+    return rows
+
+
+def record_key(student_id, item_id):
+    return f"{student_id}::{item_id}"
+
+
+def get_level(student_id, item_id):
+    return clean_text(st.session_state.get("mid_records", {}).get(record_key(student_id, item_id), ""))
+
+
+def set_level(student_id, item_id, level):
+    st.session_state.mid_records[record_key(student_id, item_id)] = clean_text(level)
 
 
 def normalize_sentence(text: str) -> str:
     text = clean_text(text)
     text = re.sub(r"\s+", " ", text)
-    text = text.strip(" \n\t-•·")
     text = re.sub(r"^[0-9]+[\.)]\s*", "", text)
-    text = text.strip('"\'“”‘’')
-    return text
-
-
-def sort_areas(areas):
-    return sorted(
-        areas,
-        key=lambda x: (
-            int(x.get("order", 999) or 999),
-            clean_text(x.get("name", "")),
-            clean_text(x.get("area_id", "")),
-        ),
-    )
-
-
-def area_label(area, idx=None):
-    prefix = f"{idx}. " if idx is not None else ""
-    name = clean_text(area.get("name", "이름 없는 수행평가")) or "이름 없는 수행평가"
-    unit = clean_text(area.get("unit", ""))
-    return f"{prefix}{name}" + (f" · {unit}" if unit else "")
-
-
-def get_area_by_id(area_id):
-    for area in st.session_state.get("mid_areas", []):
-        if area.get("area_id", "") == area_id:
-            return area
-    return None
+    return text.strip(' \n\t-•·"\'“”‘’')
 
 
 # =========================
@@ -179,19 +242,25 @@ def init_mid_state():
             "custom_rules": MID_DEFAULT_RULES,
         }
 
-    if "mid_areas" not in st.session_state:
-        st.session_state.mid_areas = []
+    if "mid_assessments" not in st.session_state:
+        st.session_state.mid_assessments = []
 
-    if "mid_results" not in st.session_state:
-        st.session_state.mid_results = []
+    if "mid_items" not in st.session_state:
+        st.session_state.mid_items = []
 
-    if "mid_student_rows" not in st.session_state:
-        st.session_state.mid_student_rows = pd.DataFrame(
-            columns=["반", "번호", "성명", "성취수준", "추가 코멘트", "생성 수"]
+    if "mid_students" not in st.session_state:
+        st.session_state.mid_students = pd.DataFrame(
+            columns=["student_id", "학년", "반", "번호", "성명"]
         )
 
-    if "mid_selected_result_id" not in st.session_state:
-        st.session_state.mid_selected_result_id = ""
+    if "mid_records" not in st.session_state:
+        st.session_state.mid_records = {}
+
+    if "mid_results" not in st.session_state:
+        st.session_state.mid_results = {}
+
+    if "mid_selected_result_student_id" not in st.session_state:
+        st.session_state.mid_selected_result_student_id = ""
 
 
 def sanitize_mid_state():
@@ -204,53 +273,76 @@ def sanitize_mid_state():
         settings["target_bytes_max"] = 450
     st.session_state.mid_settings = settings
 
-    clean_areas = []
-    for idx, area in enumerate(st.session_state.get("mid_areas", []), start=1):
-        if not isinstance(area, dict):
+    if not isinstance(st.session_state.get("mid_students"), pd.DataFrame):
+        st.session_state.mid_students = pd.DataFrame(st.session_state.get("mid_students", []))
+    for col in ["student_id", "학년", "반", "번호", "성명"]:
+        if col not in st.session_state.mid_students.columns:
+            st.session_state.mid_students[col] = ""
+    if not st.session_state.mid_students.empty:
+        st.session_state.mid_students["student_id"] = st.session_state.mid_students["student_id"].apply(
+            lambda x: clean_text(x) if clean_text(x) else make_id("mid_stu")
+        )
+        st.session_state.mid_students = sort_students_df(st.session_state.mid_students)
+
+    clean_assessments = []
+    for idx, assessment in enumerate(st.session_state.get("mid_assessments", []), start=1):
+        if not isinstance(assessment, dict):
             continue
-        if not clean_text(area.get("area_id", "")):
-            area["area_id"] = make_id("mid_area")
-        area["name"] = clean_text(area.get("name", "")) or "이름 없는 수행평가"
-        area["unit"] = clean_text(area.get("unit", ""))
-        area["description"] = clean_text(area.get("description", ""))
-        area["order"] = int(area.get("order", idx) or idx)
-        area["use"] = bool(area.get("use", True))
-        if not isinstance(area.get("levels", []), list):
-            area["levels"] = []
-        if not isinstance(area.get("rubrics", {}), dict):
-            area["rubrics"] = {}
-        if not area["levels"]:
-            area["levels"] = ["A", "B", "C"]
-        area["levels"] = [clean_text(x) for x in area["levels"] if clean_text(x)]
-        for level in area["levels"]:
-            area["rubrics"].setdefault(level, "")
-        clean_areas.append(area)
+        if not clean_text(assessment.get("assessment_id", "")):
+            assessment["assessment_id"] = make_id("mid_assess")
+        assessment["name"] = clean_text(assessment.get("name", "")) or "이름 없는 수행평가"
+        assessment["unit"] = clean_text(assessment.get("unit", ""))
+        assessment["description"] = clean_text(assessment.get("description", ""))
+        assessment["order"] = int(assessment.get("order", idx) or idx)
+        assessment["use"] = bool(assessment.get("use", True))
+        clean_assessments.append(assessment)
+    clean_assessments = sorted(clean_assessments, key=lambda x: int(x.get("order", 999) or 999))
+    for idx, assessment in enumerate(clean_assessments, start=1):
+        assessment["order"] = idx
+    st.session_state.mid_assessments = clean_assessments
+    valid_assessment_ids = {a["assessment_id"] for a in clean_assessments}
 
-    clean_areas = sort_areas(clean_areas)
-    for idx, area in enumerate(clean_areas, start=1):
-        area["order"] = idx
-    st.session_state.mid_areas = clean_areas
-
-    if not isinstance(st.session_state.get("mid_results"), list):
-        st.session_state.mid_results = []
-
-    clean_results = []
-    for result in st.session_state.get("mid_results", []):
-        if not isinstance(result, dict):
+    clean_items = []
+    for idx, item in enumerate(st.session_state.get("mid_items", []), start=1):
+        if not isinstance(item, dict):
             continue
-        if not clean_text(result.get("result_id", "")):
-            result["result_id"] = make_id("mid_result")
-        result["final_text"] = clean_text(result.get("final_text", result.get("generated_text", "")))
-        result["generated_text"] = clean_text(result.get("generated_text", result.get("final_text", "")))
-        result["byte"] = byte_count(result.get("final_text", ""))
-        clean_results.append(result)
+        if item.get("assessment_id", "") not in valid_assessment_ids:
+            continue
+        if not clean_text(item.get("item_id", "")):
+            item["item_id"] = make_id("mid_item")
+        item["name"] = clean_text(item.get("name", "")) or "이름 없는 관찰 영역"
+        item["order"] = int(item.get("order", idx) or idx)
+        if not isinstance(item.get("levels", []), list):
+            item["levels"] = []
+        if not isinstance(item.get("rubrics", {}), dict):
+            item["rubrics"] = {}
+        clean_items.append(item)
+    st.session_state.mid_items = clean_items
+    for assessment in st.session_state.mid_assessments:
+        aid = assessment.get("assessment_id", "")
+        items = sort_items_for_assessment(aid)
+        for idx, item in enumerate(items, start=1):
+            item["order"] = idx
+
+    valid_student_ids = set(st.session_state.mid_students["student_id"].astype(str).tolist()) if not st.session_state.mid_students.empty else set()
+    valid_item_ids = {item.get("item_id", "") for item in st.session_state.mid_items}
+
+    clean_records = {}
+    for key, value in st.session_state.get("mid_records", {}).items():
+        key = str(key)
+        if "::" not in key:
+            continue
+        sid, item_id = key.split("::", 1)
+        if sid in valid_student_ids and item_id in valid_item_ids:
+            clean_records[key] = clean_text(value)
+    st.session_state.mid_records = clean_records
+
+    clean_results = {}
+    for sid, result in st.session_state.get("mid_results", {}).items():
+        sid = clean_text(sid)
+        if sid in valid_student_ids and isinstance(result, dict):
+            clean_results[sid] = result
     st.session_state.mid_results = clean_results
-
-    if not isinstance(st.session_state.get("mid_student_rows"), pd.DataFrame):
-        st.session_state.mid_student_rows = pd.DataFrame(st.session_state.get("mid_student_rows", []))
-    for col in ["반", "번호", "성명", "성취수준", "추가 코멘트", "생성 수"]:
-        if col not in st.session_state.mid_student_rows.columns:
-            st.session_state.mid_student_rows[col] = "" if col != "생성 수" else 1
 
 
 init_mid_state()
@@ -258,16 +350,18 @@ sanitize_mid_state()
 
 
 # =========================
-# JSON 저장/불러오기 및 샘플
+# 프로젝트 저장/불러오기
 # =========================
 def mid_project_to_json() -> str:
     data = {
         "settings": st.session_state.mid_settings,
-        "areas": st.session_state.mid_areas,
-        "student_rows": st.session_state.mid_student_rows.to_dict(orient="records"),
+        "students": st.session_state.mid_students.to_dict(orient="records"),
+        "assessments": st.session_state.mid_assessments,
+        "items": st.session_state.mid_items,
+        "records": st.session_state.mid_records,
         "results": st.session_state.mid_results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
-        "app": "개꿀 생기부 - 중학교 간편 생성기",
+        "app": "개꿀 생기부 - 중학교 간편",
         "version": MID_APP_VERSION,
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
@@ -275,10 +369,12 @@ def mid_project_to_json() -> str:
 
 def apply_mid_project_data(data):
     st.session_state.mid_settings = data.get("settings", st.session_state.mid_settings)
-    st.session_state.mid_areas = data.get("areas", [])
-    st.session_state.mid_student_rows = pd.DataFrame(data.get("student_rows", []))
-    st.session_state.mid_results = data.get("results", [])
-    st.session_state.mid_selected_result_id = ""
+    st.session_state.mid_students = pd.DataFrame(data.get("students", []))
+    st.session_state.mid_assessments = data.get("assessments", [])
+    st.session_state.mid_items = data.get("items", [])
+    st.session_state.mid_records = data.get("records", {})
+    st.session_state.mid_results = data.get("results", {})
+    st.session_state.mid_selected_result_student_id = ""
     sanitize_mid_state()
 
 
@@ -287,44 +383,74 @@ def load_mid_project_json(uploaded_file):
     apply_mid_project_data(data)
 
 
-def build_mid_sample_project():
-    areas = [
+def build_mid_sample_project_data():
+    assessments = [
         {
-            "area_id": "mid_area_sample_digest",
+            "assessment_id": "mid_assess_digest",
             "name": "소화 기관 모형 만들기",
             "unit": "동물의 몸과 영양소",
-            "description": "소화 기관의 구조와 각 기관의 역할을 모형으로 표현하고, 음식물이 이동하는 순서를 설명하는 활동",
+            "description": "소화 기관의 구조와 각 기관의 역할을 모형으로 표현하고 설명하는 활동",
             "order": 1,
             "use": True,
-            "levels": ["상", "중", "하"],
-            "rubrics": {
-                "상": "소화 기관의 순서와 역할을 정확히 연결하여 모형으로 표현함",
-                "중": "주요 소화 기관의 위치와 역할을 대체로 설명함",
-                "하": "소화 기관의 기본 구조를 중심으로 모형 제작에 참여함",
-            },
         },
         {
-            "area_id": "mid_area_sample_photo",
+            "assessment_id": "mid_assess_photo",
             "name": "광합성 조건 탐구하기",
             "unit": "식물과 에너지",
-            "description": "빛, 물, 이산화 탄소 등 광합성에 영향을 주는 조건을 정하고 변인을 통제하여 실험을 설계하는 활동",
+            "description": "광합성에 영향을 주는 환경 요인을 정하고 변인을 통제하여 실험을 설계하는 활동",
             "order": 2,
             "use": True,
-            "levels": ["A", "B", "C", "D"],
-            "rubrics": {
-                "A": "실험군과 대조군을 구분하고 변인 통제 조건을 구체적으로 제시함",
-                "B": "광합성에 영향을 주는 조건을 정하고 비교 실험의 기본 구조를 설명함",
-                "C": "광합성과 관련된 주요 조건을 바탕으로 실험 설계에 참여함",
-                "D": "광합성 조건 탐구의 기본 절차를 중심으로 활동을 수행함",
-            },
         },
     ]
-    student_rows = [
-        {"반": "1", "번호": "1", "성명": "김민준", "성취수준": "상", "추가 코멘트": "기관별 역할을 화살표로 연결함", "생성 수": 1},
-        {"반": "1", "번호": "2", "성명": "박서연", "성취수준": "중", "추가 코멘트": "위와 작은창자의 역할을 구분함", "생성 수": 1},
-        {"반": "1", "번호": "3", "성명": "최도윤", "성취수준": "상", "추가 코멘트": "음식물 이동 순서를 근거와 함께 설명함", "생성 수": 1},
-        {"반": "1", "번호": "4", "성명": "이하은", "성취수준": "하", "추가 코멘트": "모형 제작 과정에 참여함", "생성 수": 1},
+    common_levels = ["A", "B", "C"]
+    common_rubrics = {
+        "A": "핵심 개념을 정확히 연결하여 활동 결과를 구체적으로 설명함",
+        "B": "주요 개념을 바탕으로 활동 결과를 대체로 적절하게 설명함",
+        "C": "기초 개념을 중심으로 활동에 참여하고 기본 내용을 정리함",
+    }
+    items = [
+        {
+            "item_id": "mid_item_digest_order",
+            "assessment_id": "mid_assess_digest",
+            "name": "소화 기관의 순서와 역할",
+            "levels": common_levels,
+            "rubrics": common_rubrics,
+            "order": 1,
+        },
+        {
+            "item_id": "mid_item_digest_model",
+            "assessment_id": "mid_assess_digest",
+            "name": "모형 표현과 설명",
+            "levels": common_levels,
+            "rubrics": common_rubrics,
+            "order": 2,
+        },
+        {
+            "item_id": "mid_item_photo_variable",
+            "assessment_id": "mid_assess_photo",
+            "name": "변인 통제",
+            "levels": common_levels,
+            "rubrics": common_rubrics,
+            "order": 1,
+        },
+        {
+            "item_id": "mid_item_photo_predict",
+            "assessment_id": "mid_assess_photo",
+            "name": "결과 예측과 해석",
+            "levels": common_levels,
+            "rubrics": common_rubrics,
+            "order": 2,
+        },
     ]
+    names = ["김민준", "박서연", "최도윤", "이하은", "정우진", "한지우", "오서준", "윤채아", "임하준", "강민서"]
+    students = []
+    records = {}
+    level_cycle = ["A", "B", "A", "B", "C", "B", "A", "C", "B", "A"]
+    for idx, name in enumerate(names, start=1):
+        sid = f"mid_sample_stu_{idx:02d}"
+        students.append({"student_id": sid, "학년": "2", "반": "1", "번호": str(idx), "성명": name})
+        for j, item in enumerate(items):
+            records[f"{sid}::{item['item_id']}"] = level_cycle[(idx + j - 1) % len(level_cycle)]
     return {
         "settings": {
             "school_year": "2026",
@@ -336,132 +462,23 @@ def build_mid_sample_project():
             "target_bytes_max": 450,
             "custom_rules": MID_DEFAULT_RULES,
         },
-        "areas": areas,
-        "student_rows": student_rows,
-        "results": [],
+        "students": students,
+        "assessments": assessments,
+        "items": items,
+        "records": records,
+        "results": {},
         "saved_at": datetime.now().isoformat(timespec="seconds"),
-        "app": "개꿀 생기부 - 중학교 간편 생성기",
-        "version": "sample-mid-project-v02",
+        "app": "개꿀 생기부 - 중학교 간편",
+        "version": "sample-mid-v03",
     }
+
+
+def load_mid_sample_data():
+    apply_mid_project_data(build_mid_sample_project_data())
 
 
 # =========================
-# 수행평가 순서 정렬
-# =========================
-def normalize_area_orders():
-    areas = sort_areas(st.session_state.mid_areas)
-    for idx, area in enumerate(areas, start=1):
-        area["order"] = idx
-    st.session_state.mid_areas = areas
-
-
-def apply_area_drag_order(sorted_labels, label_to_area_id):
-    id_to_area = {area.get("area_id", ""): area for area in st.session_state.mid_areas}
-    for idx, label in enumerate(sorted_labels, start=1):
-        area_id = label_to_area_id.get(label)
-        if area_id in id_to_area:
-            id_to_area[area_id]["order"] = idx
-
-
-def sortable_style():
-    return """
-    .sortable-component {
-        width: 100% !important;
-        border: 1px solid #D1D5DB !important;
-        border-radius: 12px !important;
-        padding: 10px !important;
-        background-color: #F9FAFB !important;
-        box-sizing: border-box !important;
-        overflow: visible !important;
-    }
-    .sortable-container {
-        width: 100% !important;
-        background-color: #F9FAFB !important;
-        border-radius: 10px !important;
-        padding: 6px !important;
-        box-sizing: border-box !important;
-        overflow: visible !important;
-    }
-    .sortable-container-header {
-        width: 100% !important;
-        background-color: #F3F4F6 !important;
-        color: #111827 !important;
-        font-weight: 700 !important;
-        padding: 8px 12px !important;
-        border-radius: 8px !important;
-        border: 1px solid #E5E7EB !important;
-        box-sizing: border-box !important;
-    }
-    .sortable-container-body {
-        width: 100% !important;
-        display: flex !important;
-        flex-direction: column !important;
-        flex-wrap: nowrap !important;
-        align-items: stretch !important;
-        gap: 8px !important;
-        background-color: #F9FAFB !important;
-        padding-top: 8px !important;
-        box-sizing: border-box !important;
-        overflow: visible !important;
-    }
-    .sortable-item,
-    .sortable-item:hover,
-    .sortable-container-body > div,
-    .sortable-container-body > div:hover {
-        display: block !important;
-        width: 100% !important;
-        min-height: 44px !important;
-        background-color: #FFFFFF !important;
-        color: #111827 !important;
-        font-weight: 700 !important;
-        border: 1px solid #D1D5DB !important;
-        border-radius: 10px !important;
-        padding: 11px 14px !important;
-        margin: 0 !important;
-        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06) !important;
-        box-sizing: border-box !important;
-        white-space: normal !important;
-        line-height: 1.35 !important;
-        overflow-wrap: anywhere !important;
-    }
-    .sortable-item:hover,
-    .sortable-container-body > div:hover {
-        background-color: #F3F4F6 !important;
-        border-color: #9CA3AF !important;
-    }
-    .sortable-item::before {
-        content: "☰ " !important;
-        color: #6B7280 !important;
-        font-weight: 700 !important;
-    }
-    """
-
-
-def sortable_key(base_key, labels):
-    raw = "||".join([clean_text(label) for label in labels])
-    digest = hashlib.md5(raw.encode("utf-8")).hexdigest()[:10]
-    return f"{base_key}_{len(labels)}_{digest}"
-
-
-def sort_labels_with_gray_box(labels, key, header="정렬"):
-    if sort_items is None or len(labels) < 2:
-        return labels
-    component_key = sortable_key(key, labels)
-    try:
-        return sort_items(labels, header=header, custom_style=sortable_style(), key=component_key)
-    except TypeError:
-        try:
-            return sort_items(labels, key=f"{component_key}_basic")
-        except Exception as e:
-            st.error(f"드래그 정렬 컴포넌트 오류: {e}")
-            return labels
-    except Exception as e:
-        st.error(f"드래그 정렬 컴포넌트 오류: {e}")
-        return labels
-
-
-# =========================
-# AI 호출 함수
+# API 생성
 # =========================
 def _post_json(url, headers, payload, timeout=90):
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -480,7 +497,6 @@ def generate_with_openai(prompt, api_key, model):
         return None
     try:
         from openai import OpenAI
-
         client = OpenAI(api_key=api_key)
         response = client.responses.create(model=model, input=prompt)
         return response.output_text.strip()
@@ -514,7 +530,7 @@ def generate_with_claude(prompt, api_key, model):
     try:
         payload = {
             "model": model,
-            "max_tokens": 2500,
+            "max_tokens": 2000,
             "temperature": 0.35,
             "messages": [{"role": "user", "content": prompt}],
         }
@@ -528,17 +544,19 @@ def generate_with_claude(prompt, api_key, model):
             payload=payload,
         )
         blocks = data.get("content", [])
-        text = "".join(
-            [block.get("text", "") for block in blocks if isinstance(block, dict) and block.get("type") == "text"]
-        ).strip()
+        text = "".join([
+            block.get("text", "")
+            for block in blocks
+            if isinstance(block, dict) and block.get("type") == "text"
+        ]).strip()
         return text or None
     except Exception as e:
         st.error(f"Claude API 생성 중 오류가 발생했습니다: {e}")
         return None
 
 
-def generate_with_ai(prompt, provider, api_key, model):
-    provider = provider if provider in AI_PROVIDER_OPTIONS else "ChatGPT"
+def generate_with_ai(prompt, ai_provider, api_key, model):
+    provider = ai_provider if ai_provider in AI_PROVIDER_OPTIONS else "ChatGPT"
     model = clean_text(model) or get_default_ai_model(provider)
     if provider == "Gemini":
         return generate_with_gemini(prompt, api_key, model)
@@ -547,262 +565,398 @@ def generate_with_ai(prompt, provider, api_key, model):
     return generate_with_openai(prompt, api_key, model)
 
 
-def parse_ai_sentences(text: str, expected_count: int) -> list:
-    raw = clean_text(text)
-    if not raw:
-        return []
-
-    fenced = re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip()
-    try:
-        loaded = json.loads(fenced)
-        if isinstance(loaded, list):
-            return [normalize_sentence(x) for x in loaded if clean_text(x)][:expected_count]
-        if isinstance(loaded, dict):
-            for key in ["sentences", "results", "문장"]:
-                if isinstance(loaded.get(key), list):
-                    return [normalize_sentence(x) for x in loaded[key] if clean_text(x)][:expected_count]
-    except Exception:
-        pass
-
+def build_student_material(student):
+    sid = student.get("student_id", "")
     lines = []
-    for line in raw.splitlines():
-        line = normalize_sentence(line)
-        if not line:
+    # 개인정보 보호를 위해 이름/학년/반/번호는 프롬프트에 넣지 않는다.
+    for assessment in sort_assessments():
+        if not assessment.get("use", True):
             continue
-        if line.lower() in ["json", "sentences"]:
+        chunks = []
+        for item in sort_items_for_assessment(assessment.get("assessment_id", "")):
+            level = get_level(sid, item.get("item_id", ""))
+            rubrics = item.get("rubrics", {}) if isinstance(item.get("rubrics", {}), dict) else {}
+            teacher_comment = clean_text(rubrics.get(level, ""))
+            levels = [clean_text(x) for x in item.get("levels", []) if clean_text(x)]
+            if level or teacher_comment:
+                if levels:
+                    level_text = f"전체 성취수준 {', '.join(levels)} 중 {level or '미입력'}"
+                else:
+                    level_text = f"성취수준 {level or '미입력'}"
+                chunks.append(f"- {item.get('name', '')}: {level_text} / 교사의 평가: {teacher_comment}")
+        if chunks:
+            lines.append(f"{assessment.get('name', '')}")
+            if assessment.get("unit"):
+                lines.append(f"- 단원: {assessment.get('unit', '')}")
+            if assessment.get("description"):
+                lines.append(f"- 활동 설명: {assessment.get('description', '')}")
+            lines.extend(chunks)
+            lines.append("")
+    return "\n".join(lines).strip()
+
+
+def build_prompt(material, variation_level="보통", variant_no=1):
+    settings = st.session_state.mid_settings
+    custom_rules = clean_text(settings.get("custom_rules", MID_DEFAULT_RULES))
+    variation_guide = VARIATION_GUIDES.get(variation_level, VARIATION_GUIDES["보통"])
+    return f"""
+{MASTER_PROMPT}
+
+[선생님 추가 작성 규칙]
+{custom_rules}
+
+[작성 조건]
+- 목표 분량: {settings.get('target_bytes_min', 250)}~{settings.get('target_bytes_max', 450)} byte
+- 중학교 생기부에 맞게 간결하게 작성한다.
+- 같은 성취수준 학생끼리도 결과 문장이 완전히 같지 않도록 자연스럽게 변주한다.
+- 표현 변주 기준: {variation_guide}
+- 문장 변주 번호: {variant_no}
+
+[평가 자료]
+{material}
+
+[최종 출력]
+세부능력 및 특기사항 문장만 출력하라.
+""".strip()
+
+
+def fallback_generate(material, variant_no=1):
+    pieces = []
+    for line in material.splitlines():
+        line = line.strip()
+        if not line.startswith("- "):
             continue
-        lines.append(line)
-
-    if len(lines) < expected_count:
-        split_candidates = re.split(r"(?<=[함임음봄됨])\s*[;/]\s*", raw)
-        for candidate in split_candidates:
-            candidate = normalize_sentence(candidate)
-            if candidate and candidate not in lines:
-                lines.append(candidate)
-
+        if "교사의 평가:" in line:
+            value = line.split("교사의 평가:", 1)[1].strip()
+            if value:
+                pieces.append(value.rstrip("."))
     unique = []
     seen = set()
-    for line in lines:
-        if line not in seen:
-            unique.append(line)
-            seen.add(line)
-    return unique[:expected_count]
+    for piece in pieces:
+        if piece and piece not in seen:
+            unique.append(piece)
+            seen.add(piece)
+    if not unique:
+        return "입력된 성취수준 자료가 부족하여 생기부 문장 생성이 어려움."
+
+    if variant_no % 3 == 1:
+        text = ", ".join(unique[:4])
+        if not text.endswith(("함", "임", "음", "보임")):
+            text += "함"
+        return text
+    if variant_no % 3 == 2:
+        text = " 및 ".join(unique[:3])
+        if not text.endswith(("함", "임", "음", "보임")):
+            text += "을 바탕으로 활동을 수행함"
+        return text
+    text = ". ".join(unique[:3])
+    if not text.endswith(("함", "임", "음", "보임", ".")):
+        text += "함"
+    return text
+
+
+def generate_for_student(student, ai_provider, api_key, model, variation_level, variant_no):
+    material = build_student_material(student)
+    prompt = build_prompt(material, variation_level=variation_level, variant_no=variant_no)
+    generated = None
+    if api_key:
+        generated = generate_with_ai(prompt, ai_provider, api_key, model)
+    if not generated:
+        generated = fallback_generate(material, variant_no=variant_no)
+    generated = normalize_sentence(generated)
+    return material, generated
 
 
 # =========================
-# 프롬프트와 폴백 생성
+# 입력표 / 엑셀
 # =========================
-def build_mid_generation_prompt(area, level, rubric, count, variation_strength, extra_comment=""):
-    settings = st.session_state.mid_settings
-    levels = [clean_text(x) for x in area.get("levels", []) if clean_text(x)]
-    level_text = f"전체 성취수준 {', '.join(levels)} 중 {level}" if levels else f"성취수준 {level}"
-    extra_comment = clean_text(extra_comment)
+def build_record_matrix_df():
+    students = st.session_state.mid_students.copy()
+    items = all_used_items()
+    if students.empty:
+        students = pd.DataFrame([
+            {
+                "student_id": make_id("mid_stu"),
+                "학년": st.session_state.mid_settings.get("grade", "2"),
+                "반": "1",
+                "번호": "1",
+                "성명": "",
+            }
+        ])
 
-    prompt = f"""
-너는 중학교 학교생활기록부 교과 세부능력 및 특기사항 문장을 작성하는 교사 보조 도구이다.
-
-[작성 목적]
-같은 활동과 같은 성취수준에 해당하는 학생들에게 사용할 수 있는 문장을 만든다.
-의미와 평가 근거는 유지하되, 문장 표현은 서로 조금씩 다르게 변주한다.
-
-[공통 규칙]
-{settings.get('custom_rules', MID_DEFAULT_RULES)}
-
-[활동 및 관찰 영역]
-- 과목: {settings.get('subject', '과학')}
-- 수행평가/관찰 영역: {area.get('name', '')}
-- 단원/영역: {area.get('unit', '')}
-- 활동 설명: {area.get('description', '')}
-- 성취수준: {level_text}
-- 교사의 평가: {rubric}
-""".strip()
-
-    if extra_comment:
-        prompt += f"\n- 추가 코멘트: {extra_comment}"
-
-    prompt += f"""
-
-[생성 조건]
-- 목표 분량: {settings.get('target_bytes_min', 250)}~{settings.get('target_bytes_max', 450)} byte
-- 생성 개수: {int(count)}개
-- 변주 강도: {variation_strength} / {VARIATION_OPTIONS.get(variation_strength, VARIATION_OPTIONS['보통'])}
-- 모든 문장은 같은 성취수준의 평가 근거를 벗어나지 않는다.
-- 학생 이름, 학년, 반, 번호는 절대 쓰지 않는다.
-- 제목, 번호, 따옴표, 설명 문구 없이 문장만 출력한다.
-- 출력은 JSON 배열 형식으로만 한다. 예: ["문장1", "문장2"]
-""".strip()
-    return prompt
+    rows = []
+    for _, student in students.iterrows():
+        sid = clean_text(student.get("student_id", "")) or make_id("mid_stu")
+        row = {
+            "student_id": sid,
+            "학년": clean_text(student.get("학년", "")),
+            "반": clean_text(student.get("반", "")),
+            "번호": clean_text(student.get("번호", "")),
+            "성명": clean_text(student.get("성명", "")),
+        }
+        for item in items:
+            row[item.get("item_id", "")] = get_level(sid, item.get("item_id", ""))
+        rows.append(row)
+    return pd.DataFrame(rows), items
 
 
-def fallback_variations(area, level, rubric, count, extra_comment=""):
-    name = clean_text(area.get("name", "활동")) or "활동"
-    unit = clean_text(area.get("unit", ""))
-    desc = clean_text(area.get("description", ""))
-    rubric = clean_text(rubric) or f"{name}의 기본 내용을 바탕으로 활동을 수행함"
-    extra = clean_text(extra_comment)
+def save_record_matrix_df(edited_df, items):
+    if edited_df.empty:
+        return 0
+    students = edited_df[["student_id", "학년", "반", "번호", "성명"]].copy()
+    students = students[students["성명"].astype(str).str.strip() != ""].reset_index(drop=True)
+    students["student_id"] = students["student_id"].apply(lambda x: clean_text(x) if clean_text(x) else make_id("mid_stu"))
+    st.session_state.mid_students = sort_students_df(students)
 
-    base_clauses = [
-        f"{name}에서 {rubric}",
-        f"{unit} 단원의 {name} 활동에서 {rubric}" if unit else f"{name} 활동에서 {rubric}",
-        f"{re.sub(r'[.。]$', '', desc)} 과정에서 {rubric}" if desc else f"{name} 수행 과정에서 {rubric}",
-        f"{name} 활동을 통해 {rubric}",
-        f"{name}의 수행 과정에서 {rubric}",
-        f"{name}과 관련하여 {rubric}",
-        f"{name} 활동에서 핵심 내용을 바탕으로 {rubric}",
-        f"{name}을 수행하며 {rubric}",
-    ]
+    valid_student_ids = set(st.session_state.mid_students["student_id"].astype(str).tolist())
+    valid_item_ids = {item.get("item_id", "") for item in items}
+    new_records = {}
+    saved_count = 0
+    for _, row in edited_df.iterrows():
+        sid = clean_text(row.get("student_id", ""))
+        if sid not in valid_student_ids:
+            continue
+        for item in items:
+            item_id = item.get("item_id", "")
+            if item_id not in valid_item_ids:
+                continue
+            value = clean_text(row.get(item_id, ""))
+            if value:
+                new_records[record_key(sid, item_id)] = value
+            saved_count += 1
+    st.session_state.mid_records = new_records
+    sanitize_mid_state()
+    return saved_count
 
-    results = []
-    for idx in range(max(1, int(count))):
-        text = base_clauses[idx % len(base_clauses)]
-        if extra:
-            if idx % 3 == 0:
-                text += f". {extra}"
-            elif idx % 3 == 1:
-                text += f", 특히 {extra}"
+
+def make_record_input_excel():
+    students = st.session_state.mid_students.copy()
+    items = all_used_items()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "학생별성취수준"
+    list_ws = wb.create_sheet("선택목록")
+    list_ws.sheet_state = "hidden"
+
+    base_headers = ["student_id", "학년", "반", "번호", "성명"]
+    start_row = 4
+    data_start_row = 6
+    item_start_col = 6
+    last_col = max(item_start_col + len(items) - 1, 5)
+
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=last_col)
+    ws.cell(1, 1).value = "중학교 생기부 학생별 성취수준 입력표"
+    ws.cell(1, 1).font = Font(bold=True, size=14, color="111827")
+    ws.cell(1, 1).alignment = Alignment(vertical="center")
+
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=last_col)
+    ws.cell(2, 1).value = "윗줄은 수행평가명, 아랫줄은 관찰 영역명입니다. 성취수준 칸은 웹앱에서 설정한 코드 기준으로 입력하세요."
+    ws.cell(2, 1).font = Font(size=10, color="6B7280")
+    ws.cell(2, 1).alignment = Alignment(wrap_text=True)
+
+    for col_idx, header in enumerate(base_headers, start=1):
+        ws.cell(start_row, col_idx).value = header
+        ws.merge_cells(start_row=start_row, start_column=col_idx, end_row=start_row + 1, end_column=col_idx)
+    ws.column_dimensions["A"].hidden = True
+
+    # 선택목록
+    item_level_ranges = {}
+    for idx, item in enumerate(items, start=1):
+        col_idx = idx
+        list_ws.cell(1, col_idx).value = item.get("item_id", "")
+        levels = [clean_text(x) for x in item.get("levels", []) if clean_text(x)]
+        for row_idx, level in enumerate(levels, start=2):
+            list_ws.cell(row_idx, col_idx).value = level
+        if levels:
+            col_letter = get_column_letter(col_idx)
+            item_level_ranges[item.get("item_id", "")] = f"'선택목록'!${col_letter}$2:${col_letter}${len(levels) + 1}"
+
+    for offset, item in enumerate(items):
+        col_idx = item_start_col + offset
+        assessment_name = get_assessment_name(item.get("assessment_id", ""))
+        ws.cell(start_row, col_idx).value = assessment_name
+        ws.cell(start_row + 1, col_idx).value = item.get("name", "")
+        ws.cell(3, col_idx).value = item.get("item_id", "")
+    ws.row_dimensions[3].hidden = True
+
+    # 같은 수행평가명은 가로 병합
+    if items:
+        group_start = item_start_col
+        previous = clean_text(ws.cell(start_row, item_start_col).value)
+        for col_idx in range(item_start_col + 1, item_start_col + len(items) + 1):
+            current = clean_text(ws.cell(start_row, col_idx).value) if col_idx < item_start_col + len(items) else "__END__"
+            if current != previous:
+                if previous and col_idx - group_start > 1:
+                    ws.merge_cells(start_row=start_row, start_column=group_start, end_row=start_row, end_column=col_idx - 1)
+                group_start = col_idx
+                previous = current
+
+    border = Border(
+        left=Side(style="thin", color="D1D5DB"),
+        right=Side(style="thin", color="D1D5DB"),
+        top=Side(style="thin", color="D1D5DB"),
+        bottom=Side(style="thin", color="D1D5DB"),
+    )
+    student_fill = PatternFill("solid", fgColor="E5E7EB")
+    assessment_fill = PatternFill("solid", fgColor="DBEAFE")
+    item_fill = PatternFill("solid", fgColor="FFEDD5")
+    body_fill = PatternFill("solid", fgColor="F9FAFB")
+    level_fill = PatternFill("solid", fgColor="FFF7ED")
+
+    for row_idx in [start_row, start_row + 1]:
+        for col_idx in range(1, last_col + 1):
+            cell = ws.cell(row_idx, col_idx)
+            cell.border = border
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.font = Font(bold=True, color="111827")
+            if col_idx < item_start_col:
+                cell.fill = student_fill
+            elif row_idx == start_row:
+                cell.fill = assessment_fill
+                cell.font = Font(bold=True, color="1E3A8A")
             else:
-                text += f". 활동 과정에서 {extra}"
-        text = normalize_sentence(text)
-        if not text.endswith(("함", "임", "음", "봄", "됨")):
-            text = text.rstrip(".") + "함"
-        results.append(text)
+                cell.fill = item_fill
+                cell.font = Font(bold=True, color="92400E")
 
-    return results[: int(count)]
+    for row_offset, (_, student) in enumerate(students.iterrows()):
+        row_idx = data_start_row + row_offset
+        sid = student.get("student_id", "")
+        values = [sid, student.get("학년", ""), student.get("반", ""), student.get("번호", ""), student.get("성명", "")]
+        for col_idx, value in enumerate(values, start=1):
+            cell = ws.cell(row_idx, col_idx)
+            cell.value = value
+            cell.border = border
+            cell.fill = body_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        for offset, item in enumerate(items):
+            col_idx = item_start_col + offset
+            cell = ws.cell(row_idx, col_idx)
+            cell.value = get_level(sid, item.get("item_id", ""))
+            cell.border = border
+            cell.fill = level_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-
-def generate_variations(area, level, count, provider, api_key, model, variation_strength, extra_comment=""):
-    count = max(1, min(50, int(count)))
-    rubric = clean_text(area.get("rubrics", {}).get(level, ""))
-    prompt = build_mid_generation_prompt(area, level, rubric, count, variation_strength, extra_comment=extra_comment)
-
-    generated_text = None
-    if clean_text(api_key):
-        generated_text = generate_with_ai(prompt, provider, api_key, model)
-
-    sentences = parse_ai_sentences(generated_text, count) if generated_text else []
-    if len(sentences) < count:
-        fallback = fallback_variations(area, level, rubric, count - len(sentences), extra_comment=extra_comment)
-        sentences.extend(fallback)
-
-    return sentences[:count], prompt
-
-
-# =========================
-# 엑셀 다운로드
-# =========================
-def export_mid_excel():
-    results = st.session_state.mid_results
-    result_df = pd.DataFrame(results)
-    if result_df.empty:
-        result_df = pd.DataFrame(
-            columns=[
-                "mode", "area_name", "level", "variant_no", "class", "number", "name", "final_text", "byte", "created_at", "generated_text", "extra_comment"
-            ]
-        )
-
-    column_rename = {
-        "mode": "생성방식",
-        "area_name": "수행평가/관찰영역",
-        "level": "성취수준",
-        "variant_no": "문장번호",
-        "class": "반",
-        "number": "번호",
-        "name": "성명",
-        "final_text": "최종 문장",
-        "byte": "byte",
-        "created_at": "생성일시",
-        "generated_text": "생성 원문",
-        "extra_comment": "추가 코멘트",
-    }
-    result_df = result_df.rename(columns=column_rename)
-    preferred_cols = [
-        "생성방식", "수행평가/관찰영역", "성취수준", "문장번호", "반", "번호", "성명", "최종 문장", "byte", "생성일시", "생성 원문", "추가 코멘트"
-    ]
-    for col in preferred_cols:
-        if col not in result_df.columns:
-            result_df[col] = ""
-    result_df = result_df[preferred_cols]
-
-    area_rows = []
-    for area in st.session_state.mid_areas:
-        for level in area.get("levels", []):
-            area_rows.append(
-                {
-                    "수행평가/관찰영역": area.get("name", ""),
-                    "단원/영역": area.get("unit", ""),
-                    "활동 설명": area.get("description", ""),
-                    "성취수준": level,
-                    "평가 문구": area.get("rubrics", {}).get(level, ""),
-                    "사용": area.get("use", True),
-                    "순서": area.get("order", ""),
-                }
-            )
-    area_df = pd.DataFrame(area_rows)
+    ws.freeze_panes = "F6"
+    ws.sheet_view.showGridLines = False
+    ws.column_dimensions["B"].width = 8
+    ws.column_dimensions["C"].width = 8
+    ws.column_dimensions["D"].width = 8
+    ws.column_dimensions["E"].width = 14
+    for col_idx in range(item_start_col, last_col + 1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = 18
 
     output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        result_df.to_excel(writer, sheet_name="중학교생기부문장", index=False)
-        area_df.to_excel(writer, sheet_name="관찰영역_성취수준", index=False)
+    wb.save(output)
+    output.seek(0)
+    return output
 
-        wb = writer.book
 
-        def style_ws(ws, header_fill_color="1E3A8A", tab_color="FF2563EB", freeze_cell="A2"):
-            ws.sheet_view.showGridLines = False
-            ws.sheet_properties.tabColor = tab_color
-            ws.freeze_panes = freeze_cell
-            header_fill = PatternFill("solid", fgColor=header_fill_color)
-            header_font = Font(bold=True, color="FFFFFF", size=11)
-            body_font = Font(size=10, color="111827")
-            side = Side(style="thin", color="D1D5DB")
-            border = Border(left=side, right=side, top=side, bottom=side)
+def export_final_excel():
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "최종생기부"
+    ws.sheet_properties.tabColor = "FF2563EB"
 
-            if ws.max_row >= 1:
-                for cell in ws[1]:
-                    cell.fill = header_fill
-                    cell.font = header_font
-                    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-                    cell.border = border
-                ws.row_dimensions[1].height = 28
+    headers = ["학년", "반", "번호", "성명", "최종 생기부", "byte", "생성일시", "생성 원문", "API 입력자료"]
+    ws.append(headers)
+    students = st.session_state.mid_students.copy()
+    for _, student in students.iterrows():
+        sid = student.get("student_id", "")
+        result = st.session_state.mid_results.get(sid, {})
+        final_text = result.get("edited", result.get("generated", ""))
+        ws.append([
+            student.get("학년", ""),
+            student.get("반", ""),
+            student.get("번호", ""),
+            student.get("성명", ""),
+            final_text,
+            byte_count(final_text),
+            result.get("created_at", ""),
+            result.get("generated", ""),
+            result.get("material", ""),
+        ])
 
-            for row in ws.iter_rows(min_row=2):
-                for cell in row:
-                    cell.font = body_font
-                    cell.alignment = Alignment(vertical="top", wrap_text=True)
-                    cell.border = border
-                ws.row_dimensions[row[0].row].height = 42
+    border = Border(
+        left=Side(style="thin", color="D1D5DB"),
+        right=Side(style="thin", color="D1D5DB"),
+        top=Side(style="thin", color="D1D5DB"),
+        bottom=Side(style="thin", color="D1D5DB"),
+    )
+    header_fill = PatternFill("solid", fgColor="1E3A8A")
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = border
+    for row in ws.iter_rows(min_row=2):
+        for cell in row:
+            cell.border = border
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+            cell.font = Font(size=10, color="111827")
+    ws.freeze_panes = "E2"
+    ws.sheet_view.showGridLines = False
+    widths = {"A": 8, "B": 8, "C": 8, "D": 14, "E": 72, "F": 10, "G": 20, "H": 56, "I": 72}
+    for col, width in widths.items():
+        ws.column_dimensions[col].width = width
 
-            if ws.max_row >= 1 and ws.max_column >= 1:
-                ws.auto_filter.ref = ws.dimensions
+    # 학생별 성취수준 시트: 수행평가명/영역명 2단 헤더
+    ws2 = wb.create_sheet("학생별성취수준")
+    items = all_used_items()
+    base_headers = ["student_id", "학년", "반", "번호", "성명"]
+    for col_idx, header in enumerate(base_headers, start=1):
+        ws2.cell(1, col_idx).value = header
+        ws2.merge_cells(start_row=1, start_column=col_idx, end_row=2, end_column=col_idx)
+    start_col = 6
+    for offset, item in enumerate(items):
+        col_idx = start_col + offset
+        ws2.cell(1, col_idx).value = get_assessment_name(item.get("assessment_id", ""))
+        ws2.cell(2, col_idx).value = item.get("name", "")
+    if items:
+        group_start = start_col
+        previous = clean_text(ws2.cell(1, start_col).value)
+        for col_idx in range(start_col + 1, start_col + len(items) + 1):
+            current = clean_text(ws2.cell(1, col_idx).value) if col_idx < start_col + len(items) else "__END__"
+            if current != previous:
+                if previous and col_idx - group_start > 1:
+                    ws2.merge_cells(start_row=1, start_column=group_start, end_row=1, end_column=col_idx - 1)
+                group_start = col_idx
+                previous = current
+    for row_offset, (_, student) in enumerate(students.iterrows(), start=3):
+        sid = student.get("student_id", "")
+        values = [sid, student.get("학년", ""), student.get("반", ""), student.get("번호", ""), student.get("성명", "")]
+        for col_idx, value in enumerate(values, start=1):
+            ws2.cell(row_offset, col_idx).value = value
+        for offset, item in enumerate(items):
+            ws2.cell(row_offset, start_col + offset).value = get_level(sid, item.get("item_id", ""))
+    ws2.column_dimensions["A"].hidden = True
+    ws2.freeze_panes = "F3"
+    ws2.sheet_view.showGridLines = False
+    for row in ws2.iter_rows():
+        for cell in row:
+            cell.border = border
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            if cell.row <= 2:
+                cell.font = Font(bold=True, color="111827")
+                cell.fill = PatternFill("solid", fgColor="DBEAFE" if cell.column >= 6 else "E5E7EB")
+    for col_idx in range(1, max(6 + len(items), 6)):
+        ws2.column_dimensions[get_column_letter(col_idx)].width = 16
 
-            text_heavy = {"최종 문장", "생성 원문", "추가 코멘트", "활동 설명", "평가 문구"}
-            for col_idx in range(1, ws.max_column + 1):
-                col_letter = get_column_letter(col_idx)
-                header = clean_text(ws.cell(1, col_idx).value)
-                if header in text_heavy:
-                    width = 54 if header in ["최종 문장", "생성 원문"] else 34
-                elif header in ["반", "번호", "byte", "순서"]:
-                    width = 9
-                elif header in ["성명", "성취수준", "문장번호"]:
-                    width = 13
-                else:
-                    width = 22
-                ws.column_dimensions[col_letter].width = width
-
-        style_ws(wb["중학교생기부문장"], header_fill_color="1E3A8A", tab_color="FF2563EB", freeze_cell="H2")
-        style_ws(wb["관찰영역_성취수준"], header_fill_color="92400E", tab_color="FFF59E0B", freeze_cell="A2")
-        wb.active = wb.sheetnames.index("중학교생기부문장")
-
+    output = BytesIO()
+    wb.save(output)
     output.seek(0)
     return output
 
 
 # =========================
-# 앱 UI 스타일
+# UI 스타일 / 이동
 # =========================
+st.markdown('<div id="mid-honey-top"></div>', unsafe_allow_html=True)
+st.title(MID_APP_TITLE)
+st.caption(MID_APP_SUBTITLE)
+
 st.markdown(
     """
     <style>
-    /* 기존 app.py의 단계 탭 라디오 스타일과 맞춤 */
     div[data-testid="stRadio"] > div[role="radiogroup"] {
         display: flex !important;
         flex-wrap: wrap !important;
@@ -834,9 +988,7 @@ st.markdown(
     div[data-testid="stRadio"] > div[role="radiogroup"] input {
         display: none !important;
     }
-
-    /* 수행평가 박스는 app.py와 같은 연한 파란색 계열 */
-    div[data-testid="stExpander"] details:has(.assessment-card-content) {
+    div[data-testid="stExpander"] details:has(.mid-assessment-card-content) {
         background: linear-gradient(180deg, #EFF6FF 0%, #DBEAFE 100%) !important;
         border: 2px solid #93C5FD !important;
         border-radius: 18px !important;
@@ -844,65 +996,72 @@ st.markdown(
         padding: 0.18rem 0.38rem 0.42rem 0.38rem !important;
         margin: 0.9rem 0 1.25rem 0 !important;
     }
-    div[data-testid="stExpander"] details:has(.assessment-card-content) > summary {
+    div[data-testid="stExpander"] details:has(.mid-assessment-card-content) > summary {
         background: #DBEAFE !important;
         border: 1px solid #BFDBFE !important;
         border-radius: 14px !important;
         margin: 0.2rem 0 0.55rem 0 !important;
         padding: 0.15rem 0.45rem !important;
     }
-    div[data-testid="stExpander"] details:has(.assessment-card-content) > summary p {
-        color: #0F172A !important;
-        font-weight: 900 !important;
+    div[data-testid="stExpander"] details:has(.mid-item-card-content) {
+        background: linear-gradient(180deg, #FFFBF5 0%, #FFF7ED 100%) !important;
+        border: 2px solid #FED7AA !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 12px rgba(234, 88, 12, 0.07) !important;
+        padding: 0.12rem 0.3rem 0.32rem 0.3rem !important;
+        margin: 0.65rem 0 0.95rem 0 !important;
     }
-    div[data-testid="stExpander"] details:has(.assessment-card-content) .assessment-card-content {
-        display: none !important;
+    div[data-testid="stExpander"] details:has(.mid-item-card-content) > summary {
+        background: #FFEDD5 !important;
+        border: 1px solid #FED7AA !important;
+        border-radius: 12px !important;
+        margin: 0.16rem 0 0.5rem 0 !important;
+        padding: 0.12rem 0.4rem !important;
     }
-    div[data-testid="stMetric"] {
-        background: #F9FAFB;
-        border: 1px solid #E5E7EB;
-        border-radius: 14px;
-        padding: 0.55rem 0.75rem;
-    }
+    .mid-assessment-card-content, .mid-item-card-content { display: none !important; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-
-# =========================
-# 사이드바: app.py와 같은 작업 관리 위치
-# =========================
 with st.sidebar:
     st.header("작업 관리")
 
-    uploaded_mid_project = st.file_uploader(
+    uploaded_project = st.file_uploader(
         "프로젝트 JSON 불러오기",
         type=["json"],
-        help="중학교 간편 생성기에서 저장한 프로젝트 파일을 다시 불러옵니다.",
+        help="중학교 간편 생기부 프로젝트 파일을 다시 불러옵니다.",
     )
-
-    if uploaded_mid_project and st.button("프로젝트 불러오기"):
-        load_mid_project_json(uploaded_mid_project)
+    if uploaded_project and st.button("프로젝트 불러오기"):
+        load_mid_project_json(uploaded_project)
         st.success("프로젝트를 불러왔습니다.")
         st.rerun()
 
     st.download_button(
         "현재 프로젝트 JSON 저장",
         data=mid_project_to_json(),
-        file_name="개꿀생기부_mid_project.json",
+        file_name="middle_개꿀생기부_project.json",
         mime="application/json",
     )
 
     st.divider()
 
-    if st.button("샘플 데이터 불러오기", help="중학교 간편 생성기용 가상 수행평가와 학생별 배정 예시를 불러옵니다."):
-        apply_mid_project_data(build_mid_sample_project())
+    if st.button("샘플 데이터 불러오기", help="중학교 간편 생기부 샘플 프로젝트를 불러옵니다."):
+        load_mid_sample_data()
         st.success("샘플 데이터를 불러왔습니다.")
         st.rerun()
 
     if st.button("전체 초기화", type="secondary"):
-        for key in ["mid_settings", "mid_areas", "mid_results", "mid_student_rows", "mid_selected_result_id"]:
+        for key in [
+            "mid_settings",
+            "mid_assessments",
+            "mid_items",
+            "mid_students",
+            "mid_records",
+            "mid_results",
+            "mid_selected_result_student_id",
+            "mid_current_step",
+        ]:
             if key in st.session_state:
                 del st.session_state[key]
         init_mid_state()
@@ -911,44 +1070,31 @@ with st.sidebar:
         st.rerun()
 
 
-# =========================
-# 단계 이동: app.py 방식과 통일
-# =========================
 STEP_LABELS = [
-    "① 기본 설정",
-    "② 수행평가 설계",
-    "③ 수준별 묶음 생성",
-    "④ 학생별 배정 생성",
-    "⑤ API 자료 확인",
-    "⑥ 결과 수정/다운로드",
+    "① 기본 설정/수행평가 설계",
+    "② 학생별 성취수준 입력",
+    "③ 생기부 생성/다운로드",
 ]
-
-NAV_WIDGET_KEY = "mid_step_nav_radio_v02"
-PENDING_STEP_KEY = "mid_pending_step_index_v02"
-SCROLL_TO_TOP_KEY = "mid_scroll_to_top_after_step_change_v02"
+NAV_WIDGET_KEY = "mid_step_nav_radio_v03"
+PENDING_STEP_KEY = "mid_pending_step_index_v03"
+SCROLL_TO_TOP_KEY = "mid_scroll_to_top_after_step_change_v03"
 
 if "mid_current_step" not in st.session_state:
-    st.session_state["mid_current_step"] = 0
-
-try:
-    st.session_state["mid_current_step"] = int(st.session_state.get("mid_current_step", 0))
-except Exception:
-    st.session_state["mid_current_step"] = 0
+    st.session_state.mid_current_step = 0
 
 programmatic_step_change = False
 if PENDING_STEP_KEY in st.session_state:
     try:
-        st.session_state["mid_current_step"] = int(st.session_state[PENDING_STEP_KEY])
+        st.session_state.mid_current_step = int(st.session_state[PENDING_STEP_KEY])
     except Exception:
-        st.session_state["mid_current_step"] = 0
+        st.session_state.mid_current_step = 0
     del st.session_state[PENDING_STEP_KEY]
     st.session_state[SCROLL_TO_TOP_KEY] = True
     programmatic_step_change = True
 
-st.session_state["mid_current_step"] = max(0, min(st.session_state["mid_current_step"], len(STEP_LABELS) - 1))
-
+st.session_state.mid_current_step = max(0, min(int(st.session_state.mid_current_step), len(STEP_LABELS) - 1))
 if NAV_WIDGET_KEY not in st.session_state or programmatic_step_change:
-    st.session_state[NAV_WIDGET_KEY] = STEP_LABELS[st.session_state["mid_current_step"]]
+    st.session_state[NAV_WIDGET_KEY] = STEP_LABELS[st.session_state.mid_current_step]
 
 
 def request_step_change(next_index: int):
@@ -969,35 +1115,34 @@ def scroll_page_to_top_once():
                 try { parentWindow.scrollTo(0, 0); } catch (e) {}
                 try { parentDoc.documentElement.scrollTop = 0; } catch (e) {}
                 try { parentDoc.body.scrollTop = 0; } catch (e) {}
-                const selectors = [
-                    'section.main', 'main', '.main', '.block-container',
-                    '[data-testid="stAppViewContainer"]', '[data-testid="stMain"]', '[data-testid="stMainBlockContainer"]'
-                ];
-                selectors.forEach(function(selector) {
-                    parentDoc.querySelectorAll(selector).forEach(function(el) {
-                        try { el.scrollTop = 0; } catch (e) {}
-                        try { el.scrollTo(0, 0); } catch (e) {}
-                    });
-                });
                 parentDoc.querySelectorAll('section, main, div').forEach(function(el) {
                     try {
-                        if (el.scrollHeight > el.clientHeight + 80) {
-                            el.scrollTop = 0;
-                        }
+                        if (el.scrollHeight > el.clientHeight + 80) { el.scrollTop = 0; }
                     } catch (e) {}
                 });
             } catch (e) {}
         }
         forceScrollTop();
-        setTimeout(forceScrollTop, 50);
-        setTimeout(forceScrollTop, 150);
-        setTimeout(forceScrollTop, 350);
-        setTimeout(forceScrollTop, 700);
-        setTimeout(forceScrollTop, 1100);
+        setTimeout(forceScrollTop, 80);
+        setTimeout(forceScrollTop, 250);
+        setTimeout(forceScrollTop, 600);
         </script>
         """,
         height=0,
     )
+
+
+st.markdown("### 작업 단계")
+selected_step_label = st.radio(
+    "이동할 단계를 선택하세요.",
+    STEP_LABELS,
+    horizontal=True,
+    label_visibility="collapsed",
+    key=NAV_WIDGET_KEY,
+)
+st.session_state.mid_current_step = STEP_LABELS.index(selected_step_label)
+current_step = st.session_state.mid_current_step
+scroll_page_to_top_once()
 
 
 def render_next_step_button(current_index: int):
@@ -1017,715 +1162,442 @@ def render_next_step_button(current_index: int):
 
 
 # =========================
-# 공통 렌더 함수
-# =========================
-def render_level_input_block(prefix, current_levels=None, current_rubrics=None):
-    current_levels = current_levels if isinstance(current_levels, list) else []
-    current_rubrics = current_rubrics if isinstance(current_rubrics, dict) else {}
-    default_count = len(current_levels) if current_levels else 3
-    default_count = max(1, min(10, int(default_count)))
-
-    level_count = st.selectbox(
-        "성취수준 개수",
-        options=list(range(1, 11)),
-        index=default_count - 1,
-        key=f"{prefix}_level_count",
-    )
-
-    levels = []
-    rubrics = {}
-    st.markdown("**성취수준 코드와 성취 수준별 교사의 평가 문구**")
-    for idx in range(level_count):
-        existing_code = current_levels[idx] if idx < len(current_levels) else default_level_code(idx)
-        existing_text = current_rubrics.get(existing_code, "")
-        col_code, col_text = st.columns([1, 5])
-        with col_code:
-            code = st.text_input(
-                f"{idx + 1}번 코드",
-                value=existing_code,
-                key=f"{prefix}_code_{idx}",
-                label_visibility="collapsed",
-                placeholder="상",
-            )
-        with col_text:
-            comment = st.text_area(
-                f"{idx + 1}번 평가 문구",
-                value=existing_text,
-                key=f"{prefix}_rubric_{idx}",
-                label_visibility="collapsed",
-                height=76,
-                placeholder="예: 활동의 핵심 내용을 바탕으로 결과를 설명함",
-            )
-        code = clean_text(code)
-        if code:
-            levels.append(code)
-            rubrics[code] = clean_text(comment)
-    return levels, rubrics
-
-
-def render_ai_settings(prefix):
-    st.markdown("#### AI 선택 및 API 설정")
-    col_provider, col_model, col_key = st.columns([1.25, 1.7, 2.6], gap="small")
-    with col_provider:
-        provider = st.selectbox("사용할 AI", AI_PROVIDER_OPTIONS, index=0, key=f"{prefix}_provider")
-    with col_model:
-        model = st.text_input(
-            "모델명",
-            value=get_default_ai_model(provider),
-            key=f"{prefix}_model_{provider}",
-            help="필요하면 직접 수정할 수 있습니다.",
-        )
-    with col_key:
-        api_key = st.text_input(
-            f"{provider} API Key",
-            value=get_default_ai_key(provider),
-            type="password",
-            key=f"{prefix}_api_key_{provider}",
-            help=f"Streamlit Secrets에는 {AI_SECRET_KEY_NAMES.get(provider, 'OPENAI_API_KEY')} 이름으로 저장할 수 있습니다. 비워두면 API 없이 간단 변주 방식으로 생성됩니다.",
-        )
-    return provider, model, api_key
-
-
-def get_selected_area(prefix):
-    usable_areas = [area for area in sort_areas(st.session_state.mid_areas) if area.get("use", True)]
-    if not usable_areas:
-        return None
-    options = [area_label(area, idx) for idx, area in enumerate(usable_areas, start=1)]
-    selected_label = st.selectbox("수행평가/관찰 영역 선택", options, key=f"{prefix}_area_select")
-    selected_index = options.index(selected_label)
-    return usable_areas[selected_index]
-
-
-# =========================
-# 메인 화면
-# =========================
-st.markdown('<div id="mid-honey-top"></div>', unsafe_allow_html=True)
-st.title(MID_APP_TITLE)
-st.caption(MID_APP_SUBTITLE)
-
-st.markdown("### 작업 단계")
-selected_step_label = st.radio(
-    "이동할 단계를 선택하세요.",
-    STEP_LABELS,
-    horizontal=True,
-    label_visibility="collapsed",
-    key=NAV_WIDGET_KEY,
-)
-st.session_state["mid_current_step"] = STEP_LABELS.index(selected_step_label)
-current_step = st.session_state["mid_current_step"]
-scroll_page_to_top_once()
-
-
-# =========================
-# ① 기본 설정
+# ① 기본 설정/수행평가 설계
 # =========================
 if current_step == 0:
-    st.subheader("① 기본 설정")
+    st.subheader("① 기본 설정 / 수행평가 설계")
+
     settings = st.session_state.mid_settings
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        settings["school_year"] = st.text_input("학년도", value=clean_text(settings.get("school_year", "2026")), key="mid_school_year")
+        settings["school_year"] = st.text_input("학년도", value=clean_text(settings.get("school_year", "2026")))
     with col2:
-        semester_options = ["1학기", "2학기"]
         settings["semester"] = st.selectbox(
             "학기",
-            semester_options,
-            index=semester_options.index(settings.get("semester", "1학기")) if settings.get("semester") in semester_options else 0,
-            key="mid_semester",
+            ["1학기", "2학기"],
+            index=1 if settings.get("semester") == "2학기" else 0,
         )
     with col3:
-        school_options = ["중학교", "고등학교", "초등학교"]
-        current_school = settings.get("school_level", "중학교")
-        settings["school_level"] = st.selectbox(
-            "학교급",
-            school_options,
-            index=school_options.index(current_school) if current_school in school_options else 0,
-            key="mid_school_level",
-        )
+        settings["grade"] = st.text_input("학년", value=clean_text(settings.get("grade", "2")))
     with col4:
-        settings["grade"] = st.text_input("학년", value=clean_text(settings.get("grade", "2")), key="mid_grade")
+        settings["subject"] = st.text_input("과목명", value=clean_text(settings.get("subject", "과학")))
 
-    col5, col6, col7 = st.columns(3)
+    col5, col6 = st.columns(2)
     with col5:
-        settings["subject"] = st.text_input("과목명", value=clean_text(settings.get("subject", "과학")), key="mid_subject")
-    with col6:
         settings["target_bytes_min"] = st.number_input(
             "목표 최소 byte",
-            min_value=50,
+            min_value=100,
             max_value=2000,
             value=int(settings.get("target_bytes_min", 250)),
             step=50,
-            key="mid_target_min",
         )
-    with col7:
+    with col6:
         settings["target_bytes_max"] = st.number_input(
             "목표 최대 byte",
-            min_value=50,
+            min_value=100,
             max_value=2000,
             value=int(settings.get("target_bytes_max", 450)),
             step=50,
-            key="mid_target_max",
         )
 
     st.markdown("#### 생기부 작성 규칙")
-    st.caption("여기에 적은 규칙은 API 프롬프트의 공통 규칙으로 들어갑니다.")
     settings["custom_rules"] = st.text_area(
         "공통 작성 규칙",
         value=settings.get("custom_rules", MID_DEFAULT_RULES),
-        height=220,
-        key="mid_custom_rules",
+        height=150,
     )
 
-    with st.expander("API 프롬프트에 들어가는 규칙 예시 보기"):
-        st.code(settings["custom_rules"], language="text")
+    st.divider()
+    st.markdown("### 📚 수행평가와 관찰 영역 설계")
+    st.caption("중학교용은 수행평가 안에 관찰 영역을 만들고, 각 영역별 성취수준 코드와 평가 문구만 정해두면 됩니다.")
 
-    st.info("작업을 이어서 하려면 왼쪽의 '현재 프로젝트 JSON 저장'을 눌러 파일로 저장하세요.")
-    render_next_step_button(0)
-
-
-# =========================
-# ② 수행평가 설계
-# =========================
-if current_step == 1:
-    st.subheader("② 수행평가 설계")
-
-    st.markdown(
-        """
-        중학교용도 **수행평가/관찰 영역**을 먼저 만들고, 각 영역 안에 **성취수준 코드와 평가 문구**를 입력합니다.  
-        이후 ③ 또는 ④에서 같은 수준의 문장을 여러 개 변주하여 생성합니다.
-        """
-    )
-
-    with st.expander("➕ 새 수행평가/관찰 영역 추가", expanded=True):
-        st.caption("먼저 상위 단위인 수행평가 또는 관찰 영역을 만들고, 그 안에 성취수준을 설정합니다.")
-
-        with st.form("mid_add_area_form"):
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                new_area_name = st.text_input("수행평가명", placeholder="예: 소화 기관 모형 만들기")
-                new_unit = st.text_input("영역/단원", placeholder="예: 동물의 몸과 영양소")
-            with col2:
+    with st.expander("➕ 새 수행평가 추가", expanded=True):
+        with st.form("mid_add_assessment_form_v03"):
+            col_a, col_b = st.columns([2, 1])
+            with col_a:
+                new_name = st.text_input("수행평가명", placeholder="예: 소화 기관 모형 만들기")
+                new_unit = st.text_input("단원", placeholder="예: 동물의 몸과 영양소")
+            with col_b:
                 new_use = st.checkbox("사용", value=True)
-                st.caption("순서는 아래의 드래그 정렬에서 바꿀 수 있습니다.")
-
-            new_desc = st.text_area(
-                "성취기준 / 활동 설명",
-                placeholder="예: 소화 기관의 구조와 역할을 모형으로 표현하고 설명하는 활동",
-                height=80,
-            )
-
+                st.caption("순서는 추가 순서대로 표시됩니다.")
+            new_desc = st.text_area("활동 설명", placeholder="예: 소화 기관의 구조와 역할을 모형으로 표현하고 설명하는 활동", height=80)
             submitted = st.form_submit_button("수행평가 추가")
             if submitted:
-                if not clean_text(new_area_name):
+                if not clean_text(new_name):
                     st.warning("수행평가명을 입력하세요.")
                 else:
-                    st.session_state.mid_areas.append(
-                        {
-                            "area_id": make_id("mid_area"),
-                            "name": clean_text(new_area_name),
-                            "unit": clean_text(new_unit),
-                            "description": clean_text(new_desc),
-                            "order": len(st.session_state.mid_areas) + 1,
-                            "use": new_use,
-                            "levels": ["상", "중", "하"],
-                            "rubrics": {
-                                "상": "활동의 핵심 내용을 정확히 설명하고 결과를 구체적으로 정리함",
-                                "중": "활동의 주요 내용을 바탕으로 결과를 대체로 설명함",
-                                "하": "활동의 기본 내용을 중심으로 과제 수행에 참여함",
-                            },
-                        }
-                    )
+                    st.session_state.mid_assessments.append({
+                        "assessment_id": make_id("mid_assess"),
+                        "name": clean_text(new_name),
+                        "unit": clean_text(new_unit),
+                        "description": clean_text(new_desc),
+                        "order": len(st.session_state.mid_assessments) + 1,
+                        "use": bool(new_use),
+                    })
                     sanitize_mid_state()
                     st.success("수행평가를 추가했습니다.")
                     st.rerun()
 
-    st.divider()
-    st.markdown("### 📚 AI가 참고할 수행평가별 평가 자료")
+    rubric_updates = {}
+    assessments = sort_assessments()
+    if not assessments:
+        st.info("아직 수행평가가 없습니다. 위에서 수행평가를 먼저 추가하세요.")
 
-    if not st.session_state.mid_areas:
-        st.info("아직 등록된 수행평가가 없습니다. 먼저 수행평가를 추가하거나 왼쪽의 샘플 데이터를 불러오세요.")
-    else:
-        normalize_area_orders()
-        sorted_areas = sort_areas(st.session_state.mid_areas)
+    for assess_index, assessment in enumerate(assessments, start=1):
+        aid = assessment.get("assessment_id", "")
+        items = sort_items_for_assessment(aid)
+        status_badge = "사용" if assessment.get("use", True) else "미사용"
+        title = f"📁 수행평가 {assess_index}. {assessment.get('name', '이름 없는 수행평가')} · 관찰 영역 {len(items)}개 · {status_badge}"
+        with st.expander(title, expanded=True):
+            st.markdown('<div class="mid-assessment-card-content"></div>', unsafe_allow_html=True)
+            st.markdown(f"### 📁 수행평가 {assess_index}. {assessment.get('name', '')}")
+            if assessment.get("unit"):
+                st.caption(f"단원: {assessment.get('unit', '')}")
+            if assessment.get("description"):
+                st.caption(f"활동 설명: {assessment.get('description', '')}")
 
-        if len(sorted_areas) >= 2:
-            with st.expander("수행평가 순서 드래그 정렬", expanded=True):
-                if sort_items is None:
-                    st.warning("드래그 정렬 기능을 사용하려면 requirements.txt에 streamlit-sortables가 있어야 합니다.")
-                else:
-                    st.caption("수행평가명을 마우스로 잡고 위아래로 옮긴 뒤 저장하세요.")
-                    area_labels = [area_label(area, idx) for idx, area in enumerate(sorted_areas, start=1)]
-                    st.caption("현재 수행평가 순서: " + " → ".join(area_labels))
-                    label_to_area_id = {label: area.get("area_id", "") for label, area in zip(area_labels, sorted_areas)}
-                    sorted_labels = sort_labels_with_gray_box(area_labels, key="mid_area_drag_sort", header="수행평가 순서")
-
-                    if st.button("수행평가 순서 저장"):
-                        apply_area_drag_order(sorted_labels, label_to_area_id)
-                        normalize_area_orders()
-                        st.success("수행평가 순서를 저장했습니다.")
+            with st.expander("⚙️ 수행평가 기본 정보 수정 / 삭제", expanded=False):
+                col_x, col_y, col_z = st.columns([2, 2, 1])
+                with col_x:
+                    assessment["name"] = st.text_input("수행평가명 수정", value=assessment.get("name", ""), key=f"mid_assess_name_{aid}")
+                    assessment["unit"] = st.text_input("단원 수정", value=assessment.get("unit", ""), key=f"mid_assess_unit_{aid}")
+                with col_y:
+                    assessment["description"] = st.text_area("활동 설명 수정", value=assessment.get("description", ""), key=f"mid_assess_desc_{aid}", height=100)
+                with col_z:
+                    assessment["use"] = st.checkbox("사용", value=assessment.get("use", True), key=f"mid_assess_use_{aid}")
+                    if st.button("수행평가 삭제", key=f"mid_delete_assessment_{aid}"):
+                        item_ids = [item.get("item_id", "") for item in get_items_for_assessment(aid)]
+                        st.session_state.mid_assessments = [a for a in st.session_state.mid_assessments if a.get("assessment_id", "") != aid]
+                        st.session_state.mid_items = [item for item in st.session_state.mid_items if item.get("assessment_id", "") != aid]
+                        st.session_state.mid_records = {k: v for k, v in st.session_state.mid_records.items() if k.split("::")[-1] not in item_ids}
+                        st.success("수행평가를 삭제했습니다.")
                         st.rerun()
 
-        level_updates = {}
+            st.markdown("#### 🧾 관찰 영역")
+            if not items:
+                st.info("아직 관찰 영역이 없습니다. 아래에서 관찰 영역을 추가하세요.")
 
-        for area_index, area in enumerate(sorted_areas, start=1):
-            aid = area.get("area_id", "")
-            levels = [clean_text(x) for x in area.get("levels", []) if clean_text(x)]
-            status_badge = "사용" if area.get("use", True) else "미사용"
-            unit_text = area.get("unit", "") or "영역/단원 미입력"
-            area_expander_title = f"📁 수행평가 {area_index}. {area.get('name', '이름 없는 수행평가')} · 성취수준 {len(levels)}개 · {status_badge}"
-
-            with st.expander(area_expander_title, expanded=True):
-                st.markdown('<div class="assessment-card-content"></div>', unsafe_allow_html=True)
-                st.markdown(
-                    f"""
-                    ### 📁 수행평가 {area_index}. {area.get('name', '이름 없는 수행평가')}
-                    **영역/단원:** {unit_text} &nbsp;&nbsp;|&nbsp;&nbsp;
-                    **성취수준:** {len(levels)}개 &nbsp;&nbsp;|&nbsp;&nbsp;
-                    **상태:** {status_badge}
-                    """
-                )
-
-                if area.get("description"):
-                    st.caption(f"활동 설명: {area.get('description', '')}")
-                else:
-                    st.caption("활동 설명이 아직 입력되지 않았습니다.")
-
-                with st.expander("⚙️ 수행평가 기본 정보 수정 / 삭제", expanded=False):
-                    col1, col2, col3 = st.columns([2, 2, 1])
-                    with col1:
-                        area["name"] = st.text_input("수행평가명 수정", value=area.get("name", ""), key=f"mid_area_name_{aid}")
-                        area["unit"] = st.text_input("영역/단원 수정", value=area.get("unit", ""), key=f"mid_area_unit_{aid}")
-                    with col2:
-                        area["description"] = st.text_area("활동 설명 수정", value=area.get("description", ""), height=120, key=f"mid_area_desc_{aid}")
-                    with col3:
-                        st.caption("순서는 수행평가 목록 위의 드래그 정렬에서 변경합니다.")
-                        area["use"] = st.checkbox("사용", value=area.get("use", True), key=f"mid_area_use_{aid}")
-                        if st.button("수행평가 삭제", key=f"mid_delete_area_{aid}"):
-                            st.session_state.mid_areas = [x for x in st.session_state.mid_areas if x.get("area_id", "") != aid]
-                            st.session_state.mid_results = [x for x in st.session_state.mid_results if x.get("area_id", "") != aid]
-                            st.success("수행평가를 삭제했습니다.")
+            for item_index, item in enumerate(items, start=1):
+                item_id = item.get("item_id", "")
+                with st.expander(f"🧾 관찰 영역 {item_index}. {item.get('name', '이름 없는 관찰 영역')}", expanded=True):
+                    st.markdown('<div class="mid-item-card-content"></div>', unsafe_allow_html=True)
+                    col_i1, col_i2 = st.columns([4, 1])
+                    with col_i1:
+                        item["name"] = st.text_input("관찰 영역명", value=item.get("name", ""), key=f"mid_item_name_{item_id}")
+                    with col_i2:
+                        st.caption(f"현재 {item_index}번째")
+                        if st.button("관찰 영역 삭제", key=f"mid_delete_item_{item_id}"):
+                            st.session_state.mid_items = [x for x in st.session_state.mid_items if x.get("item_id", "") != item_id]
+                            st.session_state.mid_records = {k: v for k, v in st.session_state.mid_records.items() if not k.endswith(f"::{item_id}")}
+                            st.success("관찰 영역을 삭제했습니다.")
                             st.rerun()
 
-                st.markdown("#### 🧾 성취수준")
-                new_levels, new_rubrics = render_level_input_block(
-                    prefix=f"mid_area_levels_{aid}",
-                    current_levels=area.get("levels", []),
-                    current_rubrics=area.get("rubrics", {}),
-                )
-                level_updates[aid] = {"levels": new_levels, "rubrics": new_rubrics}
-                st.caption("성취수준/평가 문구는 화면 맨 아래의 전체 저장 버튼으로 한꺼번에 저장됩니다.")
+                    current_levels = item.get("levels", []) if isinstance(item.get("levels", []), list) else []
+                    current_rubrics = item.get("rubrics", {}) if isinstance(item.get("rubrics", {}), dict) else {}
+                    default_count = max(1, min(10, len(current_levels) if current_levels else 3))
+                    level_count = st.selectbox(
+                        "성취수준 개수",
+                        options=list(range(1, 11)),
+                        index=default_count - 1,
+                        key=f"mid_level_count_{item_id}",
+                    )
+                    levels = []
+                    rubrics = {}
+                    for idx in range(level_count):
+                        existing_code = current_levels[idx] if idx < len(current_levels) else default_level_code(idx)
+                        existing_text = current_rubrics.get(existing_code, "")
+                        col_code, col_text = st.columns([1, 5])
+                        with col_code:
+                            code = st.text_input(
+                                f"{idx + 1}번 코드",
+                                value=existing_code,
+                                key=f"mid_code_{item_id}_{idx}",
+                                label_visibility="collapsed",
+                                placeholder="A",
+                            )
+                        with col_text:
+                            comment = st.text_area(
+                                f"{idx + 1}번 평가 문구",
+                                value=existing_text,
+                                key=f"mid_rubric_{item_id}_{idx}",
+                                height=70,
+                                label_visibility="collapsed",
+                                placeholder="예: 핵심 개념을 정확히 연결하여 활동 결과를 구체적으로 설명함",
+                            )
+                        code = clean_text(code)
+                        if code:
+                            levels.append(code)
+                            rubrics[code] = clean_text(comment)
+                    rubric_updates[item_id] = {"levels": levels, "rubrics": rubrics}
 
-        if level_updates:
             st.divider()
-            if st.button("전체 성취수준/평가 문구 한꺼번에 저장", type="primary", use_container_width=True):
-                saved_count = 0
-                for area in st.session_state.mid_areas:
-                    aid = area.get("area_id", "")
-                    if aid in level_updates:
-                        area["levels"] = level_updates[aid]["levels"]
-                        area["rubrics"] = level_updates[aid]["rubrics"]
-                        saved_count += 1
-                sanitize_mid_state()
-                st.success(f"성취수준/평가 문구를 {saved_count}개 수행평가에 한꺼번에 저장했습니다.")
+            with st.expander("➕ 이 수행평가에 관찰 영역 추가", expanded=(len(items) == 0)):
+                new_item_name = st.text_input("관찰 영역명", placeholder="예: 소화 기관의 순서와 역할", key=f"mid_new_item_name_{aid}")
+                if st.button("이 수행평가에 관찰 영역 추가", key=f"mid_add_item_button_{aid}"):
+                    if not clean_text(new_item_name):
+                        st.warning("관찰 영역명을 입력하세요.")
+                    else:
+                        st.session_state.mid_items.append({
+                            "item_id": make_id("mid_item"),
+                            "assessment_id": aid,
+                            "name": clean_text(new_item_name),
+                            "levels": ["A", "B", "C"],
+                            "rubrics": {
+                                "A": "핵심 개념을 정확히 연결하여 활동 결과를 구체적으로 설명함",
+                                "B": "주요 개념을 바탕으로 활동 결과를 대체로 적절하게 설명함",
+                                "C": "기초 개념을 중심으로 활동에 참여하고 기본 내용을 정리함",
+                            },
+                            "order": len(items) + 1,
+                        })
+                        sanitize_mid_state()
+                        st.success("관찰 영역을 추가했습니다.")
+                        st.rerun()
+
+    if rubric_updates:
+        st.divider()
+        if st.button("전체 성취수준/평가 문구 한꺼번에 저장", type="primary", use_container_width=True):
+            saved_count = 0
+            for item in st.session_state.mid_items:
+                item_id = item.get("item_id", "")
+                if item_id in rubric_updates:
+                    item["levels"] = rubric_updates[item_id]["levels"]
+                    item["rubrics"] = rubric_updates[item_id]["rubrics"]
+                    saved_count += 1
+            sanitize_mid_state()
+            st.success(f"성취수준/평가 문구를 {saved_count}개 관찰 영역에 저장했습니다.")
+            st.rerun()
+
+    render_next_step_button(0)
+
+
+# =========================
+# ② 학생별 성취수준 입력
+# =========================
+if current_step == 1:
+    st.subheader("② 학생별 성취수준 입력")
+
+    items = all_used_items()
+    if not items:
+        st.warning("먼저 ①에서 수행평가와 관찰 영역을 추가하세요.")
+    else:
+        st.markdown(
+            """
+            학생은 행으로, 관찰 영역은 열로 입력합니다.  
+            영역 열은 **수행평가명 / 관찰 영역명** 형태로 표시됩니다. 이름은 관리용이며 AI 프롬프트에는 들어가지 않습니다.
+            """
+        )
+
+        matrix_df, items = build_record_matrix_df()
+        visible_df = matrix_df.copy()
+
+        column_config = {
+            "student_id": None,
+            "학년": st.column_config.TextColumn("학년", width="small"),
+            "반": st.column_config.TextColumn("반", width="small"),
+            "번호": st.column_config.TextColumn("번호", width="small"),
+            "성명": st.column_config.TextColumn("성명", width="medium"),
+        }
+        for item in items:
+            item_id = item.get("item_id", "")
+            assessment_name = get_assessment_name(item.get("assessment_id", ""))
+            label = f"{assessment_name}\n{item.get('name', '')}"
+            levels = [clean_text(x) for x in item.get("levels", []) if clean_text(x)]
+            column_config[item_id] = st.column_config.SelectboxColumn(
+                label,
+                options=[""] + levels,
+                required=False,
+                width="medium",
+                help=f"{assessment_name} / {item.get('name', '')}",
+            )
+
+        edited_df = st.data_editor(
+            visible_df,
+            num_rows="dynamic",
+            use_container_width=True,
+            height=560,
+            key="mid_record_matrix_editor_v03",
+            column_config=column_config,
+        )
+
+        col_save, col_download = st.columns([1.4, 2.0])
+        with col_save:
+            if st.button("학생별 성취수준 저장", type="primary", use_container_width=True):
+                saved_count = save_record_matrix_df(edited_df, items)
+                st.success(f"학생별 성취수준을 저장했습니다. 저장된 입력값: {saved_count}개")
                 st.rerun()
+        with col_download:
+            st.download_button(
+                "학생별 성취수준 입력표 엑셀 다운로드",
+                data=make_record_input_excel(),
+                file_name=f"middle_student_levels_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+
+        with st.expander("표 헤더 구조 설명", expanded=False):
+            st.markdown("웹 입력표에서는 열 제목에 줄바꿈으로 `수행평가명 / 관찰 영역명`을 표시합니다. 엑셀 다운로드 파일에서는 윗줄에 수행평가명, 아랫줄에 관찰 영역명이 2단 헤더로 들어갑니다.")
 
     render_next_step_button(1)
 
 
 # =========================
-# ③ 수준별 묶음 생성
+# ③ 생기부 생성/다운로드
 # =========================
 if current_step == 2:
-    st.subheader("③ 수준별 문장 묶음 생성")
-    st.caption("학생 이름 없이, 성취수준별로 여러 개의 문장을 한 번에 만듭니다. 나중에 필요한 학생에게 골라 붙이기 좋습니다.")
+    st.subheader("③ 생기부 생성 / 수정 / 다운로드")
 
-    if not st.session_state.mid_areas:
-        st.warning("먼저 ②에서 수행평가/관찰 영역을 추가하세요.")
+    if st.session_state.mid_students.empty:
+        st.warning("먼저 ②에서 학생별 성취수준을 입력하고 저장하세요.")
+    elif not all_used_items():
+        st.warning("먼저 ①에서 수행평가와 관찰 영역을 추가하세요.")
     else:
-        selected_area = get_selected_area("mid_batch")
-        if selected_area is None:
-            st.warning("사용 설정된 수행평가가 없습니다.")
-        else:
-            levels = [clean_text(x) for x in selected_area.get("levels", []) if clean_text(x)]
-            st.markdown("#### 수준별 생성 개수")
-            level_counts = {}
-            cols = st.columns(min(5, max(1, len(levels))))
-            for idx, level in enumerate(levels):
-                with cols[idx % len(cols)]:
-                    level_counts[level] = st.number_input(
-                        f"{level} 수준",
-                        min_value=0,
-                        max_value=50,
-                        value=3,
-                        step=1,
-                        key=f"mid_batch_count_{selected_area.get('area_id')}_{level}",
-                    )
-
-            variation_strength = st.radio(
-                "변주 강도",
-                ["낮음", "보통", "높음"],
-                index=1,
-                horizontal=True,
-                key="mid_batch_variation_strength",
-                help="낮음은 복붙 느낌을 조금 줄이는 정도, 높음은 문장 구조를 더 다양하게 바꿉니다.",
+        st.markdown("#### AI 선택 및 API 설정")
+        col_provider, col_model, col_key, col_variation = st.columns([1.2, 1.7, 2.4, 1.2], gap="small")
+        with col_provider:
+            ai_provider = st.selectbox("사용할 AI", AI_PROVIDER_OPTIONS, index=0)
+        with col_model:
+            model = st.text_input(
+                "모델명",
+                value=get_default_ai_model(ai_provider),
+                key=f"mid_ai_model_name_{ai_provider}_v03",
             )
-
-            provider, model, api_key = render_ai_settings("mid_batch_ai")
-
-            if st.button("수준별 문장 묶음 생성", type="primary", use_container_width=True):
-                total_requested = sum(int(v) for v in level_counts.values())
-                if total_requested <= 0:
-                    st.warning("생성할 문장 개수를 1개 이상 입력하세요.")
-                else:
-                    new_results = []
-                    with st.spinner("수준별 문장 변주를 생성하는 중..."):
-                        for level, count in level_counts.items():
-                            if int(count) <= 0:
-                                continue
-                            sentences, prompt = generate_variations(selected_area, level, int(count), provider, api_key, model, variation_strength)
-                            for seq, sentence in enumerate(sentences, start=1):
-                                new_results.append(
-                                    {
-                                        "result_id": make_id("mid_result"),
-                                        "mode": "수준별 묶음",
-                                        "area_id": selected_area.get("area_id", ""),
-                                        "area_name": selected_area.get("name", ""),
-                                        "level": level,
-                                        "variant_no": seq,
-                                        "class": "",
-                                        "number": "",
-                                        "name": "",
-                                        "generated_text": sentence,
-                                        "final_text": sentence,
-                                        "byte": byte_count(sentence),
-                                        "extra_comment": "",
-                                        "prompt": prompt,
-                                        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                    }
-                                )
-                    st.session_state.mid_results.extend(new_results)
-                    st.success(f"문장 {len(new_results)}개를 생성했습니다. ⑥ 결과 수정/다운로드에서 확인하세요.")
-                    st.rerun()
-
-    render_next_step_button(2)
-
-
-# =========================
-# ④ 학생별 배정 생성
-# =========================
-if current_step == 3:
-    st.subheader("④ 학생별 배정 생성")
-    st.caption("학생별로 성취수준과 간단한 추가 코멘트를 넣으면, 각 학생에게 붙일 수 있는 문장을 생성합니다. 학생 이름은 AI 입력 자료에 넣지 않습니다.")
-
-    if not st.session_state.mid_areas:
-        st.warning("먼저 ②에서 수행평가/관찰 영역을 추가하세요.")
-    else:
-        selected_area = get_selected_area("mid_student")
-        if selected_area is None:
-            st.warning("사용 설정된 수행평가가 없습니다.")
-        else:
-            levels = [clean_text(x) for x in selected_area.get("levels", []) if clean_text(x)]
-
-            if st.session_state.mid_student_rows.empty:
-                st.session_state.mid_student_rows = pd.DataFrame(
-                    [{"반": "1", "번호": "1", "성명": "", "성취수준": levels[0] if levels else "", "추가 코멘트": "", "생성 수": 1}]
-                )
-
-            edited_student_rows = st.data_editor(
-                st.session_state.mid_student_rows,
-                use_container_width=True,
-                num_rows="dynamic",
-                height=360,
-                key=f"mid_student_rows_editor_{selected_area.get('area_id')}",
-                column_config={
-                    "반": st.column_config.TextColumn("반", width="small"),
-                    "번호": st.column_config.TextColumn("번호", width="small"),
-                    "성명": st.column_config.TextColumn("성명", width="medium"),
-                    "성취수준": st.column_config.SelectboxColumn("성취수준", options=[""] + levels, width="small"),
-                    "추가 코멘트": st.column_config.TextColumn("추가 코멘트", width="large"),
-                    "생성 수": st.column_config.NumberColumn("생성 수", min_value=1, max_value=5, step=1, width="small"),
-                },
+        with col_key:
+            api_key = st.text_input(
+                f"{ai_provider} API Key",
+                value=get_default_ai_key(ai_provider),
+                type="password",
+                key=f"mid_api_key_{ai_provider}_v03",
+                help=f"Streamlit Secrets에는 {AI_SECRET_KEY_NAMES.get(ai_provider, 'OPENAI_API_KEY')} 이름으로 저장해둘 수 있습니다.",
             )
+        with col_variation:
+            variation_level = st.selectbox("변주 강도", ["낮음", "보통", "높음"], index=1)
 
-            col_save_rows, col_hint = st.columns([1.5, 4])
-            with col_save_rows:
-                if st.button("학생별 배정표 저장", type="secondary", use_container_width=True):
-                    st.session_state.mid_student_rows = edited_student_rows.copy()
-                    st.success("학생별 배정표를 저장했습니다.")
-                    st.rerun()
-            with col_hint:
-                st.caption("성명은 결과표와 엑셀에만 표시됩니다. AI 프롬프트에는 이름, 반, 번호를 넣지 않습니다.")
+        students = st.session_state.mid_students.copy()
+        student_labels = {
+            f"{row.get('학년', '')}학년 {row.get('반', '')}반 {row.get('번호', '')}번 {row.get('성명', '')}": row
+            for _, row in students.iterrows()
+        }
+        selected_label = st.selectbox("생성할 학생", list(student_labels.keys()))
+        selected_student = student_labels[selected_label]
 
-            variation_strength = st.radio("변주 강도", ["낮음", "보통", "높음"], index=1, horizontal=True, key="mid_student_variation_strength")
-            provider, model, api_key = render_ai_settings("mid_student_ai")
+        col_a, col_b, col_spacer = st.columns([1.65, 1.9, 5.45], gap="small")
+        with col_a:
+            if st.button("선택 학생 생기부 생성", type="secondary", use_container_width=True):
+                sid = selected_student.get("student_id", "")
+                variant_no = list(students["student_id"].astype(str)).index(str(sid)) + 1 if sid in students["student_id"].astype(str).tolist() else 1
+                material, generated = generate_for_student(selected_student, ai_provider, api_key, model, variation_level, variant_no)
+                st.session_state.mid_results[sid] = {
+                    "material": material,
+                    "generated": generated,
+                    "edited": generated,
+                    "bytes": byte_count(generated),
+                    "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                }
+                st.success("생성했습니다.")
+                st.rerun()
+        with col_b:
+            if st.button("전체 학생 생기부 생성 시작", type="primary", use_container_width=True):
+                progress = st.progress(0)
+                total = len(students)
+                for idx, (_, student) in enumerate(students.iterrows(), start=1):
+                    sid = student.get("student_id", "")
+                    material, generated = generate_for_student(student, ai_provider, api_key, model, variation_level, idx)
+                    st.session_state.mid_results[sid] = {
+                        "material": material,
+                        "generated": generated,
+                        "edited": generated,
+                        "bytes": byte_count(generated),
+                        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    }
+                    progress.progress(idx / total)
+                st.success("전체 학생 생기부 생성을 완료했습니다.")
+                st.rerun()
 
-            if st.button("학생별 문장 생성", type="primary", use_container_width=True):
-                st.session_state.mid_student_rows = edited_student_rows.copy()
-                new_results = []
-                usable_rows = edited_student_rows.copy()
-                usable_rows = usable_rows[usable_rows["성취수준"].map(clean_text) != ""].reset_index(drop=True)
+        st.divider()
+        st.markdown("#### 전체 결과표 / 학생 선택")
+        result_rows = []
+        for _, student in students.iterrows():
+            sid = student.get("student_id", "")
+            result = st.session_state.mid_results.get(sid, {})
+            text = result.get("edited", result.get("generated", ""))
+            result_rows.append({
+                "student_id": sid,
+                "학년": student.get("학년", ""),
+                "반": student.get("반", ""),
+                "번호": student.get("번호", ""),
+                "성명": student.get("성명", ""),
+                "생성/수정 문구": text,
+                "byte": byte_count(text),
+                "생성일시": result.get("created_at", ""),
+            })
+        result_df = pd.DataFrame(result_rows)
+        display_result_df = result_df.drop(columns=["student_id"], errors="ignore")
 
-                if usable_rows.empty:
-                    st.warning("성취수준이 입력된 학생 행이 없습니다.")
-                else:
-                    with st.spinner("학생별 문장을 생성하는 중..."):
-                        for _, row in usable_rows.iterrows():
-                            level = clean_text(row.get("성취수준", ""))
-                            if level not in levels:
-                                continue
-                            try:
-                                gen_count = int(row.get("생성 수", 1) or 1)
-                            except Exception:
-                                gen_count = 1
-                            gen_count = max(1, min(5, gen_count))
-                            extra_comment = clean_text(row.get("추가 코멘트", ""))
-                            sentences, prompt = generate_variations(
-                                selected_area, level, gen_count, provider, api_key, model, variation_strength, extra_comment=extra_comment
-                            )
-                            for seq, sentence in enumerate(sentences, start=1):
-                                new_results.append(
-                                    {
-                                        "result_id": make_id("mid_result"),
-                                        "mode": "학생별 배정",
-                                        "area_id": selected_area.get("area_id", ""),
-                                        "area_name": selected_area.get("name", ""),
-                                        "level": level,
-                                        "variant_no": seq,
-                                        "class": clean_text(row.get("반", "")),
-                                        "number": clean_text(row.get("번호", "")),
-                                        "name": clean_text(row.get("성명", "")),
-                                        "generated_text": sentence,
-                                        "final_text": sentence,
-                                        "byte": byte_count(sentence),
-                                        "extra_comment": extra_comment,
-                                        "prompt": prompt,
-                                        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                    }
-                                )
-                    st.session_state.mid_results.extend(new_results)
-                    st.success(f"학생별 문장 {len(new_results)}개를 생성했습니다. ⑥ 결과 수정/다운로드에서 확인하세요.")
-                    st.rerun()
+        if clean_text(st.session_state.get("mid_selected_result_student_id", "")) not in set(students["student_id"].astype(str)):
+            st.session_state.mid_selected_result_student_id = selected_student.get("student_id", "")
+        current_selected_sid = clean_text(st.session_state.mid_selected_result_student_id)
 
-    render_next_step_button(3)
-
-
-# =========================
-# ⑤ API 자료 확인
-# =========================
-if current_step == 4:
-    st.subheader("⑤ API 입력 자료 확인")
-
-    if not st.session_state.mid_areas:
-        st.warning("먼저 수행평가/관찰 영역을 입력하세요.")
-    else:
-        selected_area = get_selected_area("mid_api_preview")
-        if selected_area is None:
-            st.warning("사용 설정된 수행평가가 없습니다.")
-        else:
-            levels = [clean_text(x) for x in selected_area.get("levels", []) if clean_text(x)]
-            col_level, col_count, col_variation = st.columns([1, 1, 1.2])
-            with col_level:
-                selected_level = st.selectbox("성취수준 선택", levels, key="mid_api_preview_level")
-            with col_count:
-                preview_count = st.number_input("생성 개수", min_value=1, max_value=10, value=3, step=1, key="mid_api_preview_count")
-            with col_variation:
-                preview_variation = st.selectbox("변주 강도", ["낮음", "보통", "높음"], index=1, key="mid_api_preview_variation")
-
-            preview_extra = st.text_input("추가 코멘트 예시", value="", key="mid_api_preview_extra")
-            rubric = selected_area.get("rubrics", {}).get(selected_level, "")
-            preview_prompt = build_mid_generation_prompt(
-                selected_area,
-                selected_level,
-                rubric,
-                int(preview_count),
-                preview_variation,
-                extra_comment=preview_extra,
-            )
-
-            st.markdown("#### API 입력 자료 미리보기")
-            material = f"""- 수행평가/관찰 영역: {selected_area.get('name', '')}
-- 영역/단원: {selected_area.get('unit', '')}
-- 활동 설명: {selected_area.get('description', '')}
-- 성취수준: 전체 성취수준 {', '.join(levels)} 중 {selected_level}
-- 교사의 평가: {rubric}"""
-            if preview_extra:
-                material += f"\n- 추가 코멘트: {preview_extra}"
-            st.text_area("이 내용이 API 프롬프트의 평가 자료로 들어갑니다.", value=material, height=220)
-
-            with st.expander("실제 프롬프트 보기", expanded=True):
-                st.text_area("프롬프트", value=preview_prompt, height=420)
-
-    render_next_step_button(4)
-
-
-# =========================
-# ⑥ 결과 수정/다운로드
-# =========================
-if current_step == 5:
-    st.subheader("⑥ 결과 수정 / 다운로드")
-
-    if not st.session_state.mid_results:
-        st.info("아직 생성된 문장이 없습니다. ③ 또는 ④에서 먼저 문장을 생성하세요.")
-    else:
-        results_df = pd.DataFrame(st.session_state.mid_results)
-        display_cols = [
-            "result_id", "mode", "area_name", "level", "variant_no", "class", "number", "name", "final_text", "byte", "created_at", "generated_text", "extra_comment", "prompt"
-        ]
-        for col in display_cols:
-            if col not in results_df.columns:
-                results_df[col] = ""
-        results_df["byte"] = results_df["final_text"].map(byte_count)
-        results_df = results_df[display_cols]
-
-        valid_result_ids = set(results_df["result_id"].astype(str).tolist())
-        if clean_text(st.session_state.get("mid_selected_result_id", "")) not in valid_result_ids:
-            st.session_state.mid_selected_result_id = clean_text(results_df.iloc[0].get("result_id", ""))
-
-        st.markdown("#### 전체 결과표 / 문장 선택")
-        st.caption("표에서 아무 셀이나 클릭하면 해당 문장이 아래 큰 수정창의 대상으로 선택됩니다. 직접 수정은 아래 큰 수정창에서 처리하세요.")
-
-        display_result_df = results_df.drop(columns=["result_id", "generated_text", "extra_comment", "prompt"], errors="ignore")
         selection_event = st.dataframe(
             display_result_df,
             use_container_width=True,
-            height=360,
+            height=340,
             hide_index=True,
-            key="mid_result_selector",
+            key="mid_generation_result_selector_v03",
             on_select="rerun",
             selection_mode="single-cell",
             column_config={
-                "mode": st.column_config.TextColumn("생성방식", width="medium"),
-                "area_name": st.column_config.TextColumn("수행평가/관찰영역", width="medium"),
-                "level": st.column_config.TextColumn("성취수준", width="small"),
-                "variant_no": st.column_config.NumberColumn("문장번호", width="small"),
-                "class": st.column_config.TextColumn("반", width="small"),
-                "number": st.column_config.TextColumn("번호", width="small"),
-                "name": st.column_config.TextColumn("성명", width="medium"),
-                "final_text": st.column_config.TextColumn("생성/수정 문구", width="large"),
+                "학년": st.column_config.TextColumn("학년", width="small"),
+                "반": st.column_config.TextColumn("반", width="small"),
+                "번호": st.column_config.TextColumn("번호", width="small"),
+                "성명": st.column_config.TextColumn("성명", width="medium"),
+                "생성/수정 문구": st.column_config.TextColumn("생성/수정 문구", width="large"),
                 "byte": st.column_config.NumberColumn("byte", width="small"),
-                "created_at": st.column_config.TextColumn("생성일시", width="medium"),
+                "생성일시": st.column_config.TextColumn("생성일시", width="medium"),
             },
         )
-
         selected_row_index = None
         try:
             selected_cells = list(selection_event.selection.cells)
+            if selected_cells:
+                selected_row_index = int(selected_cells[-1][0])
         except Exception:
-            try:
-                selected_cells = list(selection_event.get("selection", {}).get("cells", []))
-            except Exception:
-                selected_cells = []
-        if selected_cells:
-            first_cell = selected_cells[-1]
-            try:
-                selected_row_index = int(first_cell[0])
-            except Exception:
-                selected_row_index = None
+            selected_row_index = None
+        if selected_row_index is not None and 0 <= selected_row_index < len(result_df):
+            current_selected_sid = clean_text(result_df.iloc[selected_row_index].get("student_id", current_selected_sid))
+            st.session_state.mid_selected_result_student_id = current_selected_sid
 
-        if selected_row_index is not None and 0 <= selected_row_index < len(results_df):
-            st.session_state.mid_selected_result_id = clean_text(results_df.iloc[selected_row_index].get("result_id", ""))
+        selected_match = students[students["student_id"] == current_selected_sid]
+        if selected_match.empty:
+            selected_detail_student = selected_student
+            current_selected_sid = selected_student.get("student_id", "")
+        else:
+            selected_detail_student = selected_match.iloc[0]
+        selected_detail_label = f"{selected_detail_student.get('학년', '')}학년 {selected_detail_student.get('반', '')}반 {selected_detail_student.get('번호', '')}번 {selected_detail_student.get('성명', '')}"
+        result = st.session_state.mid_results.get(current_selected_sid, {})
+        initial_text = result.get("edited", result.get("generated", ""))
 
-        with st.expander("표 형태로 여러 문구 한꺼번에 수정", expanded=False):
-            st.caption("여러 문구를 표에서 한꺼번에 고칠 때만 사용하세요. 문장 선택은 위 표의 아무 셀이나 클릭해서 합니다.")
-            edited_results = st.data_editor(
-                results_df,
-                use_container_width=True,
-                height=360,
-                hide_index=True,
-                key="mid_results_bulk_editor",
-                disabled=["result_id", "mode", "area_name", "level", "variant_no", "class", "number", "name", "byte", "created_at", "generated_text", "extra_comment", "prompt"],
-                column_config={
-                    "result_id": None,
-                    "mode": st.column_config.TextColumn("생성방식", width="medium"),
-                    "area_name": st.column_config.TextColumn("수행평가/관찰영역", width="medium"),
-                    "level": st.column_config.TextColumn("성취수준", width="small"),
-                    "variant_no": st.column_config.NumberColumn("문장번호", width="small"),
-                    "class": st.column_config.TextColumn("반", width="small"),
-                    "number": st.column_config.TextColumn("번호", width="small"),
-                    "name": st.column_config.TextColumn("성명", width="medium"),
-                    "final_text": st.column_config.TextColumn("생성/수정 문구", width="large"),
-                    "byte": st.column_config.NumberColumn("byte", width="small"),
-                    "created_at": st.column_config.TextColumn("생성일시", width="medium"),
-                    "generated_text": st.column_config.TextColumn("생성 원문", width="large"),
-                    "extra_comment": st.column_config.TextColumn("추가 코멘트", width="large"),
-                    "prompt": None,
-                },
-            )
-
-            col_save_table, col_clear_table, col_table_info = st.columns([1.5, 1.5, 4])
-            with col_save_table:
-                if st.button("표에서 수정한 문구 저장", type="primary", use_container_width=True):
-                    new_results = []
-                    for _, row in edited_results.iterrows():
-                        row_dict = row.to_dict()
-                        row_dict["final_text"] = clean_text(row_dict.get("final_text", ""))
-                        row_dict["byte"] = byte_count(row_dict.get("final_text", ""))
-                        new_results.append(row_dict)
-                    st.session_state.mid_results = new_results
-                    st.success(f"표에서 수정한 문구 {len(new_results)}건을 저장했습니다.")
-                    st.rerun()
-            with col_clear_table:
-                if st.button("생성 결과 전체 삭제", type="secondary", use_container_width=True):
-                    st.session_state.mid_results = []
-                    st.warning("생성 결과를 모두 삭제했습니다.")
-                    st.rerun()
-            with col_table_info:
-                st.caption("표의 byte는 저장 후 다시 계산되어 반영됩니다. 긴 문장은 아래 큰 수정창에서 고치면 현재 byte를 바로 확인하기 쉽습니다.")
-
-        st.divider()
-        selected_result_id = clean_text(st.session_state.get("mid_selected_result_id", ""))
-        selected_result = None
-        for result in st.session_state.mid_results:
-            if clean_text(result.get("result_id", "")) == selected_result_id:
-                selected_result = result
-                break
-        if selected_result is None:
-            selected_result = st.session_state.mid_results[0]
-            selected_result_id = clean_text(selected_result.get("result_id", ""))
-
-        selected_label_parts = [
-            selected_result.get("mode", ""),
-            selected_result.get("area_name", ""),
-            selected_result.get("level", ""),
-        ]
-        if selected_result.get("name"):
-            selected_label_parts.append(f"{selected_result.get('class', '')}반 {selected_result.get('number', '')}번 {selected_result.get('name', '')}")
-        selected_detail_label = " / ".join([clean_text(x) for x in selected_label_parts if clean_text(x)])
-
-        st.markdown(f"#### 표에서 선택한 문장 수정: {selected_detail_label}")
-        editor_key = f"mid_generation_detail_text_{selected_result_id}"
+        st.markdown(f"#### 표에서 선택한 학생 수정: {selected_detail_label}")
+        if not result:
+            st.info("아직 이 학생의 생기부 문구가 생성되지 않았습니다. 직접 입력하거나 위에서 생성을 먼저 실행하세요.")
+        editor_key = f"mid_generation_detail_text_v03_{current_selected_sid}"
         if editor_key not in st.session_state:
-            st.session_state[editor_key] = selected_result.get("final_text", selected_result.get("generated_text", ""))
-
-        edited = st.text_area("교사 수정 문구", key=editor_key, height=220, help="입력한 내용의 byte를 아래에서 바로 확인할 수 있습니다.")
-        current_bytes = byte_count(edited)
-        st.metric("현재 byte", current_bytes)
-
+            st.session_state[editor_key] = initial_text
+        edited = st.text_area("교사 수정 문구", key=editor_key, height=200)
+        st.metric("현재 byte", byte_count(edited))
         if st.button("수정 문구 저장", type="primary"):
-            for idx, result in enumerate(st.session_state.mid_results):
-                if clean_text(result.get("result_id", "")) == selected_result_id:
-                    result["final_text"] = edited
-                    result["byte"] = current_bytes
-                    if not result.get("generated_text"):
-                        result["generated_text"] = edited
-                    st.session_state.mid_results[idx] = result
-                    break
+            result = st.session_state.mid_results.get(current_selected_sid, {})
+            result["edited"] = edited
+            result["bytes"] = byte_count(edited)
+            if not result.get("generated"):
+                result["generated"] = edited
+            if not result.get("material"):
+                result["material"] = build_student_material(selected_detail_student)
+            if not result.get("created_at"):
+                result["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.mid_results[current_selected_sid] = result
             st.success("수정 문구를 저장했습니다.")
             st.rerun()
-
-        with st.expander("선택한 결과의 API 입력 프롬프트 확인", expanded=False):
-            st.text_area("API 입력 프롬프트", value=selected_result.get("prompt", ""), height=360)
-
-        st.divider()
-        current_bytes_list = [byte_count(x.get("final_text", "")) for x in st.session_state.mid_results]
-        col_metric1, col_metric2, col_metric3 = st.columns(3)
-        with col_metric1:
-            st.metric("생성 문장 수", len(st.session_state.mid_results))
-        with col_metric2:
-            st.metric("평균 byte", int(sum(current_bytes_list) / len(current_bytes_list)) if current_bytes_list else 0)
-        with col_metric3:
-            st.metric("최대 byte", max(current_bytes_list) if current_bytes_list else 0)
 
         st.divider()
         st.markdown("#### 최종 결과 다운로드")
@@ -1744,11 +1616,10 @@ if current_step == 5:
             """,
             unsafe_allow_html=True,
         )
-        excel_file = export_mid_excel()
         st.download_button(
-            "📥 중학교 문장 결과 엑셀 다운로드",
-            data=excel_file,
-            file_name=f"개꿀생기부_mid_results_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+            "📥 결과 엑셀 다운로드",
+            data=export_final_excel(),
+            file_name=f"middle_개꿀생기부_result_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
             use_container_width=True,
