@@ -32,8 +32,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v51"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v51"
+APP_TITLE = "🍯 개꿀 생기부 v52"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v52"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -141,8 +141,8 @@ def byte_count(text: str) -> int:
     return len(clean_text(text).encode("utf-8"))
 
 
-def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines=None):
-    """AI 생성 중 사용자가 진행 상황을 볼 수 있도록 화면 위에 고정 진행 카드 표시."""
+def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines=None, recent_items=None):
+    """AI 생성 중 진행 상황과 직전 생성 완료 문장을 함께 보여준다."""
     if slot is None:
         slot = st.empty()
 
@@ -152,6 +152,33 @@ def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines
     steps_html = "".join(
         f"<li>{html.escape(clean_text(step))}</li>" for step in step_lines if clean_text(step)
     )
+
+    recent_items = recent_items or []
+    recent_cards = []
+    for item in recent_items[-3:]:
+        if not isinstance(item, dict):
+            continue
+        label = html.escape(clean_text(item.get("label", "이전 생성 문장")))
+        text = html.escape(clean_text(item.get("text", "")))
+        if not text:
+            continue
+        recent_cards.append(
+            f"""
+            <div class="generation-overlay-recent-card">
+                <div class="generation-overlay-recent-label">{label}</div>
+                <div class="generation-overlay-recent-text">{text}</div>
+            </div>
+            """
+        )
+
+    recent_html = ""
+    if recent_cards:
+        recent_html = f"""
+        <div class="generation-overlay-recent-wrap">
+            <div class="generation-overlay-recent-title">직전 생성 완료 문장</div>
+            {''.join(recent_cards)}
+        </div>
+        """
 
     if progress_ratio is None:
         progress_html = ""
@@ -172,12 +199,14 @@ def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines
         <style>
         .generation-overlay-card {{
             position: fixed;
-            top: 82px;
+            top: 72px;
             left: 50%;
             transform: translateX(-50%);
-            width: min(720px, calc(100vw - 32px));
+            width: min(980px, calc(100vw - 32px));
+            max-height: calc(100vh - 96px);
+            overflow-y: auto;
             z-index: 999999;
-            background: rgba(255, 255, 255, 0.97);
+            background: rgba(255, 255, 255, 0.98);
             border: 1px solid #CBD5E1;
             border-left: 8px solid #D92D20;
             border-radius: 18px;
@@ -201,7 +230,7 @@ def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines
             margin: 6px 0 0 1.1rem;
             padding: 0;
             color: #475569;
-            font-size: 0.88rem;
+            font-size: 0.86rem;
             line-height: 1.42;
         }}
         .generation-overlay-progress-wrap {{
@@ -225,18 +254,103 @@ def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines
             font-size: 0.78rem;
             font-weight: 800;
         }}
+        .generation-overlay-recent-wrap {{
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #E2E8F0;
+        }}
+        .generation-overlay-recent-title {{
+            font-weight: 900;
+            color: #0F172A;
+            font-size: 0.91rem;
+            margin-bottom: 8px;
+        }}
+        .generation-overlay-recent-card {{
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+        }}
+        .generation-overlay-recent-label {{
+            font-weight: 900;
+            color: #1E3A8A;
+            font-size: 0.84rem;
+            margin-bottom: 5px;
+        }}
+        .generation-overlay-recent-text {{
+            color: #111827;
+            font-size: 0.9rem;
+            line-height: 1.58;
+            white-space: pre-wrap;
+            word-break: keep-all;
+            overflow-wrap: anywhere;
+        }}
         </style>
         <div class="generation-overlay-card">
             <div class="generation-overlay-title">{safe_title}</div>
             <div class="generation-overlay-detail">{safe_detail}</div>
             {progress_html}
             <ul class="generation-overlay-steps">{steps_html}</ul>
+            {recent_html}
         </div>
         """,
         unsafe_allow_html=True,
     )
     return slot
 
+
+def generation_preview_items_from_log(log_entries):
+    """전체 생성 중 직전 생성 완료 문장 최대 3개를 오버레이에 표시하기 위한 자료로 변환한다."""
+    preview_items = []
+    for entry in (log_entries or [])[-3:]:
+        if not isinstance(entry, dict):
+            continue
+        order_text = clean_text(entry.get("순서", ""))
+        class_text = clean_text(entry.get("반", ""))
+        number_text = clean_text(entry.get("번호", ""))
+        name_text = clean_text(entry.get("성명", ""))
+        label_parts = []
+        if order_text:
+            label_parts.append(f"{order_text}번 생성")
+        student_label = f"{class_text}반 {number_text}번 {name_text}".strip()
+        if student_label:
+            label_parts.append(student_label)
+        preview_items.append(
+            {
+                "label": " · ".join(label_parts) if label_parts else "이전 생성 문장",
+                "text": clean_text(entry.get("생성 문구", "")),
+            }
+        )
+    return preview_items
+
+
+def generation_preview_items_from_results(students_df, results, exclude_sid=""):
+    """선택 생성 중 이미 생성되어 있는 최근 문장 최대 3개를 표시한다."""
+    if not isinstance(results, dict) or students_df is None or getattr(students_df, "empty", True):
+        return []
+
+    student_map = {clean_text(row.get("student_id", "")): row for _, row in students_df.iterrows()}
+    entries = []
+    for sid, result in results.items():
+        sid = clean_text(sid)
+        if not sid or sid == clean_text(exclude_sid) or not isinstance(result, dict):
+            continue
+        text = clean_text(result.get("edited", result.get("generated", "")))
+        if not text:
+            continue
+        row = student_map.get(sid, {})
+        label = f"{clean_text(row.get('반', ''))}반 {clean_text(row.get('번호', ''))}번 {clean_text(row.get('성명', ''))}".strip()
+        entries.append(
+            {
+                "created_at": clean_text(result.get("created_at", "")),
+                "label": label or "이전 생성 문장",
+                "text": text,
+            }
+        )
+
+    entries = sorted(entries, key=lambda x: x.get("created_at", ""))
+    return [{"label": e["label"], "text": e["text"]} for e in entries[-3:]]
 
 def to_int_or_big(value):
     text = re.sub(r"\D", "", clean_text(value))
@@ -673,7 +787,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260621-v51",
+        "version": "patched-20260621-v52",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -2161,7 +2275,7 @@ def build_sample_project_data():
         "results": {},
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "sample-project-v51",
+        "version": "sample-project-v52",
     }
 
 
@@ -3292,12 +3406,16 @@ if current_step == 5:
         with col_a:
             if st.button("선택 학생 생기부 생성", type="secondary", use_container_width=True):
                 overlay_slot = None
+                recent_preview_items = generation_preview_items_from_results(
+                    students, st.session_state.results, selected_student.get("student_id", "")
+                )
                 overlay_slot = show_generation_overlay(
                     overlay_slot,
                     "선택 학생 생기부 생성 중",
                     f"{selected_label}의 평가 자료를 정리하고 있습니다.",
                     0.20,
                     ["학생별 수행평가 자료 수집", "AI 입력 프롬프트 구성", "생기부 문장 생성 준비"],
+                    recent_items=recent_preview_items,
                 )
                 material = build_student_material(selected_student)
 
@@ -3307,6 +3425,7 @@ if current_step == 5:
                     f"{selected_label}의 프롬프트를 구성했습니다. AI 응답을 기다리는 중입니다.",
                     0.45,
                     ["개인정보 제외 확인", "성취수준 문구 연결", "선택한 AI 모델 호출"],
+                    recent_items=recent_preview_items,
                 )
                 prompt = build_prompt(material)
 
@@ -3322,6 +3441,7 @@ if current_step == 5:
                         "API 결과가 없어 내부 조합 방식으로 문장을 구성하고 있습니다.",
                         0.75,
                         ["교사의 평가 문구 추출", "중복 문구 정리", "명사형 종결 형태로 정리"],
+                        recent_items=recent_preview_items,
                     )
                     generated = fallback_generate(material)
 
@@ -3331,6 +3451,7 @@ if current_step == 5:
                     "생성 문장을 결과표와 수정창에 저장하고 있습니다.",
                     0.95,
                     ["생성 원문 저장", "교사 수정 문구 초기화", "byte 계산"],
+                    recent_items=recent_preview_items,
                 )
                 sid = selected_student["student_id"]
                 st.session_state.results[sid] = {
@@ -3419,12 +3540,14 @@ if current_step == 5:
 
             overlay_slot = None
             progress_base = index / total if total else 0
+            recent_preview_items = generation_preview_items_from_log(job.get("log", []))
             overlay_slot = show_generation_overlay(
                 overlay_slot,
                 "전체 학생 생기부 생성 중",
                 f"{index + 1}/{total} 처리 중 · {label}",
                 progress_base,
                 ["현재 학생 평가 자료 정리", "프롬프트 구성", "AI 생성 또는 내부 조합", "결과 저장"],
+                recent_items=recent_preview_items,
             )
             with st.spinner(f"{index + 1}/{total} 생성 중: {label}"):
                 material = build_student_material(student)
@@ -3434,6 +3557,7 @@ if current_step == 5:
                     f"{index + 1}/{total} · {label}의 API 입력 자료를 구성했습니다.",
                     (index + 0.25) / total if total else 0,
                     ["개인정보 제외", "수행평가별 자료 정리", "성취수준 평가 문구 연결"],
+                    recent_items=recent_preview_items,
                 )
                 prompt = build_prompt(material)
 
@@ -3445,6 +3569,7 @@ if current_step == 5:
                         f"{index + 1}/{total} · {label}의 문장을 AI가 생성하고 있습니다.",
                         (index + 0.55) / total if total else 0,
                         ["AI 응답 대기 중", "응답이 끝나면 결과표에 자동 저장", "다음 학생으로 자동 이동"],
+                        recent_items=recent_preview_items,
                     )
                     generated = generate_with_ai(
                         prompt,
@@ -3460,6 +3585,7 @@ if current_step == 5:
                         f"{index + 1}/{total} · {label}의 문장을 내부 조합 방식으로 구성하고 있습니다.",
                         (index + 0.75) / total if total else 0,
                         ["교사의 평가 문구 추출", "중복 표현 정리", "생기부 문체로 변환"],
+                        recent_items=recent_preview_items,
                     )
                     generated = fallback_generate(material)
 
