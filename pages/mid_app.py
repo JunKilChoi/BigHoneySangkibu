@@ -17,7 +17,7 @@ from openpyxl.utils import get_column_letter
 
 
 # =========================
-# 중학교 간편 생기부 v12
+# 중학교 간편 생기부 v13
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -25,9 +25,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v12"
-MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v12"
-MID_APP_VERSION = "patched-20260623-mid-v12"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v13"
+MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v13"
+MID_APP_VERSION = "patched-20260623-mid-v13"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -91,6 +91,78 @@ def byte_count(text: str) -> int:
     return len(clean_text(text).encode("utf-8"))
 
 
+GENERATION_LOADING_MESSAGES = [
+    '칭찬 쥐어짜는 중...',
+    '학생의 작은 성취를 확대 해석하지 않게 조심하는 중...',
+    '복붙 냄새를 환기시키는 중...',
+    '생기부 문체로 점잖게 번역하는 중...',
+    '과장 표현은 빼고 근거만 남기는 중...',
+    '‘깊은 이해’를 몰래 검열하는 중...',
+    '교사 양심과 업무 효율 사이에서 줄타기 중...',
+    '비슷하지만 안 비슷한 문장 찾는 중...',
+    '성취수준을 생활기록부 말투로 바꾸는 중...',
+    '문장 끝을 ‘함’으로 착지시키는 중...',
+    '학생의 장점을 현미경으로 찾는 중...',
+    '루브릭을 문장으로 반죽하는 중...',
+    '너무 멋있어 보이지 않게 톤을 낮추는 중...',
+    '평가 문구를 세특 문장으로 숙성시키는 중...',
+    '행정 문체에 감성을 한 방울 넣는 중...',
+    '학생 이름이 들어가지 않았는지 몰래 확인하는 중...',
+    '적당히 구체적이고 적당히 담백한 문장 찾는 중...',
+    '똑같은 말인데 다르게 보이게 다듬는 중...',
+    '평가 자료 밖으로 상상력이 탈출하지 못하게 막는 중...',
+    '근거 없는 칭찬을 얌전히 돌려보내는 중...',
+    '문장을 한 문단 안에 얌전히 앉히는 중...',
+    '성취수준 A를 자랑스럽지만 과하지 않게 포장하는 중...',
+    '성취수준 C도 품격 있게 표현하는 중...',
+    '‘보완 필요’라는 말을 예쁘게 우회하는 중...',
+    '생기부에 들어가도 안 민망한 표현 찾는 중...',
+    '너무 AI 같지 않게 숨 고르는 중...',
+    '문장 사이 중복을 살살 덜어내는 중...',
+    '활동 내용과 평가 문구를 자연스럽게 이어 붙이는 중...',
+    '칭찬은 하되 무리수는 두지 않는 중...',
+    '관찰 기록을 세특 문장으로 승진시키는 중...',
+    '‘우수함’을 세 번 말하지 않으려고 노력하는 중...',
+    '학생별 차이를 티 안 나게 살리는 중...',
+    '생기부 문장에 교사 말투를 입히는 중...',
+    '과학 활동을 행정 문장으로 변환하는 중...',
+    '평가 요소들을 한 문장 안에서 화해시키는 중...',
+    '문장이 너무 신나지 않게 진정시키는 중...',
+    '교사의 관찰처럼 보이도록 문장을 다듬는 중...',
+    '문장 끝맺음을 공손하게 정렬하는 중...',
+    '‘탐구함’과 ‘분석함’ 사이에서 고민하는 중...',
+    '생활기록부에 어울리는 온도로 데우는 중...',
+    '같은 활동, 다른 표현을 열심히 짜내는 중...',
+    '학생의 수행 내용을 근거 중심으로 압축하는 중...',
+    '표현은 다양하게, 의미는 안전하게 맞추는 중...',
+    '너무 칭찬 같지도, 너무 평범하지도 않게 조절하는 중...',
+    '마지막 문장까지 명사형 종결로 착지 준비 중...',
+]
+
+def generation_loading_ticker_html() -> str:
+    """생성 대기 중에도 화면에서 4초마다 바뀌는 짧은 안내 문구를 만든다."""
+    if not GENERATION_LOADING_MESSAGES:
+        return ""
+
+    display_messages = GENERATION_LOADING_MESSAGES + [GENERATION_LOADING_MESSAGES[0]]
+    line_height = 30
+    interval_seconds = 4
+    total_seconds = len(GENERATION_LOADING_MESSAGES) * interval_seconds
+    message_lines = "".join([
+        f'<div class="generation-loading-line">{html.escape(message)}</div>'
+        for message in display_messages
+    ])
+    return f"""
+    <div class="generation-loading-box">
+        <div class="generation-loading-label">기다리는 동안</div>
+        <div class="generation-loading-window" style="height:{line_height}px;">
+            <div class="generation-loading-track" style="animation: generationLoadingTicker {total_seconds}s steps({len(GENERATION_LOADING_MESSAGES)}) infinite;">
+                {message_lines}
+            </div>
+        </div>
+    </div>
+    """
+
 def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines=None, recent_items=None):
     """AI 생성 중 진행 상황을 화면 안쪽에 표시하고, 직전 생성 완료 문장 1개만 보여준다."""
     if slot is None:
@@ -98,6 +170,7 @@ def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines
 
     safe_title = html.escape(clean_text(title))
     safe_detail = html.escape(clean_text(detail))
+    loading_html = generation_loading_ticker_html()
 
     recent_items = recent_items or []
     previous_html = ""
@@ -184,6 +257,49 @@ def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines
             font-size: 0.78rem;
             font-weight: 800;
         }}
+        .generation-loading-box {{
+            margin-top: 10px;
+            background: #FFF7ED;
+            border: 1px solid #FED7AA;
+            border-radius: 12px;
+            padding: 8px 11px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            overflow: hidden;
+        }}
+        .generation-loading-label {{
+            flex: 0 0 auto;
+            color: #9A3412;
+            font-size: 0.78rem;
+            font-weight: 900;
+            background: #FFEDD5;
+            border: 1px solid #FDBA74;
+            border-radius: 999px;
+            padding: 4px 8px;
+        }}
+        .generation-loading-window {{
+            flex: 1 1 auto;
+            overflow: hidden;
+            min-width: 0;
+        }}
+        .generation-loading-track {{
+            will-change: transform;
+        }}
+        .generation-loading-line {{
+            height: 30px;
+            line-height: 30px;
+            color: #7C2D12;
+            font-size: 0.91rem;
+            font-weight: 900;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }}
+        @keyframes generationLoadingTicker {{
+            from {{ transform: translateY(0); }}
+            to {{ transform: translateY(-1350px); }}
+        }}
         .generation-inline-previous {{
             margin-top: 12px;
             background: #F8FAFC;
@@ -225,6 +341,7 @@ def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines
         <div class="generation-inline-card">
             <div class="generation-inline-title">{safe_title}</div>
             <div class="generation-inline-detail">{safe_detail}</div>
+            {loading_html}
             {progress_html}
             {previous_html}
         </div>
@@ -1805,7 +1922,7 @@ if current_step == 1:
             num_rows="dynamic",
             use_container_width=True,
             height=560,
-            key="mid_record_matrix_editor_v12",
+            key="mid_record_matrix_editor_v13",
             column_config=column_config,
         )
 
