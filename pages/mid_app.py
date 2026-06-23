@@ -17,7 +17,7 @@ from openpyxl.utils import get_column_letter
 
 
 # =========================
-# 중학교 간편 생기부 v09
+# 중학교 간편 생기부 v10
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -25,9 +25,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v09"
-MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v09"
-MID_APP_VERSION = "patched-20260623-mid-v09"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v10"
+MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v10"
+MID_APP_VERSION = "patched-20260623-mid-v10"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -89,6 +89,103 @@ def clean_text(value) -> str:
 
 def byte_count(text: str) -> int:
     return len(clean_text(text).encode("utf-8"))
+
+
+def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines=None):
+    """AI 생성 중 사용자가 진행 상황을 볼 수 있도록 화면 위에 고정 진행 카드 표시."""
+    if slot is None:
+        slot = st.empty()
+
+    safe_title = html.escape(clean_text(title))
+    safe_detail = html.escape(clean_text(detail))
+    step_lines = step_lines or []
+    steps_html = "".join(
+        f"<li>{html.escape(clean_text(step))}</li>" for step in step_lines if clean_text(step)
+    )
+
+    if progress_ratio is None:
+        progress_html = ""
+    else:
+        try:
+            progress_value = max(0, min(100, int(float(progress_ratio) * 100)))
+        except Exception:
+            progress_value = 0
+        progress_html = f"""
+        <div class="generation-overlay-progress-wrap">
+            <div class="generation-overlay-progress-bar" style="width:{progress_value}%;"></div>
+        </div>
+        <div class="generation-overlay-percent">{progress_value}%</div>
+        """
+
+    slot.markdown(
+        f"""
+        <style>
+        .generation-overlay-card {{
+            position: fixed;
+            top: 82px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(720px, calc(100vw - 32px));
+            z-index: 999999;
+            background: rgba(255, 255, 255, 0.97);
+            border: 1px solid #CBD5E1;
+            border-left: 8px solid #D92D20;
+            border-radius: 18px;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+            padding: 16px 18px 14px 18px;
+            color: #111827;
+            backdrop-filter: blur(8px);
+        }}
+        .generation-overlay-title {{
+            font-size: 1.05rem;
+            font-weight: 900;
+            margin-bottom: 6px;
+        }}
+        .generation-overlay-detail {{
+            font-size: 0.94rem;
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: 9px;
+        }}
+        .generation-overlay-steps {{
+            margin: 6px 0 0 1.1rem;
+            padding: 0;
+            color: #475569;
+            font-size: 0.88rem;
+            line-height: 1.42;
+        }}
+        .generation-overlay-progress-wrap {{
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            background: #E5E7EB;
+            overflow: hidden;
+            margin-top: 10px;
+        }}
+        .generation-overlay-progress-bar {{
+            height: 10px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #EF4444 0%, #D92D20 100%);
+            transition: width 0.25s ease;
+        }}
+        .generation-overlay-percent {{
+            margin-top: 4px;
+            text-align: right;
+            color: #64748B;
+            font-size: 0.78rem;
+            font-weight: 800;
+        }}
+        </style>
+        <div class="generation-overlay-card">
+            <div class="generation-overlay-title">{safe_title}</div>
+            <div class="generation-overlay-detail">{safe_detail}</div>
+            {progress_html}
+            <ul class="generation-overlay-steps">{steps_html}</ul>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    return slot
 
 
 def to_int_or_big(value):
@@ -1631,7 +1728,7 @@ if current_step == 1:
             num_rows="dynamic",
             use_container_width=True,
             height=560,
-            key="mid_record_matrix_editor_v09",
+            key="mid_record_matrix_editor_v10",
             column_config=column_config,
         )
 
@@ -1705,7 +1802,43 @@ if current_step == 2:
             if st.button("선택 학생 생기부 생성", type="secondary", use_container_width=True):
                 sid = selected_student.get("student_id", "")
                 variant_no = list(students["student_id"].astype(str)).index(str(sid)) + 1 if sid in students["student_id"].astype(str).tolist() else 1
-                material, generated = generate_for_student(selected_student, ai_provider, api_key, model, variation_level, variant_no)
+                overlay_slot = None
+                overlay_slot = show_generation_overlay(
+                    overlay_slot,
+                    "선택 학생 생기부 생성 중",
+                    f"{selected_label}의 관찰 영역별 성취수준을 정리하고 있습니다.",
+                    0.20,
+                    ["성취수준 입력값 확인", "관찰 영역별 평가 문구 연결", "AI 입력 자료 구성"],
+                )
+                material = build_student_material(selected_student)
+                overlay_slot = show_generation_overlay(
+                    overlay_slot,
+                    "선택 학생 생기부 생성 중",
+                    f"{selected_label}의 문장을 생성하고 있습니다.",
+                    0.50,
+                    ["개인정보 제외", "중학교용 간결 문체 적용", f"변주 강도: {variation_level}"],
+                )
+                prompt = build_prompt(material, variation_level=variation_level, variant_no=variant_no)
+                generated = None
+                if api_key:
+                    generated = generate_with_ai(prompt, ai_provider, api_key, model)
+                if not generated:
+                    overlay_slot = show_generation_overlay(
+                        overlay_slot,
+                        "선택 학생 생기부 생성 중",
+                        "API 결과가 없어 내부 조합 방식으로 문장을 구성하고 있습니다.",
+                        0.75,
+                        ["교사의 평가 문구 추출", "중복 표현 정리", "명사형 종결 적용"],
+                    )
+                    generated = fallback_generate(material, variant_no=variant_no)
+                generated = normalize_sentence(generated)
+                overlay_slot = show_generation_overlay(
+                    overlay_slot,
+                    "선택 학생 생기부 생성 완료 처리 중",
+                    "생성 문장을 결과표와 수정창에 저장하고 있습니다.",
+                    0.95,
+                    ["결과 저장", "byte 계산", "수정창 반영"],
+                )
                 st.session_state.mid_results[sid] = {
                     "material": material,
                     "generated": generated,
@@ -1718,10 +1851,42 @@ if current_step == 2:
         with col_b:
             if st.button("전체 학생 생기부 생성 시작", type="primary", use_container_width=True):
                 progress = st.progress(0)
+                status_slot = st.empty()
+                overlay_slot = None
                 total = len(students)
                 for idx, (_, student) in enumerate(students.iterrows(), start=1):
                     sid = student.get("student_id", "")
-                    material, generated = generate_for_student(student, ai_provider, api_key, model, variation_level, idx)
+                    label = f"{student.get('학년', '')}학년 {student.get('반', '')}반 {student.get('번호', '')}번 {student.get('성명', '')}"
+                    overlay_slot = show_generation_overlay(
+                        overlay_slot,
+                        "전체 학생 생기부 생성 중",
+                        f"{idx}/{total} 처리 중 · {label}",
+                        (idx - 1) / total if total else 0,
+                        ["관찰 영역별 성취수준 확인", "AI 입력 자료 구성", "문장 생성", "결과 저장"],
+                    )
+                    status_slot.info(f"현재 생성 중: {idx}/{total} · {label}")
+                    material = build_student_material(student)
+                    prompt = build_prompt(material, variation_level=variation_level, variant_no=idx)
+                    generated = None
+                    if api_key:
+                        overlay_slot = show_generation_overlay(
+                            overlay_slot,
+                            "전체 학생 생기부 생성 중",
+                            f"{idx}/{total} · {label}의 문장을 AI가 생성하고 있습니다.",
+                            (idx - 0.45) / total if total else 0,
+                            ["AI 응답 대기 중", "응답 후 결과표에 저장", "다음 학생으로 이동"],
+                        )
+                        generated = generate_with_ai(prompt, ai_provider, api_key, model)
+                    if not generated:
+                        overlay_slot = show_generation_overlay(
+                            overlay_slot,
+                            "전체 학생 생기부 생성 중",
+                            f"{idx}/{total} · {label}의 문장을 내부 조합 방식으로 구성하고 있습니다.",
+                            (idx - 0.25) / total if total else 0,
+                            ["교사의 평가 문구 추출", "변주 표현 적용", "중학교 생기부 문체 정리"],
+                        )
+                        generated = fallback_generate(material, variant_no=idx)
+                    generated = normalize_sentence(generated)
                     st.session_state.mid_results[sid] = {
                         "material": material,
                         "generated": generated,
@@ -1730,6 +1895,13 @@ if current_step == 2:
                         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     }
                     progress.progress(idx / total)
+                    overlay_slot = show_generation_overlay(
+                        overlay_slot,
+                        "전체 학생 생기부 생성 중",
+                        f"{idx}/{total} 저장 완료 · 다음 학생으로 이동합니다.",
+                        idx / total if total else 1,
+                        ["생성 원문 저장", "교사 수정 문구 초기화", "byte 계산 완료"],
+                    )
                 st.success("전체 학생 생기부 생성을 완료했습니다.")
                 st.rerun()
 
