@@ -17,7 +17,7 @@ from openpyxl.utils import get_column_letter
 
 
 # =========================
-# 중학교 간편 생기부 v08
+# 중학교 간편 생기부 v09
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -25,9 +25,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v08"
-MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v08"
-MID_APP_VERSION = "patched-20260623-mid-v08"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v09"
+MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v09"
+MID_APP_VERSION = "patched-20260623-mid-v09"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -1612,9 +1612,8 @@ if current_step == 1:
             item_id = item.get("item_id", "")
             assessment_name = get_assessment_name(item.get("assessment_id", "")) or "수행평가명 미입력"
             item_name = clean_text(item.get("name", "")) or "관찰 영역명 미입력"
-            # Streamlit 입력표 안에서 바로 구분되도록 열 제목을 2줄로 표시한다.
-            # 병합 헤더는 아니지만, 각 열마다 위 줄은 수행평가명, 아래 줄은 관찰 영역명으로 반복된다.
-            label = f"📁 {assessment_name}\n🧾 {item_name}"
+            # 수행평가명은 바로 위 구조표에서 확인하므로, 실제 입력표 헤더에는 관찰 영역명만 표시한다.
+            label = item_name
             levels = [clean_text(x) for x in item.get("levels", []) if clean_text(x)]
             column_config[item_id] = st.column_config.SelectboxColumn(
                 label,
@@ -1632,7 +1631,7 @@ if current_step == 1:
             num_rows="dynamic",
             use_container_width=True,
             height=560,
-            key="mid_record_matrix_editor_v08",
+            key="mid_record_matrix_editor_v09",
             column_config=column_config,
         )
 
