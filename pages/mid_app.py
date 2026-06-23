@@ -17,7 +17,7 @@ from openpyxl.utils import get_column_letter
 
 
 # =========================
-# 중학교 간편 생기부 v11
+# 중학교 간편 생기부 v12
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -25,9 +25,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v11"
-MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v11"
-MID_APP_VERSION = "patched-20260623-mid-v11"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v12"
+MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v12"
+MID_APP_VERSION = "patched-20260623-mid-v12"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -92,41 +92,35 @@ def byte_count(text: str) -> int:
 
 
 def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines=None, recent_items=None):
-    """AI 생성 중 진행 상황과 직전 생성 완료 문장을 함께 보여준다."""
+    """AI 생성 중 진행 상황을 화면 안쪽에 표시하고, 직전 생성 완료 문장 1개만 보여준다."""
     if slot is None:
         slot = st.empty()
 
     safe_title = html.escape(clean_text(title))
     safe_detail = html.escape(clean_text(detail))
-    step_lines = step_lines or []
-    steps_html = "".join(
-        f"<li>{html.escape(clean_text(step))}</li>" for step in step_lines if clean_text(step)
-    )
 
     recent_items = recent_items or []
-    recent_cards = []
-    for item in recent_items[-3:]:
-        if not isinstance(item, dict):
-            continue
-        label = html.escape(clean_text(item.get("label", "이전 생성 문장")))
-        text = html.escape(clean_text(item.get("text", "")))
-        if not text:
-            continue
-        recent_cards.append(
-            f"""
-            <div class="generation-overlay-recent-card">
-                <div class="generation-overlay-recent-label">{label}</div>
-                <div class="generation-overlay-recent-text">{text}</div>
-            </div>
-            """
-        )
+    previous_html = ""
+    previous_item = None
+    for item in reversed(recent_items):
+        if isinstance(item, dict) and clean_text(item.get("text", "")):
+            previous_item = item
+            break
 
-    recent_html = ""
-    if recent_cards:
-        recent_html = f"""
-        <div class="generation-overlay-recent-wrap">
-            <div class="generation-overlay-recent-title">직전 생성 완료 문장</div>
-            {''.join(recent_cards)}
+    if previous_item:
+        label = html.escape(clean_text(previous_item.get("label", "직전 생성 학생")))
+        text = html.escape(clean_text(previous_item.get("text", "")))
+        previous_html = f"""
+        <div class="generation-inline-previous">
+            <div class="generation-inline-previous-title">바로 이전 학생 생성 결과</div>
+            <div class="generation-inline-previous-label">{label}</div>
+            <div class="generation-inline-previous-text">{text}</div>
+        </div>
+        """
+    else:
+        previous_html = """
+        <div class="generation-inline-empty">
+            아직 바로 이전 생성 결과가 없습니다. 첫 번째 학생이 생성되면 다음 학생 생성 중 이곳에 표시됩니다.
         </div>
         """
 
@@ -138,120 +132,109 @@ def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines
         except Exception:
             progress_value = 0
         progress_html = f"""
-        <div class="generation-overlay-progress-wrap">
-            <div class="generation-overlay-progress-bar" style="width:{progress_value}%;"></div>
+        <div class="generation-inline-progress-wrap">
+            <div class="generation-inline-progress-bar" style="width:{progress_value}%;"></div>
         </div>
-        <div class="generation-overlay-percent">{progress_value}%</div>
+        <div class="generation-inline-percent">{progress_value}%</div>
         """
 
     slot.markdown(
         f"""
         <style>
-        .generation-overlay-card {{
-            position: fixed;
-            top: 72px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: min(980px, calc(100vw - 32px));
-            max-height: calc(100vh - 96px);
-            overflow-y: auto;
-            z-index: 999999;
-            background: rgba(255, 255, 255, 0.98);
+        .generation-inline-card {{
+            width: 100%;
+            background: #FFFFFF;
             border: 1px solid #CBD5E1;
             border-left: 8px solid #D92D20;
-            border-radius: 18px;
-            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
-            padding: 16px 18px 14px 18px;
+            border-radius: 16px;
+            box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+            padding: 15px 17px 14px 17px;
             color: #111827;
-            backdrop-filter: blur(8px);
+            margin: 0.75rem 0 1.1rem 0;
         }}
-        .generation-overlay-title {{
-            font-size: 1.05rem;
+        .generation-inline-title {{
+            font-size: 1.02rem;
             font-weight: 900;
-            margin-bottom: 6px;
+            margin-bottom: 5px;
         }}
-        .generation-overlay-detail {{
-            font-size: 0.94rem;
+        .generation-inline-detail {{
+            font-size: 0.93rem;
             font-weight: 700;
             color: #334155;
             margin-bottom: 9px;
         }}
-        .generation-overlay-steps {{
-            margin: 6px 0 0 1.1rem;
-            padding: 0;
-            color: #475569;
-            font-size: 0.86rem;
-            line-height: 1.42;
-        }}
-        .generation-overlay-progress-wrap {{
+        .generation-inline-progress-wrap {{
             width: 100%;
             height: 10px;
             border-radius: 999px;
             background: #E5E7EB;
             overflow: hidden;
-            margin-top: 10px;
+            margin-top: 8px;
         }}
-        .generation-overlay-progress-bar {{
+        .generation-inline-progress-bar {{
             height: 10px;
             border-radius: 999px;
             background: linear-gradient(90deg, #EF4444 0%, #D92D20 100%);
             transition: width 0.25s ease;
         }}
-        .generation-overlay-percent {{
+        .generation-inline-percent {{
             margin-top: 4px;
             text-align: right;
             color: #64748B;
             font-size: 0.78rem;
             font-weight: 800;
         }}
-        .generation-overlay-recent-wrap {{
+        .generation-inline-previous {{
             margin-top: 12px;
-            padding-top: 10px;
-            border-top: 1px solid #E2E8F0;
-        }}
-        .generation-overlay-recent-title {{
-            font-weight: 900;
-            color: #0F172A;
-            font-size: 0.91rem;
-            margin-bottom: 8px;
-        }}
-        .generation-overlay-recent-card {{
             background: #F8FAFC;
             border: 1px solid #E2E8F0;
             border-radius: 12px;
-            padding: 10px 12px;
-            margin-bottom: 8px;
+            padding: 11px 13px;
         }}
-        .generation-overlay-recent-label {{
+        .generation-inline-previous-title {{
+            font-weight: 900;
+            color: #0F172A;
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+        }}
+        .generation-inline-previous-label {{
             font-weight: 900;
             color: #1E3A8A;
             font-size: 0.84rem;
             margin-bottom: 5px;
         }}
-        .generation-overlay-recent-text {{
+        .generation-inline-previous-text {{
             color: #111827;
             font-size: 0.9rem;
-            line-height: 1.58;
+            line-height: 1.6;
             white-space: pre-wrap;
             word-break: keep-all;
             overflow-wrap: anywhere;
         }}
+        .generation-inline-empty {{
+            margin-top: 10px;
+            color: #64748B;
+            background: #F8FAFC;
+            border: 1px dashed #CBD5E1;
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 0.88rem;
+            font-weight: 700;
+        }}
         </style>
-        <div class="generation-overlay-card">
-            <div class="generation-overlay-title">{safe_title}</div>
-            <div class="generation-overlay-detail">{safe_detail}</div>
+        <div class="generation-inline-card">
+            <div class="generation-inline-title">{safe_title}</div>
+            <div class="generation-inline-detail">{safe_detail}</div>
             {progress_html}
-            <ul class="generation-overlay-steps">{steps_html}</ul>
-            {recent_html}
+            {previous_html}
         </div>
         """,
         unsafe_allow_html=True,
     )
     return slot
 
-
 def generation_preview_items_from_results(students_df, results, exclude_sid=""):
-    """선택/전체 생성 중 직전 생성 완료 문장 최대 3개를 오버레이에 표시하기 위한 자료로 변환한다."""
+    """선택/전체 생성 중 바로 직전 생성 완료 문장 1개를 진행 상황 창에 표시하기 위한 자료로 변환한다."""
     if not isinstance(results, dict) or students_df is None or getattr(students_df, "empty", True):
         return []
 
@@ -280,7 +263,7 @@ def generation_preview_items_from_results(students_df, results, exclude_sid=""):
         )
 
     entries = sorted(entries, key=lambda x: x.get("created_at", ""))
-    return [{"label": e["label"], "text": e["text"]} for e in entries[-3:]]
+    return [{"label": e["label"], "text": e["text"]} for e in entries[-1:]]
 
 def to_int_or_big(value):
     text = re.sub(r"\D", "", clean_text(value))
@@ -1822,7 +1805,7 @@ if current_step == 1:
             num_rows="dynamic",
             use_container_width=True,
             height=560,
-            key="mid_record_matrix_editor_v11",
+            key="mid_record_matrix_editor_v12",
             column_config=column_config,
         )
 
@@ -1965,7 +1948,7 @@ if current_step == 2:
                         f"{idx}/{total} 처리 중 · {label}",
                         (idx - 1) / total if total else 0,
                         ["관찰 영역별 성취수준 확인", "AI 입력 자료 구성", "문장 생성", "결과 저장"],
-                        recent_items=completed_preview_items[-3:],
+                        recent_items=completed_preview_items[-1:],
                     )
                     status_slot.info(f"현재 생성 중: {idx}/{total} · {label}")
                     material = build_student_material(student)
@@ -1978,7 +1961,7 @@ if current_step == 2:
                             f"{idx}/{total} · {label}의 문장을 AI가 생성하고 있습니다.",
                             (idx - 0.45) / total if total else 0,
                             ["AI 응답 대기 중", "응답 후 결과표에 저장", "다음 학생으로 이동"],
-                            recent_items=completed_preview_items[-3:],
+                            recent_items=completed_preview_items[-1:],
                         )
                         generated = generate_with_ai(prompt, ai_provider, api_key, model)
                     if not generated:
@@ -1988,7 +1971,7 @@ if current_step == 2:
                             f"{idx}/{total} · {label}의 문장을 내부 조합 방식으로 구성하고 있습니다.",
                             (idx - 0.25) / total if total else 0,
                             ["교사의 평가 문구 추출", "변주 표현 적용", "중학교 생기부 문체 정리"],
-                            recent_items=completed_preview_items[-3:],
+                            recent_items=completed_preview_items[-1:],
                         )
                         generated = fallback_generate(material, variant_no=idx)
                     generated = normalize_sentence(generated)
@@ -2007,7 +1990,7 @@ if current_step == 2:
                         f"{idx}/{total} 저장 완료 · 다음 학생으로 이동합니다.",
                         idx / total if total else 1,
                         ["생성 원문 저장", "교사 수정 문구 초기화", "byte 계산 완료"],
-                        recent_items=completed_preview_items[-3:],
+                        recent_items=completed_preview_items[-1:],
                     )
                 st.success("전체 학생 생기부 생성을 완료했습니다.")
                 st.rerun()
