@@ -1,4 +1,5 @@
 import hashlib
+import html
 import json
 import re
 import uuid
@@ -31,8 +32,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v49"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v49"
+APP_TITLE = "🍯 개꿀 생기부 v51"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v51"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -138,6 +139,103 @@ def clean_text(value) -> str:
 
 def byte_count(text: str) -> int:
     return len(clean_text(text).encode("utf-8"))
+
+
+def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines=None):
+    """AI 생성 중 사용자가 진행 상황을 볼 수 있도록 화면 위에 고정 진행 카드 표시."""
+    if slot is None:
+        slot = st.empty()
+
+    safe_title = html.escape(clean_text(title))
+    safe_detail = html.escape(clean_text(detail))
+    step_lines = step_lines or []
+    steps_html = "".join(
+        f"<li>{html.escape(clean_text(step))}</li>" for step in step_lines if clean_text(step)
+    )
+
+    if progress_ratio is None:
+        progress_html = ""
+    else:
+        try:
+            progress_value = max(0, min(100, int(float(progress_ratio) * 100)))
+        except Exception:
+            progress_value = 0
+        progress_html = f"""
+        <div class="generation-overlay-progress-wrap">
+            <div class="generation-overlay-progress-bar" style="width:{progress_value}%;"></div>
+        </div>
+        <div class="generation-overlay-percent">{progress_value}%</div>
+        """
+
+    slot.markdown(
+        f"""
+        <style>
+        .generation-overlay-card {{
+            position: fixed;
+            top: 82px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(720px, calc(100vw - 32px));
+            z-index: 999999;
+            background: rgba(255, 255, 255, 0.97);
+            border: 1px solid #CBD5E1;
+            border-left: 8px solid #D92D20;
+            border-radius: 18px;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+            padding: 16px 18px 14px 18px;
+            color: #111827;
+            backdrop-filter: blur(8px);
+        }}
+        .generation-overlay-title {{
+            font-size: 1.05rem;
+            font-weight: 900;
+            margin-bottom: 6px;
+        }}
+        .generation-overlay-detail {{
+            font-size: 0.94rem;
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: 9px;
+        }}
+        .generation-overlay-steps {{
+            margin: 6px 0 0 1.1rem;
+            padding: 0;
+            color: #475569;
+            font-size: 0.88rem;
+            line-height: 1.42;
+        }}
+        .generation-overlay-progress-wrap {{
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            background: #E5E7EB;
+            overflow: hidden;
+            margin-top: 10px;
+        }}
+        .generation-overlay-progress-bar {{
+            height: 10px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #EF4444 0%, #D92D20 100%);
+            transition: width 0.25s ease;
+        }}
+        .generation-overlay-percent {{
+            margin-top: 4px;
+            text-align: right;
+            color: #64748B;
+            font-size: 0.78rem;
+            font-weight: 800;
+        }}
+        </style>
+        <div class="generation-overlay-card">
+            <div class="generation-overlay-title">{safe_title}</div>
+            <div class="generation-overlay-detail">{safe_detail}</div>
+            {progress_html}
+            <ul class="generation-overlay-steps">{steps_html}</ul>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    return slot
 
 
 def to_int_or_big(value):
@@ -575,7 +673,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260621-v49",
+        "version": "patched-20260621-v51",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -2063,7 +2161,7 @@ def build_sample_project_data():
         "results": {},
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "sample-project-v49",
+        "version": "sample-project-v51",
     }
 
 
@@ -3193,7 +3291,23 @@ if current_step == 5:
 
         with col_a:
             if st.button("선택 학생 생기부 생성", type="secondary", use_container_width=True):
+                overlay_slot = None
+                overlay_slot = show_generation_overlay(
+                    overlay_slot,
+                    "선택 학생 생기부 생성 중",
+                    f"{selected_label}의 평가 자료를 정리하고 있습니다.",
+                    0.20,
+                    ["학생별 수행평가 자료 수집", "AI 입력 프롬프트 구성", "생기부 문장 생성 준비"],
+                )
                 material = build_student_material(selected_student)
+
+                overlay_slot = show_generation_overlay(
+                    overlay_slot,
+                    "선택 학생 생기부 생성 중",
+                    f"{selected_label}의 프롬프트를 구성했습니다. AI 응답을 기다리는 중입니다.",
+                    0.45,
+                    ["개인정보 제외 확인", "성취수준 문구 연결", "선택한 AI 모델 호출"],
+                )
                 prompt = build_prompt(material)
 
                 generated = None
@@ -3202,8 +3316,22 @@ if current_step == 5:
                         generated = generate_with_ai(prompt, ai_provider, api_key, model)
 
                 if not generated:
+                    overlay_slot = show_generation_overlay(
+                        overlay_slot,
+                        "선택 학생 생기부 생성 중",
+                        "API 결과가 없어 내부 조합 방식으로 문장을 구성하고 있습니다.",
+                        0.75,
+                        ["교사의 평가 문구 추출", "중복 문구 정리", "명사형 종결 형태로 정리"],
+                    )
                     generated = fallback_generate(material)
 
+                overlay_slot = show_generation_overlay(
+                    overlay_slot,
+                    "선택 학생 생기부 생성 완료 처리 중",
+                    "생성 문장을 결과표와 수정창에 저장하고 있습니다.",
+                    0.95,
+                    ["생성 원문 저장", "교사 수정 문구 초기화", "byte 계산"],
+                )
                 sid = selected_student["student_id"]
                 st.session_state.results[sid] = {
                     "material": material,
@@ -3289,12 +3417,35 @@ if current_step == 5:
             student = matched.iloc[0]
             label = f"{student.get('반', '')}반 {student.get('번호', '')}번 {student.get('성명', '')}"
 
+            overlay_slot = None
+            progress_base = index / total if total else 0
+            overlay_slot = show_generation_overlay(
+                overlay_slot,
+                "전체 학생 생기부 생성 중",
+                f"{index + 1}/{total} 처리 중 · {label}",
+                progress_base,
+                ["현재 학생 평가 자료 정리", "프롬프트 구성", "AI 생성 또는 내부 조합", "결과 저장"],
+            )
             with st.spinner(f"{index + 1}/{total} 생성 중: {label}"):
                 material = build_student_material(student)
+                overlay_slot = show_generation_overlay(
+                    overlay_slot,
+                    "전체 학생 생기부 생성 중",
+                    f"{index + 1}/{total} · {label}의 API 입력 자료를 구성했습니다.",
+                    (index + 0.25) / total if total else 0,
+                    ["개인정보 제외", "수행평가별 자료 정리", "성취수준 평가 문구 연결"],
+                )
                 prompt = build_prompt(material)
 
                 generated = None
                 if job.get("api_key"):
+                    overlay_slot = show_generation_overlay(
+                        overlay_slot,
+                        "전체 학생 생기부 생성 중",
+                        f"{index + 1}/{total} · {label}의 문장을 AI가 생성하고 있습니다.",
+                        (index + 0.55) / total if total else 0,
+                        ["AI 응답 대기 중", "응답이 끝나면 결과표에 자동 저장", "다음 학생으로 자동 이동"],
+                    )
                     generated = generate_with_ai(
                         prompt,
                         job.get("ai_provider", ai_provider),
@@ -3303,6 +3454,13 @@ if current_step == 5:
                     )
 
                 if not generated:
+                    overlay_slot = show_generation_overlay(
+                        overlay_slot,
+                        "전체 학생 생기부 생성 중",
+                        f"{index + 1}/{total} · {label}의 문장을 내부 조합 방식으로 구성하고 있습니다.",
+                        (index + 0.75) / total if total else 0,
+                        ["교사의 평가 문구 추출", "중복 표현 정리", "생기부 문체로 변환"],
+                    )
                     generated = fallback_generate(material)
 
             st.session_state.results[current_sid] = {
