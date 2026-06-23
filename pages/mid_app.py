@@ -17,7 +17,7 @@ from openpyxl.utils import get_column_letter
 
 
 # =========================
-# 중학교 간편 생기부 v14
+# 중학교 간편 생기부 v15
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -25,9 +25,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v14"
-MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v14"
-MID_APP_VERSION = "patched-20260623-mid-v14"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v15"
+MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v15"
+MID_APP_VERSION = "patched-20260623-mid-v15"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -91,6 +91,31 @@ def byte_count(text: str) -> int:
     return len(clean_text(text).encode("utf-8"))
 
 
+def loading_elapsed_seconds(started_at=None) -> float:
+    """전체 생성 중 진행 카드가 갱신되어도 로딩 문구 순서가 처음으로 돌아가지 않게 경과 시간을 계산한다."""
+    if started_at is None:
+        return 0.0
+    if isinstance(started_at, datetime):
+        base = started_at
+    else:
+        text = clean_text(started_at)
+        if not text:
+            return 0.0
+        base = None
+        for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"]:
+            try:
+                base = datetime.strptime(text[:19], fmt)
+                break
+            except Exception:
+                pass
+        if base is None:
+            return 0.0
+    try:
+        return max(0.0, (datetime.now() - base).total_seconds())
+    except Exception:
+        return 0.0
+
+
 GENERATION_LOADING_MESSAGES = [
     '칭찬 쥐어짜는 중...',
     '학생의 작은 성취를 확대 해석하지 않게 조심하는 중...',
@@ -139,7 +164,7 @@ GENERATION_LOADING_MESSAGES = [
     '마지막 문장까지 명사형 종결로 착지 준비 중...',
 ]
 
-def generation_loading_ticker_html() -> str:
+def generation_loading_ticker_html(loading_offset_seconds=0) -> str:
     """생성 대기 중에도 화면에서 7초마다 바뀌는 짧은 안내 문구를 만든다."""
     if not GENERATION_LOADING_MESSAGES:
         return ""
@@ -148,6 +173,10 @@ def generation_loading_ticker_html() -> str:
     line_height = 30
     interval_seconds = 7
     total_seconds = len(GENERATION_LOADING_MESSAGES) * interval_seconds
+    try:
+        offset_seconds = float(loading_offset_seconds or 0) % total_seconds
+    except Exception:
+        offset_seconds = 0.0
     message_lines = "".join([
         f'<div class="generation-loading-line">{html.escape(message)}</div>'
         for message in display_messages
@@ -155,21 +184,21 @@ def generation_loading_ticker_html() -> str:
     return f"""
     <div class="generation-loading-box">
 <div class="generation-loading-window" style="height:{line_height}px;">
-            <div class="generation-loading-track" style="animation: generationLoadingTicker {total_seconds}s steps({len(GENERATION_LOADING_MESSAGES)}) infinite;">
+            <div class="generation-loading-track" style="animation: generationLoadingTicker {total_seconds}s steps({len(GENERATION_LOADING_MESSAGES)}) infinite; animation-delay:-{offset_seconds:.2f}s;">
                 {message_lines}
             </div>
         </div>
     </div>
     """
 
-def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines=None, recent_items=None):
+def show_generation_overlay(slot, title, detail, progress_ratio=None, step_lines=None, recent_items=None, loading_offset_seconds=0):
     """AI 생성 중 진행 상황을 화면 안쪽에 표시하고, 직전 생성 완료 문장 1개만 보여준다."""
     if slot is None:
         slot = st.empty()
 
     safe_title = html.escape(clean_text(title))
     safe_detail = html.escape(clean_text(detail))
-    loading_html = generation_loading_ticker_html()
+    loading_html = generation_loading_ticker_html(loading_offset_seconds=loading_offset_seconds)
 
     recent_items = recent_items or []
     previous_html = ""
@@ -1907,6 +1936,7 @@ if current_step == 2:
         col_a, col_b, col_spacer = st.columns([1.65, 1.9, 5.45], gap="small")
         with col_a:
             if st.button("선택 학생 생기부 생성", type="secondary", use_container_width=True):
+                overlay_loading_started_at = datetime.now()
                 sid = selected_student.get("student_id", "")
                 variant_no = list(students["student_id"].astype(str)).index(str(sid)) + 1 if sid in students["student_id"].astype(str).tolist() else 1
                 overlay_slot = None
@@ -1920,6 +1950,7 @@ if current_step == 2:
                     0.20,
                     ["성취수준 입력값 확인", "관찰 영역별 평가 문구 연결", "AI 입력 자료 구성"],
                     recent_items=recent_preview_items,
+                    loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                 )
                 material = build_student_material(selected_student)
                 overlay_slot = show_generation_overlay(
@@ -1929,6 +1960,7 @@ if current_step == 2:
                     0.50,
                     ["개인정보 제외", "중학교용 간결 문체 적용", f"변주 강도: {variation_level}"],
                     recent_items=recent_preview_items,
+                    loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                 )
                 prompt = build_prompt(material, variation_level=variation_level, variant_no=variant_no)
                 generated = None
@@ -1942,6 +1974,7 @@ if current_step == 2:
                         0.75,
                         ["교사의 평가 문구 추출", "중복 표현 정리", "명사형 종결 적용"],
                         recent_items=recent_preview_items,
+                        loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                     )
                     generated = fallback_generate(material, variant_no=variant_no)
                 generated = normalize_sentence(generated)
@@ -1952,6 +1985,7 @@ if current_step == 2:
                     0.95,
                     ["결과 저장", "byte 계산", "수정창 반영"],
                     recent_items=recent_preview_items,
+                    loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                 )
                 st.session_state.mid_results[sid] = {
                     "material": material,
@@ -1969,6 +2003,7 @@ if current_step == 2:
                 overlay_slot = None
                 total = len(students)
                 completed_preview_items = []
+                overlay_loading_started_at = datetime.now()
                 for idx, (_, student) in enumerate(students.iterrows(), start=1):
                     sid = student.get("student_id", "")
                     label = f"{student.get('학년', '')}학년 {student.get('반', '')}반 {student.get('번호', '')}번 {student.get('성명', '')}"
@@ -1979,6 +2014,7 @@ if current_step == 2:
                         (idx - 1) / total if total else 0,
                         ["관찰 영역별 성취수준 확인", "AI 입력 자료 구성", "문장 생성", "결과 저장"],
                         recent_items=completed_preview_items[-1:],
+                        loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                     )
                     status_slot.info(f"현재 생성 중: {idx}/{total} · {label}")
                     material = build_student_material(student)
@@ -1992,6 +2028,7 @@ if current_step == 2:
                             (idx - 0.45) / total if total else 0,
                             ["AI 응답 대기 중", "응답 후 결과표에 저장", "다음 학생으로 이동"],
                             recent_items=completed_preview_items[-1:],
+                            loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                         )
                         generated = generate_with_ai(prompt, ai_provider, api_key, model)
                     if not generated:
@@ -2002,6 +2039,7 @@ if current_step == 2:
                             (idx - 0.25) / total if total else 0,
                             ["교사의 평가 문구 추출", "변주 표현 적용", "중학교 생기부 문체 정리"],
                             recent_items=completed_preview_items[-1:],
+                            loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                         )
                         generated = fallback_generate(material, variant_no=idx)
                     generated = normalize_sentence(generated)
@@ -2021,6 +2059,7 @@ if current_step == 2:
                         idx / total if total else 1,
                         ["생성 원문 저장", "교사 수정 문구 초기화", "byte 계산 완료"],
                         recent_items=completed_preview_items[-1:],
+                        loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                     )
                 st.success("전체 학생 생기부 생성을 완료했습니다.")
                 st.rerun()
