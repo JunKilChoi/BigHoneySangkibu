@@ -32,8 +32,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v59"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v59"
+APP_TITLE = "🍯 개꿀 생기부 v60"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v60"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -367,6 +367,24 @@ def generation_preview_items_from_log(log_entries):
     return preview_items
 
 
+
+def looks_like_api_error_text(text: str) -> bool:
+    """API 오류 문구가 결과표/엑셀에 저장되어 보이는 것을 막기 위한 감지 함수."""
+    lower = clean_text(text).lower()
+    if not lower:
+        return False
+    error_markers = [
+        "api 생성 중 오류",
+        "error code:",
+        "insufficient_quota",
+        "you exceeded your current quota",
+        "please check your plan and billing details",
+        "rate limit",
+        "http 429",
+        "429",
+    ]
+    return any(marker in lower for marker in error_markers)
+
 def generation_preview_items_from_results(students_df, results, exclude_sid=""):
     """선택 생성 중 이미 생성되어 있는 최근 문장 1개를 표시한다."""
     if not isinstance(results, dict) or students_df is None or getattr(students_df, "empty", True):
@@ -379,6 +397,8 @@ def generation_preview_items_from_results(students_df, results, exclude_sid=""):
         if not sid or sid == clean_text(exclude_sid) or not isinstance(result, dict):
             continue
         text = clean_text(result.get("edited", result.get("generated", "")))
+        if looks_like_api_error_text(text):
+            continue
         if not text:
             continue
         row = student_map.get(sid, {})
@@ -829,7 +849,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260621-v59",
+        "version": "patched-20260621-v60",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1440,6 +1460,37 @@ def fallback_generate(material):
     return text
 
 
+
+def format_api_error_notice(provider: str, error) -> str:
+    """사용자에게 보여줄 API 오류 안내를 짧고 안전한 문구로 바꾼다."""
+    raw = clean_text(error)
+    lower = raw.lower()
+    if "insufficient_quota" in lower or "exceeded your current quota" in lower or "billing" in lower:
+        return f"{provider} API 할당량 또는 결제 한도 문제로 API 생성에 실패했습니다. 결과표에는 오류 문구를 넣지 않고 내부 조합 방식으로 대체했습니다. API 사용량/결제 상태를 확인하세요."
+    if "429" in lower or "rate limit" in lower:
+        return f"{provider} API 요청 한도에 걸려 API 생성에 실패했습니다. 결과표에는 오류 문구를 넣지 않고 내부 조합 방식으로 대체했습니다. 잠시 뒤 다시 시도하세요."
+    if "invalid" in lower and "key" in lower:
+        return f"{provider} API Key 문제로 API 생성에 실패했습니다. 결과표에는 오류 문구를 넣지 않고 내부 조합 방식으로 대체했습니다. API Key를 확인하세요."
+    return f"{provider} API 호출에 실패했습니다. 결과표에는 오류 문구를 넣지 않고 내부 조합 방식으로 대체했습니다."
+
+
+def remember_api_generation_error(provider: str, error) -> None:
+    """API 오류를 화면에 원문 그대로 뿌리지 않고, 다음 렌더링 때 짧은 안내만 보이게 저장한다."""
+    st.session_state["api_generation_notice"] = format_api_error_notice(provider, error)
+    st.session_state["api_generation_error_provider"] = clean_text(provider)
+    st.session_state["api_generation_error_raw"] = clean_text(error)[:500]
+
+
+def safe_result_text(result: dict) -> str:
+    """기존 세션/프로젝트에 API 오류 문구가 저장되어 있으면 표출하지 않고 가능한 경우 대체 문장을 만든다."""
+    if not isinstance(result, dict):
+        return ""
+    text = clean_text(result.get("edited", result.get("generated", "")))
+    if looks_like_api_error_text(text):
+        material = clean_text(result.get("material", ""))
+        return fallback_generate(material) if material else ""
+    return text
+
 def generate_with_openai(prompt, api_key, model):
     if not api_key:
         return None
@@ -1455,7 +1506,7 @@ def generate_with_openai(prompt, api_key, model):
         return response.output_text.strip()
 
     except Exception as e:
-        st.error(f"ChatGPT API 생성 중 오류가 발생했습니다: {e}")
+        remember_api_generation_error("ChatGPT", e)
         return None
 
 
@@ -1498,7 +1549,7 @@ def generate_with_gemini(prompt, api_key, model):
         text = "".join([part.get("text", "") for part in parts if isinstance(part, dict)]).strip()
         return text or None
     except Exception as e:
-        st.error(f"Gemini API 생성 중 오류가 발생했습니다: {e}")
+        remember_api_generation_error("Gemini", e)
         return None
 
 
@@ -1531,7 +1582,7 @@ def generate_with_claude(prompt, api_key, model):
         text = "".join([block.get("text", "") for block in blocks if isinstance(block, dict) and block.get("type") == "text"]).strip()
         return text or None
     except Exception as e:
-        st.error(f"Claude API 생성 중 오류가 발생했습니다: {e}")
+        remember_api_generation_error("Claude", e)
         return None
 
 
@@ -1562,7 +1613,7 @@ def export_excel():
     for _, student in students.iterrows():
         sid = student["student_id"]
         result = st.session_state.results.get(sid, {})
-        final_text = result.get("edited", result.get("generated", ""))
+        final_text = safe_result_text(result)
 
         result_rows.append(
             {
@@ -3461,10 +3512,10 @@ def build_sample_project_data():
   "results": {},
   "saved_at": "2026-06-23T07:35:00",
   "app": "개꿀 생기부",
-  "version": "sample-project-v59"
+  "version": "sample-project-v60"
 }''')
     data["saved_at"] = datetime.now().isoformat(timespec="seconds")
-    data["version"] = "sample-project-v59"
+    data["version"] = "sample-project-v60"
     return data
 
 
@@ -4581,6 +4632,10 @@ if current_step == 5:
             "모델명 칸은 직접 수정할 수 있습니다. API 키는 화면에 표시되지 않는 암호 입력칸입니다."
         )
 
+        api_notice = clean_text(st.session_state.pop("api_generation_notice", ""))
+        if api_notice:
+            st.warning(api_notice)
+
         students = st.session_state.students.copy()
         student_labels = {
             f"{row['반']}반 {row['번호']}번 {row['성명']}": row
@@ -4836,7 +4891,7 @@ if current_step == 5:
         for _, student in students.iterrows():
             sid = student["student_id"]
             result = st.session_state.results.get(sid, {})
-            text = result.get("edited", result.get("generated", ""))
+            text = safe_result_text(result)
             result_rows.append(
                 {
                     "student_id": sid,
@@ -4993,7 +5048,7 @@ if current_step == 5:
             f"{selected_detail_student.get('성명', '')}"
         )
         result = st.session_state.results.get(current_selected_sid, {})
-        initial_text = result.get("edited", result.get("generated", ""))
+        initial_text = safe_result_text(result)
 
         st.markdown(f"#### 표에서 선택한 학생 수정: {selected_detail_label}")
         if not result:
