@@ -1,3 +1,4 @@
+import html
 import json
 import re
 import uuid
@@ -16,7 +17,7 @@ from openpyxl.utils import get_column_letter
 
 
 # =========================
-# 중학교 간편 생기부 v04
+# 중학교 간편 생기부 v05
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -24,9 +25,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v04"
-MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v04"
-MID_APP_VERSION = "patched-20260623-mid-v04"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v05"
+MID_APP_SUBTITLE = "수행평가·관찰 영역 기반 중학교 생기부 간편 작성 도우미 · patched-20260623-mid-v05"
+MID_APP_VERSION = "patched-20260623-mid-v05"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -479,7 +480,7 @@ def build_mid_sample_project_data():
         "results": {},
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부 - 중학교 간편",
-        "version": "sample-mid-v04",
+        "version": "sample-mid-v05",
     }
 
 
@@ -957,6 +958,57 @@ def export_final_excel():
     return output
 
 
+
+def render_level_header_preview(items):
+    # 웹 입력표 위에 수행평가명/관찰 영역명을 app.py 색상 규칙으로 보여준다.
+    items = list(items or [])
+    if not items:
+        return
+
+    base_headers = ["학년", "반", "번호", "성명"]
+    assessment_groups = []
+    current_name = None
+    current_items = []
+
+    for item in items:
+        assessment_name = get_assessment_name(item.get("assessment_id", "")) or "수행평가명 미입력"
+        if current_name is None:
+            current_name = assessment_name
+        if assessment_name != current_name:
+            assessment_groups.append((current_name, current_items))
+            current_name = assessment_name
+            current_items = []
+        current_items.append(item)
+    if current_name is not None:
+        assessment_groups.append((current_name, current_items))
+
+    first_row = "".join([
+        f'<th class="mid-student-head" rowspan="2">{html.escape(header)}</th>'
+        for header in base_headers
+    ])
+    for assessment_name, group_items in assessment_groups:
+        first_row += (
+            f'<th class="mid-assessment-head" colspan="{len(group_items)}">'
+            f'📁 {html.escape(assessment_name)}</th>'
+        )
+
+    second_row = "".join([
+        f'<th class="mid-item-head">🧾 {html.escape(clean_text(item.get("name", "이름 없는 관찰 영역")))}</th>'
+        for _, group_items in assessment_groups
+        for item in group_items
+    ])
+
+    html_block = (
+        '<div class="mid-color-guide">'
+        '<span class="mid-color-chip"><span class="mid-blue-dot"></span>수행평가명</span>'
+        '<span class="mid-color-chip"><span class="mid-yellow-dot"></span>관찰 영역명</span>'
+        '</div>'
+        '<div class="mid-header-preview-wrap"><table class="mid-header-preview"><thead>'
+        f'<tr>{first_row}</tr><tr>{second_row}</tr>'
+        '</thead></table></div>'
+    )
+    st.markdown("".join(html_block), unsafe_allow_html=True)
+
 # =========================
 # UI 스타일 / 이동
 # =========================
@@ -998,21 +1050,8 @@ st.markdown(
     div[data-testid="stRadio"] > div[role="radiogroup"] input {
         display: none !important;
     }
-    div[data-testid="stExpander"] details:has(.mid-assessment-card-content) {
-        background: linear-gradient(180deg, #EFF6FF 0%, #DBEAFE 100%) !important;
-        border: 2px solid #93C5FD !important;
-        border-radius: 18px !important;
-        box-shadow: 0 5px 15px rgba(37, 99, 235, 0.10) !important;
-        padding: 0.18rem 0.38rem 0.42rem 0.38rem !important;
-        margin: 0.9rem 0 1.25rem 0 !important;
-    }
-    div[data-testid="stExpander"] details:has(.mid-assessment-card-content) > summary {
-        background: #DBEAFE !important;
-        border: 1px solid #BFDBFE !important;
-        border-radius: 14px !important;
-        margin: 0.2rem 0 0.55rem 0 !important;
-        padding: 0.15rem 0.45rem !important;
-    }
+    /* app.py와 같은 색상 규칙: 수행평가는 파란색, 관찰 영역은 노란색/주황색 */
+    /* 하위 박스: 관찰 영역은 노란색/주황색 계열 */
     div[data-testid="stExpander"] details:has(.mid-item-card-content) {
         background: linear-gradient(180deg, #FFFBF5 0%, #FFF7ED 100%) !important;
         border: 2px solid #FED7AA !important;
@@ -1028,7 +1067,99 @@ st.markdown(
         margin: 0.16rem 0 0.5rem 0 !important;
         padding: 0.12rem 0.4rem !important;
     }
+    div[data-testid="stExpander"] details:has(.mid-item-card-content) > summary p {
+        color: #111827 !important;
+        font-weight: 800 !important;
+    }
+
+    /* 상위 박스: 수행평가는 파란색 계열. 아래 선언이 나중에 와야 중첩 expander에서도 파란색이 유지된다. */
+    div[data-testid="stExpander"] details:has(.mid-assessment-card-content) {
+        background: linear-gradient(180deg, #EFF6FF 0%, #DBEAFE 100%) !important;
+        border: 2px solid #93C5FD !important;
+        border-radius: 18px !important;
+        box-shadow: 0 5px 15px rgba(37, 99, 235, 0.10) !important;
+        padding: 0.18rem 0.38rem 0.42rem 0.38rem !important;
+        margin: 0.9rem 0 1.25rem 0 !important;
+    }
+    div[data-testid="stExpander"] details:has(.mid-assessment-card-content) > summary {
+        background: #DBEAFE !important;
+        border: 1px solid #BFDBFE !important;
+        border-radius: 14px !important;
+        margin: 0.2rem 0 0.55rem 0 !important;
+        padding: 0.15rem 0.45rem !important;
+    }
+    div[data-testid="stExpander"] details:has(.mid-assessment-card-content) > summary p {
+        color: #0F172A !important;
+        font-weight: 900 !important;
+    }
     .mid-assessment-card-content, .mid-item-card-content { display: none !important; }
+
+    .mid-header-preview-wrap {
+        width: 100%;
+        overflow-x: auto;
+        border: 1px solid #D1D5DB;
+        border-radius: 14px;
+        margin: 0.6rem 0 1rem 0;
+        background: #FFFFFF;
+    }
+    table.mid-header-preview {
+        border-collapse: separate;
+        border-spacing: 0;
+        min-width: 760px;
+        width: 100%;
+        table-layout: fixed;
+        font-size: 0.92rem;
+    }
+    table.mid-header-preview th {
+        border-right: 1px solid #D1D5DB;
+        border-bottom: 1px solid #D1D5DB;
+        padding: 9px 10px;
+        text-align: center;
+        vertical-align: middle;
+        line-height: 1.35;
+        word-break: keep-all;
+    }
+    table.mid-header-preview th.mid-student-head {
+        background: #E5E7EB;
+        color: #111827;
+        font-weight: 800;
+        width: 72px;
+    }
+    table.mid-header-preview th.mid-assessment-head {
+        background: #DBEAFE;
+        color: #1E3A8A;
+        font-weight: 900;
+    }
+    table.mid-header-preview th.mid-item-head {
+        background: #FFEDD5;
+        color: #92400E;
+        font-weight: 900;
+    }
+    .mid-color-guide {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 0.25rem 0 0.5rem 0;
+        font-size: 0.9rem;
+    }
+    .mid-color-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid #D1D5DB;
+        border-radius: 999px;
+        padding: 5px 10px;
+        background: #FFFFFF;
+        font-weight: 800;
+    }
+    .mid-blue-dot, .mid-yellow-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+        display: inline-block;
+    }
+    .mid-blue-dot { background: #DBEAFE; border: 1px solid #93C5FD; }
+    .mid-yellow-dot { background: #FFEDD5; border: 1px solid #FED7AA; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -1085,9 +1216,9 @@ STEP_LABELS = [
     "② 학생별 성취수준 입력",
     "③ 생기부 생성/다운로드",
 ]
-NAV_WIDGET_KEY = "mid_step_nav_radio_v04"
-PENDING_STEP_KEY = "mid_pending_step_index_v04"
-SCROLL_TO_TOP_KEY = "mid_scroll_to_top_after_step_change_v04"
+NAV_WIDGET_KEY = "mid_step_nav_radio_v05"
+PENDING_STEP_KEY = "mid_pending_step_index_v05"
+SCROLL_TO_TOP_KEY = "mid_scroll_to_top_after_step_change_v05"
 
 if "mid_current_step" not in st.session_state:
     st.session_state.mid_current_step = 0
@@ -1223,7 +1354,7 @@ if current_step == 0:
     st.caption("중학교용은 수행평가 안에 관찰 영역을 만들고, 각 영역별 성취수준 코드와 평가 문구만 정해두면 됩니다.")
 
     with st.expander("➕ 새 수행평가 추가", expanded=True):
-        with st.form("mid_add_assessment_form_v04"):
+        with st.form("mid_add_assessment_form_v05"):
             col_a, col_b = st.columns([2, 1])
             with col_a:
                 new_name = st.text_input("수행평가명", placeholder="예: 소화 기관 모형 만들기")
@@ -1421,12 +1552,16 @@ if current_step == 1:
                 help=f"{assessment_name} / {item.get('name', '')}",
             )
 
+        st.markdown("#### 입력표 헤더 미리보기")
+        render_level_header_preview(items)
+        st.caption("아래 실제 입력표의 영역 열은 Streamlit 표 제약 때문에 한 줄 제목으로 보이지만, 위 미리보기와 같은 구조입니다. 수행평가는 파란색, 관찰 영역은 노란색입니다.")
+
         edited_df = st.data_editor(
             visible_df,
             num_rows="dynamic",
             use_container_width=True,
             height=560,
-            key="mid_record_matrix_editor_v04",
+            key="mid_record_matrix_editor_v05",
             column_config=column_config,
         )
 
@@ -1470,14 +1605,14 @@ if current_step == 2:
             model = st.text_input(
                 "모델명",
                 value=get_default_ai_model(ai_provider),
-                key=f"mid_ai_model_name_{ai_provider}_v04",
+                key=f"mid_ai_model_name_{ai_provider}_v05",
             )
         with col_key:
             api_key = st.text_input(
                 f"{ai_provider} API Key",
                 value=get_default_ai_key(ai_provider),
                 type="password",
-                key=f"mid_api_key_{ai_provider}_v04",
+                key=f"mid_api_key_{ai_provider}_v05",
                 help=f"Streamlit Secrets에는 {AI_SECRET_KEY_NAMES.get(ai_provider, 'OPENAI_API_KEY')} 이름으로 저장해둘 수 있습니다.",
             )
         with col_variation:
@@ -1553,7 +1688,7 @@ if current_step == 2:
             use_container_width=True,
             height=340,
             hide_index=True,
-            key="mid_generation_result_selector_v04",
+            key="mid_generation_result_selector_v05",
             on_select="rerun",
             selection_mode="single-cell",
             column_config={
@@ -1590,7 +1725,7 @@ if current_step == 2:
         st.markdown(f"#### 표에서 선택한 학생 수정: {selected_detail_label}")
         if not result:
             st.info("아직 이 학생의 생기부 문구가 생성되지 않았습니다. 직접 입력하거나 위에서 생성을 먼저 실행하세요.")
-        editor_key = f"mid_generation_detail_text_v04_{current_selected_sid}"
+        editor_key = f"mid_generation_detail_text_v05_{current_selected_sid}"
         if editor_key not in st.session_state:
             st.session_state[editor_key] = initial_text
         edited = st.text_area("교사 수정 문구", key=editor_key, height=200)
