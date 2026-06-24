@@ -23,7 +23,7 @@ except Exception:
 
 
 # =========================
-# 중학교 간편 생기부 v19
+# 중학교 간편 생기부 v20
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -31,9 +31,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v19"
-MID_APP_SUBTITLE = "수행평가·평가 요소 기반 중학교 생기부 간편 작성 도우미 · patched-20260624-mid-v19"
-MID_APP_VERSION = "patched-20260624-mid-v19"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v20"
+MID_APP_SUBTITLE = "수행평가/관찰내용·평가 요소 기반 중학교 생기부 간편 작성 도우미 · patched-20260624-mid-v20"
+MID_APP_VERSION = "patched-20260624-mid-v20"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -46,7 +46,7 @@ MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및
 MASTER_PROMPT = """너는 중학교 학교생활기록부 교과 세부능력 및 특기사항을 작성하는 교사 보조 도구이다.
 
 [기본 원칙]
-- 제공된 수행평가와 평가 요소별 성취수준 자료만 근거로 사용한다.
+- 제공된 수행평가/관찰내용과 평가 요소별 성취수준 자료만 근거로 사용한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보는 포함하지 않는다.
 - 학생은, 이 학생은, 해당 학생은으로 문장을 시작하지 않는다.
 - 성취수준 코드를 그대로 나열하지 않고 교사의 평가 문구를 자연스럽게 바꾸어 작성한다.
@@ -475,14 +475,14 @@ def sort_items_for_assessment(assessment_id):
 
 
 def normalize_assessment_orders():
-    """수행평가 순서를 1, 2, 3...으로 정리한다."""
+    """수행평가/관찰내용 순서를 1, 2, 3...으로 정리한다."""
     assessments = sort_assessments()
     for idx, assessment in enumerate(assessments, start=1):
         assessment["order"] = idx
 
 
 def normalize_item_orders(assessment_id):
-    """한 수행평가 안의 평가 요소 순서를 1, 2, 3...으로 정리한다."""
+    """한 수행평가/관찰내용 안의 평가 요소 순서를 1, 2, 3...으로 정리한다."""
     items = sort_items_for_assessment(assessment_id)
     for idx, item in enumerate(items, start=1):
         item["order"] = idx
@@ -735,7 +735,7 @@ def sanitize_mid_state():
             continue
         if not clean_text(assessment.get("assessment_id", "")):
             assessment["assessment_id"] = make_id("mid_assess")
-        assessment["name"] = clean_text(assessment.get("name", "")) or "이름 없는 수행평가"
+        assessment["name"] = clean_text(assessment.get("name", "")) or "이름 없는 수행평가/관찰내용"
         # 고등학교용 app.py와 호환되도록 area/unit 둘 다 보존한다.
         area_value = clean_text(assessment.get("area", assessment.get("unit", "")))
         assessment["area"] = area_value
@@ -1953,7 +1953,7 @@ def build_mid_sample_project_data():
   "results": {},
   "saved_at": "__NOW__",
   "app": "개꿀 생기부 - 중학교 간편",
-  "version": "sample-mid-v19"
+  "version": "sample-mid-v20"
 }""")
     data["saved_at"] = datetime.now().isoformat(timespec="seconds")
     return data
@@ -2092,7 +2092,7 @@ def build_student_material(student):
             if area_text:
                 lines.append(f"- 영역/단원: {area_text}")
             if assessment.get("description"):
-                lines.append(f"- 활동 설명: {assessment.get('description', '')}")
+                lines.append(f"- 설명/관찰 기준/활동 내용: {assessment.get('description', '')}")
             lines.extend(chunks)
             lines.append("")
     return "\n".join(lines).strip()
@@ -2275,7 +2275,7 @@ def make_record_input_excel():
     ws.cell(1, 1).alignment = Alignment(vertical="center")
 
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=last_col)
-    ws.cell(2, 1).value = "윗줄은 수행평가명, 아랫줄은 평가 요소명/입력구분입니다. 성취수준 칸은 웹앱에서 설정한 코드 기준으로 입력하고, 추가 코멘트 칸은 직접 작성하세요."
+    ws.cell(2, 1).value = "윗줄은 수행평가/관찰내용명, 아랫줄은 평가 요소명/입력구분입니다. 성취수준 칸은 웹앱에서 설정한 코드 기준으로 입력하고, 추가 코멘트 칸은 직접 작성하세요."
     ws.cell(2, 1).font = Font(size=10, color="6B7280")
     ws.cell(2, 1).alignment = Alignment(wrap_text=True)
 
@@ -2306,7 +2306,7 @@ def make_record_input_excel():
         ws.cell(3, col_idx).value = field["column"]
     ws.row_dimensions[3].hidden = True
 
-    # 같은 수행평가명은 가로 병합
+    # 같은 수행평가/관찰내용명은 가로 병합
     if fields:
         group_start = item_start_col
         previous = clean_text(ws.cell(start_row, item_start_col).value)
@@ -2428,7 +2428,7 @@ def export_final_excel():
     for col, width in widths.items():
         ws.column_dimensions[col].width = width
 
-    # 학생별 성취수준 시트: 수행평가명/영역명 2단 헤더
+    # 학생별 성취수준 시트: 수행평가/관찰내용명/평가 요소명 2단 헤더
     ws2 = wb.create_sheet("학생별성취수준")
     items = all_used_items()
     fields = build_input_fields(items)
@@ -2483,8 +2483,8 @@ def export_final_excel():
 
 
 def render_level_header_preview(items):
-    """② 입력표 위에서 수행평가-평가 요소 구조를 색상으로 확인한다.
-    실제 입력표 헤더는 영역명만 표시하고, 이 구조표에서 상위 수행평가를 확인한다.
+    """② 입력표 위에서 수행평가/관찰내용-평가 요소 구조를 색상으로 확인한다.
+    실제 입력표 헤더는 평가 요소명만 표시하고, 이 구조표에서 상위 수행평가/관찰내용을 확인한다.
     """
     items = list(items or [])
     if not items:
@@ -2495,7 +2495,7 @@ def render_level_header_preview(items):
     current_items = []
 
     for item in items:
-        assessment_name = get_assessment_name(item.get("assessment_id", "")) or "수행평가명 미입력"
+        assessment_name = get_assessment_name(item.get("assessment_id", "")) or "수행평가/관찰내용명 미입력"
         if current_name is None:
             current_name = assessment_name
         if assessment_name != current_name:
@@ -2517,7 +2517,7 @@ def render_level_header_preview(items):
         cards.append(
             '<div class="mid-structure-card">'
             '<div class="mid-structure-assessment">'
-            f'<span class="mid-structure-number">수행평가 {assessment_index}</span>'
+            f'<span class="mid-structure-number">수행평가/관찰내용 {assessment_index}</span>'
             f'<span>📁 {html.escape(assessment_name)}</span>'
             '</div>'
             f'<div class="mid-structure-items">{item_chips}</div>'
@@ -2526,7 +2526,7 @@ def render_level_header_preview(items):
 
     html_block = (
         '<div class="mid-color-guide">'
-        '<span class="mid-color-chip"><span class="mid-blue-dot"></span>수행평가명</span>'
+        '<span class="mid-color-chip"><span class="mid-blue-dot"></span>수행평가/관찰내용명</span>'
         '<span class="mid-color-chip"><span class="mid-yellow-dot"></span>평가 요소명</span>'
         '</div>'
         '<div class="mid-structure-wrap">'
@@ -2576,8 +2576,8 @@ st.markdown(
     div[data-testid="stRadio"] > div[role="radiogroup"] input {
         display: none !important;
     }
-    /* app.py와 같은 색상 규칙: 수행평가는 파란색, 평가 요소은 노란색/주황색 */
-    /* 하위 박스: 평가 요소은 노란색/주황색 계열 */
+    /* app.py와 같은 색상 규칙: 수행평가/관찰내용은 파란색, 평가 요소는 노란색/주황색 */
+    /* 하위 박스: 평가 요소는 노란색/주황색 계열 */
     div[data-testid="stExpander"] details:has(.mid-item-card-content) {
         background: linear-gradient(180deg, #FFFBF5 0%, #FFF7ED 100%) !important;
         border: 2px solid #FED7AA !important;
@@ -2598,7 +2598,7 @@ st.markdown(
         font-weight: 800 !important;
     }
 
-    /* 상위 박스: 수행평가는 파란색 계열. 아래 선언이 나중에 와야 중첩 expander에서도 파란색이 유지된다. */
+    /* 상위 박스: 수행평가/관찰내용은 파란색 계열. 아래 선언이 나중에 와야 중첩 expander에서도 파란색이 유지된다. */
     div[data-testid="stExpander"] details:has(.mid-assessment-card-content) {
         background: linear-gradient(180deg, #EFF6FF 0%, #DBEAFE 100%) !important;
         border: 2px solid #93C5FD !important;
@@ -2802,7 +2802,7 @@ with st.sidebar:
 
 
 STEP_LABELS = [
-    "① 기본 설정/수행평가 설계",
+    "① 기본 설정/수행평가·관찰내용 설계",
     "② 학생별 성취수준 입력",
     "③ 생기부 생성/다운로드",
 ]
@@ -2893,10 +2893,10 @@ def render_next_step_button(current_index: int):
 
 
 # =========================
-# ① 기본 설정/수행평가 설계
+# ① 기본 설정/수행평가·관찰내용 설계
 # =========================
 if current_step == 0:
-    st.subheader("① 기본 설정 / 수행평가 설계")
+    st.subheader("① 기본 설정 / 수행평가·관찰내용 설계")
 
     settings = st.session_state.mid_settings
 
@@ -2940,33 +2940,33 @@ if current_step == 0:
     )
 
     st.divider()
-    st.markdown("### 📚 AI가 참고할 수행평가별 평가 자료")
+    st.markdown("### 📚 AI가 참고할 수행평가/관찰내용별 평가 자료")
     st.markdown(
         """
-        이 화면은 **수행평가**를 먼저 만들고, 각 수행평가 안에 학생별로 입력할 **평가 요소**를 넣는 구조입니다.  
+        이 화면은 **수행평가/관찰내용**을 먼저 만들고, 각 수행평가/관찰내용 안에 학생별로 입력할 **평가 요소**를 넣는 구조입니다.  
         평가 요소 안에는 필요에 따라 **성취수준 코드, 평가 문구, 개별 코멘트**를 설정합니다.
         """
     )
 
-    with st.expander("➕ 새 수행평가 추가", expanded=True):
-        st.caption("먼저 상위 단위인 수행평가를 만들고, 그 안에 평가 요소를 추가합니다.")
+    with st.expander("➕ 새 수행평가/관찰내용 추가", expanded=True):
+        st.caption("먼저 상위 단위인 수행평가/관찰내용을 만들고, 그 안에 평가 요소를 추가합니다.")
         with st.form("mid_add_assessment_form_v18"):
             col1, col2 = st.columns([2, 1])
             with col1:
-                new_assessment_name = st.text_input("수행평가명", placeholder="예: 혼합물 분리 탐구")
+                new_assessment_name = st.text_input("수행평가/관찰내용명", placeholder="예: 혼합물 분리 탐구")
                 new_area = st.text_input("영역/단원", placeholder="예: 물질의 특성")
             with col2:
                 new_use = st.checkbox("사용", value=True)
                 st.caption("순서는 아래의 드래그 정렬에서 바꿀 수 있습니다.")
             new_desc = st.text_area(
-                "성취기준 / 활동 설명",
+                "성취기준 / 관찰 기준 / 활동 내용",
                 placeholder="예: 혼합물의 분리 방법을 선택하고 실험 과정과 결과를 보고서로 정리하는 활동",
                 height=80,
             )
-            submitted = st.form_submit_button("수행평가 추가")
+            submitted = st.form_submit_button("수행평가/관찰내용 추가")
             if submitted:
                 if not clean_text(new_assessment_name):
-                    st.warning("수행평가명을 입력하세요.")
+                    st.warning("수행평가/관찰내용명을 입력하세요.")
                 else:
                     st.session_state.mid_assessments.append({
                         "assessment_id": make_id("mid_assess"),
@@ -2978,23 +2978,23 @@ if current_step == 0:
                         "use": bool(new_use),
                     })
                     sanitize_mid_state()
-                    st.success("수행평가를 추가했습니다.")
+                    st.success("수행평가/관찰내용을 추가했습니다.")
                     st.rerun()
 
     if not st.session_state.mid_assessments:
-        st.info("아직 등록된 수행평가가 없습니다. 먼저 수행평가를 추가하세요.")
+        st.info("아직 등록된 수행평가/관찰내용이 없습니다. 먼저 수행평가/관찰내용을 추가하세요.")
 
     normalize_assessment_orders()
     assessments = sort_assessments()
 
     if len(assessments) >= 2:
-        with st.expander("수행평가 순서 드래그 정렬", expanded=True):
-            st.caption("수행평가명을 마우스로 잡고 위아래로 옮긴 뒤 저장하세요. 항목을 추가하면 이 박스가 자동으로 새로 생성됩니다.")
+        with st.expander("수행평가/관찰내용 순서 드래그 정렬", expanded=True):
+            st.caption("수행평가/관찰내용명을 마우스로 잡고 위아래로 옮긴 뒤 저장하세요. 항목을 추가하면 이 박스가 자동으로 새로 생성됩니다.")
             assessment_labels = [
-                f"{idx}. {assessment.get('name', '이름 없는 수행평가')}"
+                f"{idx}. {assessment.get('name', '이름 없는 수행평가/관찰내용')}"
                 for idx, assessment in enumerate(assessments, start=1)
             ]
-            st.caption("현재 수행평가 순서: " + " → ".join(assessment_labels))
+            st.caption("현재 수행평가/관찰내용 순서: " + " → ".join(assessment_labels))
             label_to_assessment_id = {
                 label: assessment.get("assessment_id", "")
                 for label, assessment in zip(assessment_labels, assessments)
@@ -3002,12 +3002,12 @@ if current_step == 0:
             sorted_labels = sort_labels_with_gray_box(
                 assessment_labels,
                 key="mid_assessment_drag_sort",
-                header="수행평가 순서",
+                header="수행평가/관찰내용 순서",
             )
-            if st.button("수행평가 순서 저장", key="mid_save_assessment_drag_sort"):
+            if st.button("수행평가/관찰내용 순서 저장", key="mid_save_assessment_drag_sort"):
                 apply_assessment_drag_order(sorted_labels, label_to_assessment_id)
                 normalize_assessment_orders()
-                st.success("수행평가 순서를 저장했습니다.")
+                st.success("수행평가/관찰내용 순서를 저장했습니다.")
                 st.rerun()
 
     rubric_updates = {}
@@ -3020,29 +3020,29 @@ if current_step == 0:
         area_text = clean_text(assessment.get("area", assessment.get("unit", ""))) or "영역/단원 미입력"
         item_count = len(existing_items)
         assessment_expander_title = (
-            f"📁 수행평가 {assess_index}. {assessment.get('name', '이름 없는 수행평가')} "
+            f"📁 수행평가/관찰내용 {assess_index}. {assessment.get('name', '이름 없는 수행평가/관찰내용')} "
             f"· 평가 요소 {item_count}개 · {status_badge}"
         )
         with st.expander(assessment_expander_title, expanded=True):
             st.markdown('<div class="mid-assessment-card-content"></div>', unsafe_allow_html=True)
             st.markdown(
                 f"""
-                ### 📁 수행평가 {assess_index}. {assessment.get('name', '이름 없는 수행평가')}
+                ### 📁 수행평가/관찰내용 {assess_index}. {assessment.get('name', '이름 없는 수행평가/관찰내용')}
                 **영역/단원:** {area_text} &nbsp;&nbsp;|&nbsp;&nbsp;
                 **평가 요소:** {item_count}개 &nbsp;&nbsp;|&nbsp;&nbsp;
                 **상태:** {status_badge}
                 """
             )
             if assessment.get("description"):
-                st.caption(f"활동 설명: {assessment.get('description', '')}")
+                st.caption(f"설명/관찰 기준/활동 내용: {assessment.get('description', '')}")
             else:
-                st.caption("활동 설명이 아직 입력되지 않았습니다.")
+                st.caption("설명/관찰 기준/활동 내용이 아직 입력되지 않았습니다.")
 
-            with st.expander("⚙️ 수행평가 기본 정보 수정 / 삭제", expanded=False):
+            with st.expander("⚙️ 수행평가/관찰내용 기본 정보 수정 / 삭제", expanded=False):
                 col1, col2, col3 = st.columns([2, 2, 1])
                 with col1:
                     assessment["name"] = st.text_input(
-                        "수행평가명 수정",
+                        "수행평가/관찰내용명 수정",
                         value=assessment.get("name", ""),
                         key=f"mid_assess_name_{aid}",
                     )
@@ -3055,24 +3055,24 @@ if current_step == 0:
                     assessment["unit"] = clean_text(new_area_value)
                 with col2:
                     assessment["description"] = st.text_area(
-                        "활동 설명 수정",
+                        "설명/관찰 기준/활동 내용 수정",
                         value=assessment.get("description", ""),
                         key=f"mid_assess_desc_{aid}",
                         height=120,
                     )
                 with col3:
-                    st.caption("순서는 수행평가 목록 위의 드래그 정렬에서 변경합니다.")
+                    st.caption("순서는 수행평가/관찰내용 목록 위의 드래그 정렬에서 변경합니다.")
                     assessment["use"] = st.checkbox(
                         "사용",
                         value=assessment.get("use", True),
                         key=f"mid_assess_use_{aid}",
                     )
-                    if st.button("수행평가 삭제", key=f"mid_delete_assessment_{aid}"):
+                    if st.button("수행평가/관찰내용 삭제", key=f"mid_delete_assessment_{aid}"):
                         item_ids = [item.get("item_id", "") for item in get_items_for_assessment(aid)]
                         st.session_state.mid_assessments = [a for a in st.session_state.mid_assessments if a.get("assessment_id", "") != aid]
                         st.session_state.mid_items = [item for item in st.session_state.mid_items if item.get("assessment_id", "") != aid]
                         st.session_state.mid_records = {k: v for k, v in as_dict(st.session_state.mid_records).items() if k.split("::")[-1] not in item_ids}
-                        st.success("수행평가를 삭제했습니다.")
+                        st.success("수행평가/관찰내용을 삭제했습니다.")
                         st.rerun()
 
             st.markdown("#### 🧾 평가 요소")
@@ -3157,13 +3157,13 @@ if current_step == 0:
                         else:
                             st.info("개별 코멘트형 항목입니다. 학생별 기록 입력 화면에서 학생별 서술형 코멘트를 입력합니다.")
             else:
-                st.info("아직 이 수행평가에 등록된 평가 요소가 없습니다. 아래의 '평가 요소 추가'를 눌러 항목을 추가하세요.")
+                st.info("아직 이 수행평가/관찰내용에 등록된 평가 요소가 없습니다. 아래의 '평가 요소 추가'를 눌러 항목을 추가하세요.")
 
             st.divider()
-            with st.expander("➕ 이 수행평가에 평가 요소 추가", expanded=(item_count == 0)):
+            with st.expander("➕ 이 수행평가/관찰내용에 평가 요소 추가", expanded=(item_count == 0)):
                 st.markdown(
                     """
-                    수행평가 안에 존재하는 여러 관찰 및 평가 요소들을 추가해주세요.  
+                    수행평가/관찰내용 안에 존재하는 여러 관찰 및 평가 요소들을 추가해주세요.  
                     A, B, C와 같은 **성취도 선택형**으로 개별화시킬 수도 있고, 개인마다 다른 관찰 내용을 적어주는 **개별 코멘트형**으로 더욱 구체적인 개별화가 가능합니다.  
                     또한 이 두 가지를 융합한 **성취도 + 추가 코멘트형**도 가능합니다.
                     """
@@ -3192,7 +3192,7 @@ if current_step == 0:
                 else:
                     st.info("개별 코멘트형입니다. 성취수준 코드 없이 학생별 서술형 코멘트만 입력합니다.")
 
-                if st.button("이 수행평가에 평가 요소 추가", key=f"mid_add_item_button_{aid}"):
+                if st.button("이 수행평가/관찰내용에 평가 요소 추가", key=f"mid_add_item_button_{aid}"):
                     if not clean_text(item_name):
                         st.warning("평가 요소명을 입력하세요.")
                     else:
@@ -3235,19 +3235,19 @@ if current_step == 1:
 
     items = all_used_items()
     if not items:
-        st.warning("먼저 ①에서 수행평가와 평가 요소를 추가하세요.")
+        st.warning("먼저 ①에서 수행평가/관찰내용과 평가 요소를 추가하세요.")
     else:
         st.markdown(
             """
             학생은 행으로, 평가 요소는 열로 입력합니다.  
-            위에는 ①에서 설정한 **수행평가-평가 요소 구조**를 색으로 보여주고, 실제 입력표에는 성취수준과 추가 코멘트를 기록 방식에 맞게 표시합니다. 이름은 관리용이며 AI 프롬프트에는 들어가지 않습니다.
+            위에는 ①에서 설정한 **수행평가/관찰내용-평가 요소 구조**를 색으로 보여주고, 실제 입력표에는 성취수준과 추가 코멘트를 기록 방식에 맞게 표시합니다. 이름은 관리용이며 AI 프롬프트에는 들어가지 않습니다.
             """
         )
 
         matrix_df, items, fields = build_record_matrix_df()
         visible_df = matrix_df.copy()
 
-        st.markdown("#### 수행평가/평가 요소 구조")
+        st.markdown("#### 수행평가/관찰내용-평가 요소 구조")
         render_level_header_preview(items)
 
         column_config = {
@@ -3259,7 +3259,7 @@ if current_step == 1:
         }
         for field in fields:
             item = field["item"]
-            assessment_name = get_assessment_name(item.get("assessment_id", "")) or "수행평가명 미입력"
+            assessment_name = get_assessment_name(item.get("assessment_id", "")) or "수행평가/관찰내용명 미입력"
             item_name = clean_text(item.get("name", "")) or "평가 요소명 미입력"
             label = field.get("label", item_name)
             if field["field"] == "level":
@@ -3308,8 +3308,8 @@ if current_step == 1:
         with st.expander("표 헤더 구조 설명", expanded=False):
             st.markdown(
                 "웹 입력표의 성취수준 열 제목에는 평가 요소명만 표시합니다. "
-                "대신 입력표 바로 위에 ①에서 설정한 수행평가명과 평가 요소명을 구조화해서 보여줍니다. "
-                "엑셀 다운로드 파일에서는 윗줄 수행평가명, 아랫줄 평가 요소명의 2단 헤더를 적용했습니다."
+                "대신 입력표 바로 위에 ①에서 설정한 수행평가/관찰내용명과 평가 요소명을 구조화해서 보여줍니다. "
+                "엑셀 다운로드 파일에서는 윗줄 수행평가/관찰내용명, 아랫줄 평가 요소명의 2단 헤더를 적용했습니다."
             )
 
     render_next_step_button(1)
@@ -3324,7 +3324,7 @@ if current_step == 2:
     if st.session_state.mid_students.empty:
         st.warning("먼저 ②에서 학생별 성취수준을 입력하고 저장하세요.")
     elif not all_used_items():
-        st.warning("먼저 ①에서 수행평가와 평가 요소을 추가하세요.")
+        st.warning("먼저 ①에서 수행평가/관찰내용과 평가 요소를 추가하세요.")
     else:
         st.markdown("#### AI 선택 및 API 설정")
         col_provider, col_model, col_key, col_variation = st.columns([1.2, 1.7, 2.4, 1.2], gap="small")
