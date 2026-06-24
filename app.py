@@ -32,8 +32,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v62"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260624-v62"
+APP_TITLE = "🍯 개꿀 생기부 v63"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260624-v63"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -58,6 +58,10 @@ AI_SECRET_KEY_NAMES = {
     "Gemini": "GEMINI_API_KEY",
     "Claude": "ANTHROPIC_API_KEY",
 }
+
+GENERATION_MODE_API = "실제 AI API로 생성"
+GENERATION_MODE_INTERNAL = "API 없이 내부 조합 방식으로 테스트 생성"
+GENERATION_MODE_OPTIONS = [GENERATION_MODE_API, GENERATION_MODE_INTERNAL]
 
 
 def get_default_ai_model(provider: str) -> str:
@@ -577,6 +581,7 @@ def init_state():
             "ai_provider": "ChatGPT",
             "api_key": "",
             "model": "",
+            "generation_mode": GENERATION_MODE_API,
             "started_at": "",
             "finished_at": "",
         }
@@ -1466,12 +1471,12 @@ def format_api_error_notice(provider: str, error) -> str:
     raw = clean_text(error)
     lower = raw.lower()
     if "insufficient_quota" in lower or "exceeded your current quota" in lower or "billing" in lower:
-        return f"{provider} API 할당량 또는 결제 한도 문제로 API 생성에 실패했습니다. 결과표에는 오류 문구를 넣지 않고 내부 조합 방식으로 대체했습니다. API 사용량/결제 상태를 확인하세요."
+        return f"{provider} API 할당량 또는 결제 한도 문제로 API 생성에 실패했습니다. 결과표에는 오류 문구를 넣지 않았습니다. API 사용량/결제 상태를 확인하세요."
     if "429" in lower or "rate limit" in lower:
-        return f"{provider} API 요청 한도에 걸려 API 생성에 실패했습니다. 결과표에는 오류 문구를 넣지 않고 내부 조합 방식으로 대체했습니다. 잠시 뒤 다시 시도하세요."
+        return f"{provider} API 요청 한도에 걸려 API 생성에 실패했습니다. 결과표에는 오류 문구를 넣지 않았습니다. 잠시 뒤 다시 시도하세요."
     if "invalid" in lower and "key" in lower:
-        return f"{provider} API Key 문제로 API 생성에 실패했습니다. 결과표에는 오류 문구를 넣지 않고 내부 조합 방식으로 대체했습니다. API Key를 확인하세요."
-    return f"{provider} API 호출에 실패했습니다. 결과표에는 오류 문구를 넣지 않고 내부 조합 방식으로 대체했습니다."
+        return f"{provider} API Key 문제로 API 생성에 실패했습니다. 결과표에는 오류 문구를 넣지 않았습니다. API Key를 확인하세요."
+    return f"{provider} API 호출에 실패했습니다. 결과표에는 오류 문구를 넣지 않았습니다."
 
 
 def remember_api_generation_error(provider: str, error) -> None:
@@ -4625,13 +4630,30 @@ if current_step == 5:
                 value=get_default_ai_key(ai_provider),
                 type="password",
                 key=f"api_key_{ai_provider}",
-                help=f"Streamlit Secrets에는 {AI_SECRET_KEY_NAMES.get(ai_provider, 'OPENAI_API_KEY')} 이름으로 저장해둘 수 있습니다. 입력하지 않으면 API 없이 간단 조합 방식으로 생성됩니다.",
+                help=f"Streamlit Secrets에는 {AI_SECRET_KEY_NAMES.get(ai_provider, 'OPENAI_API_KEY')} 이름으로 저장해둘 수 있습니다. 실제 AI API 생성에는 API 키가 필요합니다.",
             )
 
         st.caption(
             f"현재 기본 모델: {get_default_ai_model(ai_provider)} · "
             "모델명 칸은 직접 수정할 수 있습니다. API 키는 화면에 표시되지 않는 암호 입력칸입니다."
         )
+
+        generation_mode = st.radio(
+            "생성 방식",
+            GENERATION_MODE_OPTIONS,
+            index=0,
+            horizontal=True,
+            key="generation_mode_selector_v63",
+            help="실제 AI API 생성과 API 없이 입력 자료를 재조합하는 테스트 생성을 명확히 구분합니다.",
+        )
+        if generation_mode == GENERATION_MODE_INTERNAL:
+            st.info(
+                "현재 생성 방식은 API 없이 내부 조합 방식입니다. ChatGPT/Gemini/Claude API를 사용하지 않고, "
+                "입력된 성취수준 문구와 개별 코멘트를 규칙에 따라 재조합해 빠르게 초안을 만듭니다. "
+                "실제 AI 생성보다 문장 품질과 변주가 제한될 수 있습니다."
+            )
+        else:
+            st.caption("실제 AI API로 생성하려면 API Key 입력칸 또는 Streamlit Secrets에 유효한 API 키가 필요합니다.")
 
         api_notice = clean_text(st.session_state.pop("api_generation_notice", ""))
         if api_notice:
@@ -4678,15 +4700,20 @@ if current_step == 5:
                 prompt = build_prompt(material)
 
                 generated = None
-                if api_key:
+                if generation_mode == GENERATION_MODE_API:
+                    if not clean_text(api_key):
+                        st.warning("API 키가 입력되지 않았습니다. 실제 AI API로 생성하려면 API 키를 입력하거나 Streamlit Secrets에 저장하세요. API 없이 테스트하려면 생성 방식을 내부 조합 방식으로 바꾸세요.")
+                        st.stop()
                     with st.spinner("API로 생성 중..."):
                         generated = generate_with_ai(prompt, ai_provider, api_key, model)
-
-                if not generated:
+                    if not generated:
+                        st.error("API 호출에 실패해 생성을 중단했습니다. API 키, 모델명, 결제/쿼터 상태를 확인하세요. 내부 조합 방식으로 테스트하려면 생성 방식을 변경하세요.")
+                        st.stop()
+                else:
                     overlay_slot = show_generation_overlay(
                         overlay_slot,
                         "선택 학생 생기부 생성 중",
-                        "API 결과가 없어 내부 조합 방식으로 문장을 구성하고 있습니다.",
+                        "API를 사용하지 않고 내부 조합 방식으로 문장을 구성하고 있습니다.",
                         0.75,
                         ["교사의 평가 문구 추출", "중복 문구 정리", "명사형 종결 형태로 정리"],
                         recent_items=recent_preview_items,
@@ -4710,6 +4737,7 @@ if current_step == 5:
                     "edited": generated,
                     "bytes": byte_count(generated),
                     "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "generation_mode": generation_mode,
                 }
                 st.success("생성했습니다.")
                 st.rerun()
@@ -4719,20 +4747,24 @@ if current_step == 5:
 
             if not job.get("active", False):
                 if st.button("전체 학생 생기부 생성 시작", type="primary", use_container_width=True):
-                    st.session_state.generation_job = {
-                        "active": True,
-                        "stop_requested": False,
-                        "student_ids": students["student_id"].tolist(),
-                        "index": 0,
-                        "log": [],
-                        "ai_provider": ai_provider,
-                        "api_key": api_key,
-                        "model": model,
-                        "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "finished_at": "",
-                    }
-                    st.success("전체 생성 작업을 시작합니다.")
-                    st.rerun()
+                    if generation_mode == GENERATION_MODE_API and not clean_text(api_key):
+                        st.warning("API 키가 입력되지 않았습니다. 실제 AI API로 전체 생성을 하려면 API 키를 입력하거나 Streamlit Secrets에 저장하세요. API 없이 테스트하려면 생성 방식을 내부 조합 방식으로 바꾸세요.")
+                    else:
+                        st.session_state.generation_job = {
+                            "active": True,
+                            "stop_requested": False,
+                            "student_ids": students["student_id"].tolist(),
+                            "index": 0,
+                            "log": [],
+                            "ai_provider": ai_provider,
+                            "api_key": api_key,
+                            "model": model,
+                            "generation_mode": generation_mode,
+                            "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "finished_at": "",
+                        }
+                        st.success("전체 생성 작업을 시작합니다.")
+                        st.rerun()
             else:
                 if st.button("생기부 생성 중지", type="primary", use_container_width=True):
                     job["active"] = False
@@ -4815,7 +4847,14 @@ if current_step == 5:
                 prompt = build_prompt(material)
 
                 generated = None
-                if job.get("api_key"):
+                job_generation_mode = job.get("generation_mode", GENERATION_MODE_API)
+                if job_generation_mode == GENERATION_MODE_API:
+                    if not clean_text(job.get("api_key", "")):
+                        job["active"] = False
+                        job["finished_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        st.session_state.generation_job = job
+                        st.error("API 키가 없어 실제 AI API 전체 생성을 중단했습니다. API 키를 입력하거나, 생성 방식을 내부 조합 방식으로 바꿔 테스트하세요.")
+                        st.stop()
                     overlay_slot = show_generation_overlay(
                         overlay_slot,
                         "전체 학생 생기부 생성 중",
@@ -4831,8 +4870,13 @@ if current_step == 5:
                         job.get("api_key", ""),
                         job.get("model", model),
                     )
-
-                if not generated:
+                    if not generated:
+                        job["active"] = False
+                        job["finished_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        st.session_state.generation_job = job
+                        st.error("API 호출 실패로 전체 생성을 중단했습니다. API 키, 모델명, 결제/쿼터 상태를 확인하세요. 내부 조합 방식으로 테스트하려면 생성 방식을 변경하세요.")
+                        st.stop()
+                else:
                     overlay_slot = show_generation_overlay(
                         overlay_slot,
                         "전체 학생 생기부 생성 중",
@@ -4850,6 +4894,7 @@ if current_step == 5:
                 "edited": generated,
                 "bytes": byte_count(generated),
                 "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "generation_mode": job_generation_mode,
             }
 
             job.setdefault("log", []).append(
@@ -4861,6 +4906,7 @@ if current_step == 5:
                     "생성 문구": generated,
                     "byte": byte_count(generated),
                     "상태": "저장 완료",
+                    "생성 방식": job_generation_mode,
                 }
             )
             job["index"] = index + 1
