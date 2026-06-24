@@ -23,7 +23,7 @@ except Exception:
 
 
 # =========================
-# 중학교 간편 생기부 v18
+# 중학교 간편 생기부 v19
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -31,9 +31,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v18"
-MID_APP_SUBTITLE = "수행평가·평가 요소 기반 중학교 생기부 간편 작성 도우미 · patched-20260624-mid-v18"
-MID_APP_VERSION = "patched-20260624-mid-v18"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v19"
+MID_APP_SUBTITLE = "수행평가·평가 요소 기반 중학교 생기부 간편 작성 도우미 · patched-20260624-mid-v19"
+MID_APP_VERSION = "patched-20260624-mid-v19"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -869,93 +869,1094 @@ def load_mid_project_json(uploaded_file):
 
 
 def build_mid_sample_project_data():
-    assessments = [
-        {
-            "assessment_id": "mid_assess_digest",
-            "name": "소화 기관 모형 만들기",
-            "unit": "동물의 몸과 영양소",
-            "description": "소화 기관의 구조와 각 기관의 역할을 모형으로 표현하고 설명하는 활동",
-            "order": 1,
-            "use": True,
-        },
-        {
-            "assessment_id": "mid_assess_photo",
-            "name": "광합성 조건 탐구하기",
-            "unit": "식물과 에너지",
-            "description": "광합성에 영향을 주는 환경 요인을 정하고 변인을 통제하여 실험을 설계하는 활동",
-            "order": 2,
-            "use": True,
-        },
-    ]
-    common_levels = ["A", "B", "C"]
-    common_rubrics = {
-        "A": "핵심 개념을 정확히 연결하여 활동 결과를 구체적으로 설명함",
-        "B": "주요 개념을 바탕으로 활동 결과를 대체로 적절하게 설명함",
-        "C": "기초 개념을 중심으로 활동에 참여하고 기본 내용을 정리함",
+    """사진 기반/업로드 샘플 구조를 유지한 중학교 샘플 프로젝트를 반환한다."""
+    data = json.loads(r"""{
+  "settings": {
+    "school_year": "2026",
+    "semester": "1학기",
+    "school_level": "중학교",
+    "grade": "2",
+    "subject": "과학",
+    "target_bytes_min": 250,
+    "target_bytes_max": 450,
+    "custom_rules": "- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.\n- 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.\n- 첫 문장을 '학생은', '이 학생은', '해당 학생은'으로 시작하지 않는다.\n- 활동 결과에 없는 내용을 추측하거나 과장하지 않는다.\n- '깊은 이해', '창의융합', '혁신적', '흥미와 전문성 심화', '본인은', '의지를 밝힘' 같은 표현을 피한다.\n- 한 문장 또는 짧은 한 문단으로 작성한다.\n- 명사형 종결을 사용한다. 예: 수행함, 설명함, 정리함, 제시함, 해석함, 이해한 것으로 보임."
+  },
+  "students": [
+    {
+      "student_id": "mid_sample_stu_1_01",
+      "학년": "2",
+      "반": "1",
+      "번호": "1",
+      "성명": "김민준"
+    },
+    {
+      "student_id": "mid_sample_stu_1_02",
+      "학년": "2",
+      "반": "1",
+      "번호": "2",
+      "성명": "박서연"
+    },
+    {
+      "student_id": "mid_sample_stu_1_03",
+      "학년": "2",
+      "반": "1",
+      "번호": "3",
+      "성명": "최도윤"
+    },
+    {
+      "student_id": "mid_sample_stu_1_04",
+      "학년": "2",
+      "반": "1",
+      "번호": "4",
+      "성명": "이하은"
+    },
+    {
+      "student_id": "mid_sample_stu_1_05",
+      "학년": "2",
+      "반": "1",
+      "번호": "5",
+      "성명": "정우진"
+    },
+    {
+      "student_id": "mid_sample_stu_1_06",
+      "학년": "2",
+      "반": "1",
+      "번호": "6",
+      "성명": "한지우"
+    },
+    {
+      "student_id": "mid_sample_stu_1_07",
+      "학년": "2",
+      "반": "1",
+      "번호": "7",
+      "성명": "오서준"
+    },
+    {
+      "student_id": "mid_sample_stu_1_08",
+      "학년": "2",
+      "반": "1",
+      "번호": "8",
+      "성명": "윤채아"
+    },
+    {
+      "student_id": "mid_sample_stu_1_09",
+      "학년": "2",
+      "반": "1",
+      "번호": "9",
+      "성명": "Kim Alex"
+    },
+    {
+      "student_id": "mid_sample_stu_1_10",
+      "학년": "2",
+      "반": "1",
+      "번호": "10",
+      "성명": "임하준"
+    },
+    {
+      "student_id": "mid_sample_stu_2_01",
+      "학년": "2",
+      "반": "2",
+      "번호": "1",
+      "성명": "강민서"
+    },
+    {
+      "student_id": "mid_sample_stu_2_02",
+      "학년": "2",
+      "반": "2",
+      "번호": "2",
+      "성명": "송예린"
+    },
+    {
+      "student_id": "mid_sample_stu_2_03",
+      "학년": "2",
+      "반": "2",
+      "번호": "3",
+      "성명": "장도현"
+    },
+    {
+      "student_id": "mid_sample_stu_2_04",
+      "학년": "2",
+      "반": "2",
+      "번호": "4",
+      "성명": "유나경"
+    },
+    {
+      "student_id": "mid_sample_stu_2_05",
+      "학년": "2",
+      "반": "2",
+      "번호": "5",
+      "성명": "조현우"
+    },
+    {
+      "student_id": "mid_sample_stu_2_06",
+      "학년": "2",
+      "반": "2",
+      "번호": "6",
+      "성명": "신아린"
+    },
+    {
+      "student_id": "mid_sample_stu_2_07",
+      "학년": "2",
+      "반": "2",
+      "번호": "7",
+      "성명": "배준서"
+    },
+    {
+      "student_id": "mid_sample_stu_2_08",
+      "학년": "2",
+      "반": "2",
+      "번호": "8",
+      "성명": "Park Lina"
+    },
+    {
+      "student_id": "mid_sample_stu_2_09",
+      "학년": "2",
+      "반": "2",
+      "번호": "9",
+      "성명": "문태오"
+    },
+    {
+      "student_id": "mid_sample_stu_2_10",
+      "학년": "2",
+      "반": "2",
+      "번호": "10",
+      "성명": "서지민"
+    },
+    {
+      "student_id": "mid_sample_stu_3_01",
+      "학년": "2",
+      "반": "3",
+      "번호": "1",
+      "성명": "홍시우"
+    },
+    {
+      "student_id": "mid_sample_stu_3_02",
+      "학년": "2",
+      "반": "3",
+      "번호": "2",
+      "성명": "권예준"
+    },
+    {
+      "student_id": "mid_sample_stu_3_03",
+      "학년": "2",
+      "반": "3",
+      "번호": "3",
+      "성명": "남서아"
+    },
+    {
+      "student_id": "mid_sample_stu_3_04",
+      "학년": "2",
+      "반": "3",
+      "번호": "4",
+      "성명": "구민재"
+    },
+    {
+      "student_id": "mid_sample_stu_3_05",
+      "학년": "2",
+      "반": "3",
+      "번호": "5",
+      "성명": "하은별"
+    },
+    {
+      "student_id": "mid_sample_stu_3_06",
+      "학년": "2",
+      "반": "3",
+      "번호": "6",
+      "성명": "Choi Ryan"
+    },
+    {
+      "student_id": "mid_sample_stu_3_07",
+      "학년": "2",
+      "반": "3",
+      "번호": "7",
+      "성명": "백다온"
+    },
+    {
+      "student_id": "mid_sample_stu_3_08",
+      "학년": "2",
+      "반": "3",
+      "번호": "8",
+      "성명": "민서율"
+    },
+    {
+      "student_id": "mid_sample_stu_3_09",
+      "학년": "2",
+      "반": "3",
+      "번호": "9",
+      "성명": "노하윤"
+    },
+    {
+      "student_id": "mid_sample_stu_3_10",
+      "학년": "2",
+      "반": "3",
+      "번호": "10",
+      "성명": "차지호"
     }
-    items = [
-        {
-            "item_id": "mid_item_digest_order",
-            "assessment_id": "mid_assess_digest",
-            "name": "소화 기관의 순서와 역할",
-            "levels": common_levels,
-            "rubrics": common_rubrics,
-            "order": 1,
-        },
-        {
-            "item_id": "mid_item_digest_model",
-            "assessment_id": "mid_assess_digest",
-            "name": "모형 표현과 설명",
-            "levels": common_levels,
-            "rubrics": common_rubrics,
-            "order": 2,
-        },
-        {
-            "item_id": "mid_item_photo_variable",
-            "assessment_id": "mid_assess_photo",
-            "name": "변인 통제",
-            "levels": common_levels,
-            "rubrics": common_rubrics,
-            "order": 1,
-        },
-        {
-            "item_id": "mid_item_photo_predict",
-            "assessment_id": "mid_assess_photo",
-            "name": "결과 예측과 해석",
-            "levels": common_levels,
-            "rubrics": common_rubrics,
-            "order": 2,
-        },
-    ]
-    names = ["김민준", "박서연", "최도윤", "이하은", "정우진", "한지우", "오서준", "윤채아", "임하준", "강민서"]
-    students = []
-    records = {}
-    level_cycle = ["A", "B", "A", "B", "C", "B", "A", "C", "B", "A"]
-    for idx, name in enumerate(names, start=1):
-        sid = f"mid_sample_stu_{idx:02d}"
-        students.append({"student_id": sid, "학년": "2", "반": "1", "번호": str(idx), "성명": name})
-        for j, item in enumerate(items):
-            records[f"{sid}::{item['item_id']}"] = level_cycle[(idx + j - 1) % len(level_cycle)]
-    return {
-        "settings": {
-            "school_year": "2026",
-            "semester": "1학기",
-            "school_level": "중학교",
-            "grade": "2",
-            "subject": "과학",
-            "target_bytes_min": 250,
-            "target_bytes_max": 450,
-            "custom_rules": MID_DEFAULT_RULES,
-        },
-        "students": students,
-        "assessments": assessments,
-        "items": items,
-        "records": records,
-        "results": {},
-        "saved_at": datetime.now().isoformat(timespec="seconds"),
-        "app": "개꿀 생기부 - 중학교 간편",
-        "version": "sample-mid-v05",
+  ],
+  "assessments": [
+    {
+      "assessment_id": "mid_assess_digest",
+      "name": "혼합물 분리하기",
+      "unit": "물질 - (8) 물질의 특성",
+      "description": "물질의 특성을 활용하여 혼합물 분리하기",
+      "order": 1,
+      "use": true,
+      "area": "물질 - (8) 물질의 특성"
+    },
+    {
+      "assessment_id": "mid_assess_photo",
+      "name": "환경 요인과 광합성의 관계를 알아보는 실험 설계하기",
+      "unit": "생명 - (12) 식물과 에너지",
+      "description": "성취기준\n\n[9과12-01] 광합성 과정을 이해하고, 환경 요인과 광합성의 관계를 탐구하는 실험을 설계할 수 있다.\n\n평가요소\n- 환경요인과 광합성의 관계를 탐구하기 위한 적절한 변인 통제\n- 실험 과정\n- 자료 해석 및 결과 예측",
+      "order": 2,
+      "use": true,
+      "area": "생명 - (12) 식물과 에너지"
     }
+  ],
+  "items": [
+    {
+      "item_id": "mid_item_digest_order",
+      "assessment_id": "mid_assess_digest",
+      "name": "혼합물 분리하기",
+      "levels": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E"
+      ],
+      "rubrics": {
+        "A": "탐구 수행 단계별로 가장 효율적인 분리 방법을 선택해 수행하여 물질을 모두 분리함",
+        "B": "탐구 수행 단계별로 분리 방법을 선택해 수행하여 물질을 모두 분리함",
+        "C": "선택한 분리 방법과 절차에 따라 수행했으나 일부 물질만 분리함",
+        "D": "선택한 분리 방법과 절차 중 일부만 수행하여 일부 물질만 분리함",
+        "E": "혼합물의 분리를 수행하지 못함"
+      },
+      "order": 1,
+      "type": "rubric"
+    },
+    {
+      "item_id": "mid_item_photo_variable",
+      "assessment_id": "mid_assess_photo",
+      "name": "환경요인과 광합성의 관계를 탐구하기 위한 적절한 변인 통제",
+      "levels": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "rubrics": {
+        "A": "광합성과 관계된 환경요인 중 다르게 해야할 조건 1개와 같게 해야할 조건 3가지를 명확히 서술하였음",
+        "B": "광합성과 관계된 환경요인 중 다르게 해야할 조건 1개와 같게 해야할 조건 2가지만 명확히 서술하였음",
+        "C": "광합성과 관계된 환경요인 중 다르게 해야할 조건 1개와 같게 해야할 조건 1가지만 명확히 서술하였음.",
+        "D": "광합성과 관계된 환경요인 중 다르게 해야할 조건과 같게 해야할 조건을 구분하지 못함."
+      },
+      "order": 1,
+      "type": "rubric"
+    },
+    {
+      "item_id": "mid_item_photo_predict",
+      "assessment_id": "mid_assess_photo",
+      "name": "자료 해석 및 결과 예측",
+      "levels": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "rubrics": {
+        "A": "변인에 따른 광합성 정도에 대한 결과를 자료를 바탕으로 올바르게 예측함.",
+        "B": "변인에 따른 광합성 정도에 대한 결과를 자료를 바탕으로 대체로 잘 예측함.",
+        "C": "변인에 따른 광합성 정도에 대한 결과를 자료를 바탕으로 에측을 시도했으나, 부족한 부분이 있음.",
+        "D": "변인에 따른 광합성 정도에 대한 결과를 자료를 바탕으로 예측하지 못함."
+      },
+      "order": 2,
+      "type": "rubric"
+    },
+    {
+      "item_id": "mid_item_f14f2aeb",
+      "assessment_id": "mid_assess_digest",
+      "name": "물질의 특성을 혼합물 분리 과정과 연결 짓기",
+      "type": "rubric",
+      "levels": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "rubrics": {
+        "A": "물질의 특성(밀도, 용해도, 끓는점, 녹는점)을 혼합물의 분리에 적용한 이유를 단계별로 과학적인 근거를 들어, 오류 없이 설명함",
+        "B": "물질의 특성(밀도, 용해도, 끓는점, 녹는점)을 혼합물의 분리에 적용한 이유를 모든 단계에 설명하였으나, 일부 오류가 있음",
+        "C": "물질의 특성(밀도, 용해도, 끓는점, 녹는점)을 혼합물의 분리에 적용한 이유를 일부 단계만 설명함",
+        "D": "물질의 특성(밀도, 용해도, 끓는점, 녹는점)을 혼합물의 분리에 적용한 이유를 설명하지 못함"
+      },
+      "order": 2
+    },
+    {
+      "item_id": "mid_item_aaad2743",
+      "assessment_id": "mid_assess_digest",
+      "name": "과학 탐구 보고서 작성하기",
+      "type": "rubric",
+      "levels": [
+        "A",
+        "B",
+        "C"
+      ],
+      "rubrics": {
+        "A": "실험 계획서와 결과 보고서를 빠진 내용이나 오류 없이 작성함",
+        "B": "실험 계획서와 결과 보고서가 일부 누락 되었거나, 일부 오류가 있음",
+        "C": "혼합물의 분리 실험 계획서와 결과 보고서를 작성하지 못함"
+      },
+      "order": 3
+    },
+    {
+      "item_id": "mid_item_7cf025e5",
+      "assessment_id": "mid_assess_digest",
+      "name": "실험 과정의 한계나 오차 요인 찾고 개선하기",
+      "type": "comment",
+      "levels": [],
+      "rubrics": {},
+      "order": 4
+    },
+    {
+      "item_id": "mid_item_efe2ebac",
+      "assessment_id": "mid_assess_photo",
+      "name": "총평",
+      "type": "comment",
+      "levels": [],
+      "rubrics": {},
+      "order": 3
+    }
+  ],
+  "records": {
+    "mid_sample_stu_1_01::mid_item_digest_order": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_01::mid_item_photo_variable": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_01::mid_item_photo_predict": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_01::mid_item_f14f2aeb": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_01::mid_item_aaad2743": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_01::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "처음에는 분리 순서를 조금 망설였지만, 밀도 차이와 용해도 차이를 차례로 떠올리며 가장 안정적인 절차를 찾아감. 다음에는 여과 전 가라앉히는 시간을 더 충분히 두면 결과가 더 깔끔해질 것 같음."
+    },
+    "mid_sample_stu_1_01::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "변인 통제 표를 빠르게 채웠고, 같게 해야 할 조건을 실험 결과의 신뢰도와 연결해 말함. 예측도 무난했지만 그래프 자료를 근거로 드는 표현을 더 늘리면 좋겠음."
+    },
+    "mid_sample_stu_1_02::mid_item_digest_order": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_02::mid_item_photo_variable": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_02::mid_item_photo_predict": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_1_02::mid_item_f14f2aeb": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_02::mid_item_aaad2743": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_03::mid_item_digest_order": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_03::mid_item_photo_variable": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_1_03::mid_item_photo_predict": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_03::mid_item_f14f2aeb": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_03::mid_item_aaad2743": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_03::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "실험 도구를 다루는 손길이 조심스러웠고, 분리 과정에서 왜 이 방법을 먼저 써야 하는지 친구에게 설명하려는 모습이 보였음. 오차 원인을 말할 때 실제 실험 장면을 근거로 든 점이 좋았음."
+    },
+    "mid_sample_stu_1_03::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "광합성 실험에서 바꿀 조건과 유지할 조건을 구분하려고 많이 고민함. 처음 답은 조금 흔들렸지만, 피드백 후에는 변인 통제의 이유를 스스로 정리함."
+    },
+    "mid_sample_stu_1_04::mid_item_digest_order": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_1_04::mid_item_photo_variable": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_04::mid_item_photo_predict": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_04::mid_item_f14f2aeb": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_1_04::mid_item_aaad2743": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_05::mid_item_digest_order": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_05::mid_item_photo_variable": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_05::mid_item_photo_predict": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_1_05::mid_item_f14f2aeb": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_05::mid_item_aaad2743": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_1_05::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "혼합물이 한 번에 분리되지 않았을 때 다시 조건을 확인하려는 태도가 좋았음. 특히 물질이 섞인 상태를 보고 무작정 진행하기보다, 어떤 특성을 이용할 수 있을지 먼저 정리하려고 했음."
+    },
+    "mid_sample_stu_1_05::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "빛의 세기와 광합성 정도를 연결하는 설명이 자연스러웠음. 실험 설계에서는 통제 변인을 더 꼼꼼히 적으려는 노력이 보였고, 결과 예측도 비교적 설득력 있었음."
+    },
+    "mid_sample_stu_1_06::mid_item_digest_order": {
+      "level": "D",
+      "comment": ""
+    },
+    "mid_sample_stu_1_06::mid_item_photo_variable": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_1_06::mid_item_photo_predict": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_06::mid_item_f14f2aeb": {
+      "level": "D",
+      "comment": ""
+    },
+    "mid_sample_stu_1_06::mid_item_aaad2743": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_07::mid_item_digest_order": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_07::mid_item_photo_variable": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_07::mid_item_photo_predict": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_07::mid_item_f14f2aeb": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_07::mid_item_aaad2743": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_07::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "보고서에 실험 순서를 비교적 꼼꼼히 남겼고, 결과가 예상과 달랐던 이유를 도구 사용이나 가열 정도와 연결해 생각함. 다음에는 결과 표의 단위를 더 신경 쓰면 좋겠음."
+    },
+    "mid_sample_stu_1_07::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "자료를 읽을 때 숫자 변화보다 전체 경향을 먼저 보려고 했음. 실험 과정 설명은 간단했지만, 결과가 왜 그렇게 나올지 자기 말로 풀어보려는 점이 좋았음."
+    },
+    "mid_sample_stu_1_08::mid_item_digest_order": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_1_08::mid_item_photo_variable": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_08::mid_item_photo_predict": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_08::mid_item_f14f2aeb": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_1_08::mid_item_aaad2743": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_1_09::mid_item_digest_order": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_09::mid_item_photo_variable": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_09::mid_item_photo_predict": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_09::mid_item_f14f2aeb": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_09::mid_item_aaad2743": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_09::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "분리 방법을 고를 때 친구 의견을 듣고도 자기 생각을 근거와 함께 말하려고 했음. 끓는점 차이를 이용하는 과정에서 안전에 대한 언급도 자연스럽게 나와 인상적이었음."
+    },
+    "mid_sample_stu_1_09::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "변인 통제에서 헷갈리는 조건을 친구에게 질문하고 다시 고치는 모습이 좋았음. 총평으로 적자면, 실험 설계의 틀을 잡는 힘이 조금씩 좋아지고 있음."
+    },
+    "mid_sample_stu_1_10::mid_item_digest_order": {
+      "level": "E",
+      "comment": ""
+    },
+    "mid_sample_stu_1_10::mid_item_photo_variable": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_10::mid_item_photo_predict": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_1_10::mid_item_f14f2aeb": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_1_10::mid_item_aaad2743": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_01::mid_item_digest_order": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_01::mid_item_photo_variable": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_2_01::mid_item_photo_predict": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_2_01::mid_item_f14f2aeb": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_01::mid_item_aaad2743": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_01::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "결과가 완전히 깔끔하지 않았을 때 포기하지 않고 한계점을 직접 적어보려 했음. 개선 방안으로 실험 도구의 세척과 시료 양 조절을 말한 점이 실제적이었음."
+    },
+    "mid_sample_stu_2_01::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "광합성과 환경 요인의 관계를 너무 외워서 쓰기보다 실험 조건으로 바꿔 생각하려고 했음. 자료 해석은 아직 조심스럽지만, 예측의 방향은 잘 잡았음."
+    },
+    "mid_sample_stu_2_02::mid_item_digest_order": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_02::mid_item_photo_variable": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_02::mid_item_photo_predict": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_02::mid_item_f14f2aeb": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_02::mid_item_aaad2743": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_03::mid_item_digest_order": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_2_03::mid_item_photo_variable": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_03::mid_item_photo_predict": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_03::mid_item_f14f2aeb": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_2_03::mid_item_aaad2743": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_2_03::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "혼합물 분리 순서를 정리하는 데 시간이 걸렸지만, 마지막에는 물질의 특성과 실험 과정을 연결해 설명하려고 노력함. 설명이 조금 짧아도 핵심 단어는 잘 잡아냈음."
+    },
+    "mid_sample_stu_2_03::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "처음에는 조건을 많이 나열했지만, 활동이 진행되면서 조작 변인과 통제 변인을 구분하는 방식이 정리됨. 결과 예측에서 이유를 한 문장 더 붙이면 더 좋아질 듯함."
+    },
+    "mid_sample_stu_2_04::mid_item_digest_order": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_04::mid_item_photo_variable": {
+      "level": "D",
+      "comment": ""
+    },
+    "mid_sample_stu_2_04::mid_item_photo_predict": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_04::mid_item_f14f2aeb": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_04::mid_item_aaad2743": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_05::mid_item_digest_order": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_05::mid_item_photo_variable": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_05::mid_item_photo_predict": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_2_05::mid_item_f14f2aeb": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_05::mid_item_aaad2743": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_05::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "실험 계획서 작성에서 빠뜨린 부분을 스스로 찾아 고쳐 넣는 모습이 좋았음. 특히 왜 특정 방법을 사용했는지 말로 설명하려고 해서 활동 흐름이 분명해졌음."
+    },
+    "mid_sample_stu_2_05::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "실험 설계를 표로 정리하는 데 강점이 있었고, 변인을 구분하는 과정도 비교적 안정적이었음. 다만 자료 해석에서 근거를 조금 더 직접적으로 써주면 좋겠음."
+    },
+    "mid_sample_stu_2_06::mid_item_digest_order": {
+      "level": "D",
+      "comment": ""
+    },
+    "mid_sample_stu_2_06::mid_item_photo_variable": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_2_06::mid_item_photo_predict": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_06::mid_item_f14f2aeb": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_2_06::mid_item_aaad2743": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_07::mid_item_digest_order": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_07::mid_item_photo_variable": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_07::mid_item_photo_predict": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_07::mid_item_f14f2aeb": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_07::mid_item_aaad2743": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_2_07::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "친구들이 놓친 오차 요인을 잘 짚어냈고, 결과가 흐려진 이유를 관찰 과정과 연결해 말함. 다음에는 개선 방안을 조금 더 구체적인 절차로 적어보면 좋겠음."
+    },
+    "mid_sample_stu_2_07::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "환경 요인을 하나씩 바꿔야 한다는 점을 잘 이해했고, 실험 과정의 공정성을 강조한 점이 좋았음. 결과 예측도 자료의 방향성과 잘 맞았음."
+    },
+    "mid_sample_stu_2_08::mid_item_digest_order": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_08::mid_item_photo_variable": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_08::mid_item_photo_predict": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_2_08::mid_item_f14f2aeb": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_08::mid_item_aaad2743": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_09::mid_item_digest_order": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_2_09::mid_item_photo_variable": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_09::mid_item_photo_predict": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_09::mid_item_f14f2aeb": {
+      "level": "D",
+      "comment": ""
+    },
+    "mid_sample_stu_2_09::mid_item_aaad2743": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_09::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "처음에는 보고서 정리가 느렸지만, 실험 후반으로 갈수록 관찰 내용을 자기 말로 정리하는 모습이 좋아졌음. 실험 결과와 물질의 특성을 연결하려는 시도가 보였음."
+    },
+    "mid_sample_stu_2_09::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "광합성 조건을 정할 때 생활 속 예를 떠올리며 접근해서 이해가 빨랐음. 답안은 짧은 편이지만 핵심 조건을 놓치지 않으려는 모습이 보였음."
+    },
+    "mid_sample_stu_2_10::mid_item_digest_order": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_10::mid_item_photo_variable": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_2_10::mid_item_photo_predict": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_2_10::mid_item_f14f2aeb": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_2_10::mid_item_aaad2743": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_01::mid_item_digest_order": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_01::mid_item_photo_variable": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_01::mid_item_photo_predict": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_01::mid_item_f14f2aeb": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_01::mid_item_aaad2743": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_01::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "분리 방법을 선택하는 근거를 차분히 설명했고, 중간에 생긴 실수를 숨기기보다 오차 요인으로 정리한 점이 좋았음. 실제 탐구 과정이 잘 드러나는 기록이었음."
+    },
+    "mid_sample_stu_3_01::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "자료 해석에서 그래프의 증가·감소 경향을 먼저 보고 결론을 쓰려는 태도가 좋았음. 실험 과정은 조금 더 세밀하게 적으면 완성도가 높아질 것 같음."
+    },
+    "mid_sample_stu_3_02::mid_item_digest_order": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_3_02::mid_item_photo_variable": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_02::mid_item_photo_predict": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_02::mid_item_f14f2aeb": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_02::mid_item_aaad2743": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_03::mid_item_digest_order": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_03::mid_item_photo_variable": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_3_03::mid_item_photo_predict": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_3_03::mid_item_f14f2aeb": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_3_03::mid_item_aaad2743": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_3_03::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "실험 과정에서 세부 절차를 잘 챙겼고, 보고서에는 분리 전후의 차이를 비교하려는 흔적이 보였음. 물질의 특성을 더 정확한 용어로 쓰면 훨씬 좋아질 것 같음."
+    },
+    "mid_sample_stu_3_03::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "변인 통제의 필요성을 자기 말로 설명하려고 했고, 실험 결과가 달라질 수 있는 이유를 조건 변화와 연결함. 전반적으로 차분히 설계하는 편임."
+    },
+    "mid_sample_stu_3_04::mid_item_digest_order": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_04::mid_item_photo_variable": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_04::mid_item_photo_predict": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_04::mid_item_f14f2aeb": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_04::mid_item_aaad2743": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_05::mid_item_digest_order": {
+      "level": "D",
+      "comment": ""
+    },
+    "mid_sample_stu_3_05::mid_item_photo_variable": {
+      "level": "D",
+      "comment": ""
+    },
+    "mid_sample_stu_3_05::mid_item_photo_predict": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_05::mid_item_f14f2aeb": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_05::mid_item_aaad2743": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_05::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "분리 결과가 기대만큼 나오지 않았지만, 그 이유를 시료의 양과 분리 시간에서 찾으려는 점이 좋았음. 실패한 장면도 탐구 자료로 삼으려는 태도가 보였음."
+    },
+    "mid_sample_stu_3_05::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "실험 조건을 구분하는 데 시간이 걸렸지만, 끝까지 표를 채우며 구조를 이해하려고 했음. 총평은 아직 자신감은 부족하지만 생각의 방향은 잘 잡혀 있음."
+    },
+    "mid_sample_stu_3_06::mid_item_digest_order": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_06::mid_item_photo_variable": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_06::mid_item_photo_predict": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_3_06::mid_item_f14f2aeb": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_3_06::mid_item_aaad2743": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_3_07::mid_item_digest_order": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_07::mid_item_photo_variable": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_07::mid_item_photo_predict": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_07::mid_item_f14f2aeb": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_07::mid_item_aaad2743": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_07::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "혼합물을 분리하는 과정에서 어떤 방법을 먼저 적용할지 스스로 판단하려고 했음. 설명은 조금 단순했지만 실제 실험 장면과 연결해 말하려는 점이 좋았음."
+    },
+    "mid_sample_stu_3_07::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "자료를 보고 결과를 예측하는 과정에서 근거를 찾으려는 모습이 좋았음. 설명이 길지는 않지만 핵심 단어를 놓치지 않고 쓰려는 점이 보였음."
+    },
+    "mid_sample_stu_3_08::mid_item_digest_order": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_3_08::mid_item_photo_variable": {
+      "level": "C",
+      "comment": ""
+    },
+    "mid_sample_stu_3_08::mid_item_photo_predict": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_08::mid_item_f14f2aeb": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_08::mid_item_aaad2743": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_09::mid_item_digest_order": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_09::mid_item_photo_variable": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_09::mid_item_photo_predict": {
+      "level": "D",
+      "comment": ""
+    },
+    "mid_sample_stu_3_09::mid_item_f14f2aeb": {
+      "level": "D",
+      "comment": ""
+    },
+    "mid_sample_stu_3_09::mid_item_aaad2743": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_09::mid_item_7cf025e5": {
+      "level": "",
+      "comment": "보고서 작성에서 관찰 내용을 비교적 솔직하게 남겼고, 오차 원인을 단순히 실수라고 넘기지 않으려 했음. 다음에는 개선 방법을 한 단계 더 구체화하면 좋겠음."
+    },
+    "mid_sample_stu_3_09::mid_item_efe2ebac": {
+      "level": "",
+      "comment": "광합성 실험 설계에서 변인 통제의 의미를 점차 이해해 감. 특히 결과 예측을 할 때 “왜 그렇게 될까”를 스스로 묻는 모습이 좋았음."
+    },
+    "mid_sample_stu_3_10::mid_item_digest_order": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_10::mid_item_photo_variable": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_10::mid_item_photo_predict": {
+      "level": "B",
+      "comment": ""
+    },
+    "mid_sample_stu_3_10::mid_item_f14f2aeb": {
+      "level": "A",
+      "comment": ""
+    },
+    "mid_sample_stu_3_10::mid_item_aaad2743": {
+      "level": "A",
+      "comment": ""
+    }
+  },
+  "results": {},
+  "saved_at": "__NOW__",
+  "app": "개꿀 생기부 - 중학교 간편",
+  "version": "sample-mid-v19"
+}""")
+    data["saved_at"] = datetime.now().isoformat(timespec="seconds")
+    return data
 
 
 def load_mid_sample_data():
