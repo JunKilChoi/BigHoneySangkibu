@@ -32,8 +32,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v61"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260624-v61"
+APP_TITLE = "🍯 개꿀 생기부 v62"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260624-v62"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -4112,7 +4112,7 @@ if current_step == 2:
                 new_assessment_name = st.text_input("수행평가명", placeholder="예: 생태지도 만들기")
                 new_area = st.text_input("영역/단원", placeholder="예: 생물과 환경")
             with col2:
-                new_use = st.checkbox("사용", value=True)
+                st.caption("새로 추가한 수행평가는 기본적으로 사용 상태로 저장됩니다.")
                 st.caption("순서는 아래의 드래그 정렬에서 바꿀 수 있습니다.")
 
             new_desc = st.text_area(
@@ -4133,7 +4133,7 @@ if current_step == 2:
                             "area": new_area.strip(),
                             "description": new_desc.strip(),
                             "order": len(st.session_state.assessments) + 1,
-                            "use": new_use,
+                            "use": True,
                         }
                     )
                     sanitize_state()
@@ -4244,6 +4244,7 @@ if current_step == 2:
                         value=assessment.get("use", True),
                         key=f"assess_use_{aid}",
                     )
+                    st.caption("사용 해제 시 이 수행평가는 학생별 기록 입력, API 입력 자료, 생기부 생성에서 제외됩니다.")
                     if st.button("수행평가 삭제", key=f"delete_assessment_{aid}"):
                         item_ids = [it.get("item_id", "") for it in get_items_for_assessment(aid)]
                         st.session_state.assessments = [
