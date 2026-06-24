@@ -27,13 +27,13 @@ except Exception:
 # 앱 기본 설정
 # =========================
 st.set_page_config(
-    page_title="개꿀 생기부",
+    page_title="개꿀 생기부 (고급 버전)",
     page_icon="🍯",
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v63"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260624-v63"
+APP_TITLE = "🍯 개꿀 생기부 (고급 버전)"
+APP_SUBTITLE = "고등학교 생기부 작성에 적합 · patched-20260624-v65"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -854,7 +854,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260624-v61",
+        "version": "patched-20260624-v65",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -3517,10 +3517,10 @@ def build_sample_project_data():
   "results": {},
   "saved_at": "2026-06-23T07:35:00",
   "app": "개꿀 생기부",
-  "version": "sample-project-v61"
+  "version": "sample-project-v65"
 }''')
     data["saved_at"] = datetime.now().isoformat(timespec="seconds")
-    data["version"] = "sample-project-v61"
+    data["version"] = "sample-project-v65"
     return data
 
 
@@ -4643,7 +4643,7 @@ if current_step == 5:
             GENERATION_MODE_OPTIONS,
             index=0,
             horizontal=True,
-            key="generation_mode_selector_v63",
+            key="generation_mode_selector_v65",
             help="실제 AI API 생성과 API 없이 입력 자료를 재조합하는 테스트 생성을 명확히 구분합니다.",
         )
         if generation_mode == GENERATION_MODE_INTERNAL:
