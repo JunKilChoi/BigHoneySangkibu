@@ -32,8 +32,8 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 v60"
-APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260621-v60"
+APP_TITLE = "🍯 개꿀 생기부 v61"
+APP_SUBTITLE = "수행평가 기반 생기부 작성 도우미 · patched-20260624-v61"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -849,7 +849,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260621-v60",
+        "version": "patched-20260624-v61",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -1245,8 +1245,8 @@ def render_add_item_expander(aid, item_count):
     with st.expander("➕ 이 수행평가에 평가 요소 추가", expanded=(item_count == 0)):
         st.markdown(
             """
-            수행평가 안에 존재하는 여러 관찰 및 평가 요소들을 추가해주세요.  
-            A, B, C와 같은 **성취도 선택형**으로 개별화시킬 수도 있고, 개인마다 다른 관찰 내용을 적어주는 **개별 코멘트형**으로 더욱 구체적인 개별화가 가능합니다.  
+            수행평가 안에 존재하는 여러 평가 요소를 추가해주세요.  
+            A, B, C와 같은 **성취도 선택형**으로 개별화시킬 수도 있고, 개인마다 다른 수행평가 코멘트를 적어주는 **개별 코멘트형**으로 더욱 구체적인 개별화가 가능합니다.  
             또한 이 두 가지를 융합한 **성취도 + 추가 코멘트형**도 가능합니다.
             """
         )
@@ -1382,7 +1382,7 @@ def build_student_material(student):
             if assessment.get("area"):
                 lines.append(f"- 영역/단원: {assessment.get('area', '')}")
             if assessment.get("description"):
-                lines.append(f"- 활동/성취기준: {assessment.get('description', '')}")
+                lines.append(f"- 성취기준/수행평가 설명: {assessment.get('description', '')}")
             lines.extend(chunks)
             lines.append("")
             count += 1
@@ -1438,7 +1438,7 @@ def fallback_generate(material):
             ":" in line
             and "학년/반/번호" not in line
             and "영역/단원" not in line
-            and "활동/성취기준" not in line
+            and "성취기준/수행평가 설명" not in line
         ):
             part = line.split(":", 1)[1].strip()
             if part:
@@ -1712,7 +1712,7 @@ def export_excel():
             ws.auto_filter.ref = ws.dimensions
 
         # 기본 폭 자동 산정. 긴 문장 열은 너무 넓어지지 않게 제한한다.
-        text_heavy_headers = {"최종 생기부", "생성 원문", "API 입력자료", "루브릭", "개별코멘트", "활동/성취기준", "description"}
+        text_heavy_headers = {"최종 생기부", "생성 원문", "API 입력자료", "루브릭", "개별코멘트", "성취기준/수행평가 설명", "description"}
         for col_idx in range(1, ws.max_column + 1):
             col_letter = get_column_letter(col_idx)
             header_value = clean_text(ws.cell(row=1, column=col_idx).value)
@@ -3512,10 +3512,10 @@ def build_sample_project_data():
   "results": {},
   "saved_at": "2026-06-23T07:35:00",
   "app": "개꿀 생기부",
-  "version": "sample-project-v60"
+  "version": "sample-project-v61"
 }''')
     data["saved_at"] = datetime.now().isoformat(timespec="seconds")
-    data["version"] = "sample-project-v60"
+    data["version"] = "sample-project-v61"
     return data
 
 
@@ -4116,8 +4116,8 @@ if current_step == 2:
                 st.caption("순서는 아래의 드래그 정렬에서 바꿀 수 있습니다.")
 
             new_desc = st.text_area(
-                "성취기준 / 활동 설명",
-                placeholder="예: 학교 운동장에서 생물을 관찰하고 생태지도를 제작하는 활동",
+                "성취기준 / 수행평가 설명",
+                placeholder="예: 생태지도 제작 수행평가의 성취기준과 평가 내용을 입력하세요",
                 height=80,
             )
 
@@ -4141,7 +4141,7 @@ if current_step == 2:
                     st.rerun()
 
     st.divider()
-    st.markdown("### 📚 AI가 참고할 수행평가별 평가 자료")
+    st.markdown("### 📚 AI가 참고할 수행평가 자료")
 
     if not st.session_state.assessments:
         st.info("아직 등록된 수행평가가 없습니다. 먼저 수행평가를 추가하세요.")
@@ -4210,9 +4210,9 @@ if current_step == 2:
             )
 
             if assessment.get("description"):
-                st.caption(f"활동 설명: {assessment.get('description', '')}")
+                st.caption(f"수행평가 설명: {assessment.get('description', '')}")
             else:
-                st.caption("활동 설명이 아직 입력되지 않았습니다.")
+                st.caption("수행평가 설명이 아직 입력되지 않았습니다.")
 
             with st.expander("⚙️ 수행평가 기본 정보 수정 / 삭제", expanded=False):
                 col1, col2, col3 = st.columns([2, 2, 1])
@@ -4231,7 +4231,7 @@ if current_step == 2:
 
                 with col2:
                     assessment["description"] = st.text_area(
-                        "활동 설명 수정",
+                        "수행평가 설명 수정",
                         value=assessment.get("description", ""),
                         key=f"assess_desc_{aid}",
                         height=120,
@@ -4581,7 +4581,7 @@ if current_step == 4:
         material = build_student_material(selected_student)
 
         st.markdown("#### API 입력 자료 미리보기")
-        st.text_area("이 내용이 API 프롬프트의 평가 자료로 들어갑니다.", value=material, height=420)
+        st.text_area("이 내용이 API 프롬프트의 수행평가 자료로 들어갑니다.", value=material, height=420)
 
         with st.expander("실제 프롬프트 보기"):
             st.text_area("프롬프트", value=build_prompt(material), height=420)
@@ -4657,9 +4657,9 @@ if current_step == 5:
                 overlay_slot = show_generation_overlay(
                     overlay_slot,
                     "선택 학생 생기부 생성 중",
-                    f"{selected_label}의 평가 자료를 정리하고 있습니다.",
+                    f"{selected_label}의 수행평가 자료를 정리하고 있습니다.",
                     0.20,
-                    ["학생별 수행평가 자료 수집", "AI 입력 프롬프트 구성", "생기부 문장 생성 준비"],
+                    ["학생별 수행평가 입력 자료 수집", "AI 입력 프롬프트 구성", "생기부 문장 생성 준비"],
                     recent_items=recent_preview_items,
                     loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                 )
@@ -4796,7 +4796,7 @@ if current_step == 5:
                 "전체 학생 생기부 생성 중",
                 f"{index + 1}/{total} 처리 중 · {label}",
                 progress_base,
-                ["현재 학생 평가 자료 정리", "프롬프트 구성", "AI 생성 또는 내부 조합", "결과 저장"],
+                ["현재 학생 수행평가 자료 정리", "프롬프트 구성", "AI 생성 또는 내부 조합", "결과 저장"],
                 recent_items=recent_preview_items,
                 loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
             )
@@ -4807,7 +4807,7 @@ if current_step == 5:
                     "전체 학생 생기부 생성 중",
                     f"{index + 1}/{total} · {label}의 API 입력 자료를 구성했습니다.",
                     (index + 0.25) / total if total else 0,
-                    ["개인정보 제외", "수행평가별 자료 정리", "성취수준 평가 문구 연결"],
+                    ["개인정보 제외", "수행평가 입력 자료 정리", "성취수준 평가 문구 연결"],
                     recent_items=recent_preview_items,
                     loading_offset_seconds=loading_elapsed_seconds(overlay_loading_started_at),
                 )
