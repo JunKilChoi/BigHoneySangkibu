@@ -23,7 +23,7 @@ except Exception:
 
 
 # =========================
-# 개꿀 생기부 간단 버전 v25
+# 개꿀 생기부 간단 버전 v26
 # =========================
 st.set_page_config(
     page_title="개꿀 생기부 (간단 버전)",
@@ -33,8 +33,8 @@ st.set_page_config(
 
 MID_APP_TITLE = "🍯 개꿀 생기부"
 MID_APP_TITLE_VERSION = "(간단 버전)"
-MID_APP_SUBTITLE = "중학교 생기부 작성에 적합 · patched-20260624-mid-v25"
-MID_APP_VERSION = "patched-20260624-mid-v25"
+MID_APP_SUBTITLE = "중학교 생기부 작성에 적합 · patched-20260624-mid-v26"
+MID_APP_VERSION = "patched-20260624-mid-v26"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -1960,7 +1960,7 @@ def build_mid_sample_project_data():
   "results": {},
   "saved_at": "__NOW__",
   "app": "개꿀 생기부",
-  "version": "sample-mid-v25"
+  "version": "sample-mid-v26"
 }""")
     data["saved_at"] = datetime.now().isoformat(timespec="seconds")
     return data
@@ -2770,6 +2770,14 @@ st.markdown(
 )
 
 with st.sidebar:
+    st.markdown("### 🍯 개꿀 생기부")
+    try:
+        st.page_link("app.py", label="고등학교 버전(고급)", icon="🏫")
+        st.page_link("pages/mid_app.py", label="중학교 버전(간단)", icon="📘")
+    except Exception:
+        st.caption("상단 메뉴에서 페이지를 선택해 주세요.")
+    st.divider()
+
     st.header("작업 관리")
 
     uploaded_project = st.file_uploader(
@@ -3368,7 +3376,7 @@ if current_step == 2:
             GENERATION_MODE_OPTIONS,
             index=0,
             horizontal=True,
-            key="mid_generation_mode_selector_v25",
+            key="mid_generation_mode_selector_v26",
             help="실제 AI API 생성과 API 없이 입력 자료를 재조합하는 테스트 생성을 명확히 구분합니다.",
         )
         if generation_mode == GENERATION_MODE_INTERNAL:
