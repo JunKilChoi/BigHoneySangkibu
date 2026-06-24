@@ -34,7 +34,7 @@ st.set_page_config(
 
 APP_TITLE = "🍯 개꿀 생기부"
 APP_TITLE_VERSION = "(고급 버전)"
-APP_SUBTITLE = "고등학교 생기부 작성에 적합 · patched-20260624-v66"
+APP_SUBTITLE = "고등학교 생기부 작성에 적합 · patched-20260624-v67"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -855,7 +855,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260624-v66",
+        "version": "patched-20260624-v67",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -3518,10 +3518,10 @@ def build_sample_project_data():
   "results": {},
   "saved_at": "2026-06-23T07:35:00",
   "app": "개꿀 생기부",
-  "version": "sample-project-v66"
+  "version": "sample-project-v67"
 }''')
     data["saved_at"] = datetime.now().isoformat(timespec="seconds")
-    data["version"] = "sample-project-v66"
+    data["version"] = "sample-project-v67"
     return data
 
 
@@ -3545,6 +3545,35 @@ def load_sample_data():
     apply_project_data(sample_data)
 
 
+def show_usage_notice_dialog():
+    """고급 버전 첫 접속 시 생기부 작성 책임 안내 팝업을 표시한다."""
+    if st.session_state.get("usage_notice_confirmed_v67", False):
+        return
+
+    notice_body = (
+        "학교생활기록부는 학생의 성장과 학습 과정을 기록하는 공식 문서이며, "
+        "최종 작성과 수정의 책임은 교사에게 있습니다.\n\n"
+        "이 프로그램은 생기부 문장 작성을 돕기 위한 보조 도구이며, "
+        "생성된 문장은 최종 문안이 아닙니다. 학생의 실제 수행, 수업 중 관찰 내용, "
+        "학교의 작성 기준에 맞게 반드시 교사가 검토하고 수정한 뒤 활용해 주세요."
+    )
+
+    if hasattr(st, "dialog"):
+        @st.dialog("⚠️ 사용 전 확인해 주세요")
+        def _usage_notice_dialog():
+            st.markdown(notice_body)
+            if st.button("확인했습니다", type="primary", use_container_width=True, key="usage_notice_confirm_dialog_v67"):
+                st.session_state["usage_notice_confirmed_v67"] = True
+                st.rerun()
+
+        _usage_notice_dialog()
+    else:
+        st.warning("⚠️ 사용 전 확인해 주세요\n\n" + notice_body)
+        if st.button("확인했습니다", type="primary", key="usage_notice_confirm_inline_v67"):
+            st.session_state["usage_notice_confirmed_v67"] = True
+            st.rerun()
+
+
 # =========================
 # 앱 UI
 # =========================
@@ -3559,6 +3588,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+show_usage_notice_dialog()
 
 with st.sidebar:
     st.header("작업 관리")
@@ -4652,7 +4682,7 @@ if current_step == 5:
             GENERATION_MODE_OPTIONS,
             index=0,
             horizontal=True,
-            key="generation_mode_selector_v66",
+            key="generation_mode_selector_v67",
             help="실제 AI API 생성과 API 없이 입력 자료를 재조합하는 테스트 생성을 명확히 구분합니다.",
         )
         if generation_mode == GENERATION_MODE_INTERNAL:
