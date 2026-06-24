@@ -34,7 +34,7 @@ st.set_page_config(
 
 APP_TITLE = "🍯 개꿀 생기부"
 APP_TITLE_VERSION = "(고급 버전)"
-APP_SUBTITLE = "고등학교 생기부 작성에 적합 · patched-20260624-v67"
+APP_SUBTITLE = "고등학교 생기부 작성에 적합 · patched-20260624-v68"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -855,7 +855,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260624-v67",
+        "version": "patched-20260624-v68",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -3518,10 +3518,10 @@ def build_sample_project_data():
   "results": {},
   "saved_at": "2026-06-23T07:35:00",
   "app": "개꿀 생기부",
-  "version": "sample-project-v67"
+  "version": "sample-project-v68"
 }''')
     data["saved_at"] = datetime.now().isoformat(timespec="seconds")
-    data["version"] = "sample-project-v67"
+    data["version"] = "sample-project-v68"
     return data
 
 
@@ -3547,7 +3547,7 @@ def load_sample_data():
 
 def show_usage_notice_dialog():
     """고급 버전 첫 접속 시 생기부 작성 책임 안내 팝업을 표시한다."""
-    if st.session_state.get("usage_notice_confirmed_v67", False):
+    if st.session_state.get("usage_notice_confirmed_v68", False):
         return
 
     notice_body = (
@@ -3562,15 +3562,15 @@ def show_usage_notice_dialog():
         @st.dialog("⚠️ 사용 전 확인해 주세요")
         def _usage_notice_dialog():
             st.markdown(notice_body)
-            if st.button("확인했습니다", type="primary", use_container_width=True, key="usage_notice_confirm_dialog_v67"):
-                st.session_state["usage_notice_confirmed_v67"] = True
+            if st.button("확인했습니다", type="primary", use_container_width=True, key="usage_notice_confirm_dialog_v68"):
+                st.session_state["usage_notice_confirmed_v68"] = True
                 st.rerun()
 
         _usage_notice_dialog()
     else:
         st.warning("⚠️ 사용 전 확인해 주세요\n\n" + notice_body)
-        if st.button("확인했습니다", type="primary", key="usage_notice_confirm_inline_v67"):
-            st.session_state["usage_notice_confirmed_v67"] = True
+        if st.button("확인했습니다", type="primary", key="usage_notice_confirm_inline_v68"):
+            st.session_state["usage_notice_confirmed_v68"] = True
             st.rerun()
 
 
@@ -3591,6 +3591,14 @@ st.markdown(
 show_usage_notice_dialog()
 
 with st.sidebar:
+    st.markdown("### 🍯 개꿀 생기부")
+    try:
+        st.page_link("app.py", label="고등학교 버전(고급)", icon="🏫")
+        st.page_link("pages/mid_app.py", label="중학교 버전(간단)", icon="📘")
+    except Exception:
+        st.caption("상단 메뉴에서 페이지를 선택해 주세요.")
+    st.divider()
+
     st.header("작업 관리")
 
     uploaded_project = st.file_uploader(
@@ -4682,7 +4690,7 @@ if current_step == 5:
             GENERATION_MODE_OPTIONS,
             index=0,
             horizontal=True,
-            key="generation_mode_selector_v67",
+            key="generation_mode_selector_v68",
             help="실제 AI API 생성과 API 없이 입력 자료를 재조합하는 테스트 생성을 명확히 구분합니다.",
         )
         if generation_mode == GENERATION_MODE_INTERNAL:
