@@ -23,7 +23,7 @@ except Exception:
 
 
 # =========================
-# 개꿀 생기부 간단 버전 v24
+# 개꿀 생기부 간단 버전 v25
 # =========================
 st.set_page_config(
     page_title="개꿀 생기부 (간단 버전)",
@@ -31,9 +31,10 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 개꿀 생기부 (간단 버전)"
-MID_APP_SUBTITLE = "중학교 생기부 작성에 적합 · patched-20260624-mid-v24"
-MID_APP_VERSION = "patched-20260624-mid-v24"
+MID_APP_TITLE = "🍯 개꿀 생기부"
+MID_APP_TITLE_VERSION = "(간단 버전)"
+MID_APP_SUBTITLE = "중학교 생기부 작성에 적합 · patched-20260624-mid-v25"
+MID_APP_VERSION = "patched-20260624-mid-v25"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -1959,7 +1960,7 @@ def build_mid_sample_project_data():
   "results": {},
   "saved_at": "__NOW__",
   "app": "개꿀 생기부",
-  "version": "sample-mid-v24"
+  "version": "sample-mid-v25"
 }""")
     data["saved_at"] = datetime.now().isoformat(timespec="seconds")
     return data
@@ -2545,8 +2546,16 @@ def render_level_header_preview(items):
 # UI 스타일 / 이동
 # =========================
 st.markdown('<div id="mid-honey-top"></div>', unsafe_allow_html=True)
-st.title(MID_APP_TITLE)
-st.caption(MID_APP_SUBTITLE)
+st.markdown(
+    f"""
+    <div style="display:flex; align-items:baseline; gap:0.65rem; flex-wrap:nowrap; white-space:nowrap; overflow-x:auto; margin:0 0 1.2rem 0; color:#111111;">
+      <span style="font-size:2.55rem; font-weight:850; letter-spacing:-0.03em; color:#111111;">{MID_APP_TITLE}</span>
+      <span style="font-size:1.45rem; font-weight:800; color:#111111;">{MID_APP_TITLE_VERSION}</span>
+      <span style="font-size:1.08rem; font-weight:650; color:#111111;">중학교 생기부 작성에 적합</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.markdown(
     """
@@ -3359,7 +3368,7 @@ if current_step == 2:
             GENERATION_MODE_OPTIONS,
             index=0,
             horizontal=True,
-            key="mid_generation_mode_selector_v24",
+            key="mid_generation_mode_selector_v25",
             help="실제 AI API 생성과 API 없이 입력 자료를 재조합하는 테스트 생성을 명확히 구분합니다.",
         )
         if generation_mode == GENERATION_MODE_INTERNAL:
