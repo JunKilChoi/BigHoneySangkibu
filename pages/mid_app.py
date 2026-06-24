@@ -23,7 +23,7 @@ except Exception:
 
 
 # =========================
-# 중학교 간편 생기부 v20
+# 중학교 간편 생기부 v21
 # =========================
 st.set_page_config(
     page_title="중학교 간편 생기부",
@@ -31,9 +31,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v20"
-MID_APP_SUBTITLE = "수행평가/관찰내용·평가 요소 기반 중학교 생기부 간편 작성 도우미 · patched-20260624-mid-v20"
-MID_APP_VERSION = "patched-20260624-mid-v20"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v21"
+MID_APP_SUBTITLE = "수행평가/관찰내용·평가 요소 기반 중학교 생기부 간편 작성 도우미 · patched-20260624-mid-v21"
+MID_APP_VERSION = "patched-20260624-mid-v21"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -2956,7 +2956,7 @@ if current_step == 0:
                 new_assessment_name = st.text_input("수행평가/관찰내용명", placeholder="예: 혼합물 분리 탐구")
                 new_area = st.text_input("영역/단원", placeholder="예: 물질의 특성")
             with col2:
-                new_use = st.checkbox("사용", value=True)
+                st.caption("새로 추가한 수행평가/관찰내용은 기본적으로 사용 상태로 저장됩니다.")
                 st.caption("순서는 아래의 드래그 정렬에서 바꿀 수 있습니다.")
             new_desc = st.text_area(
                 "성취기준 / 관찰 기준 / 활동 내용",
@@ -2975,7 +2975,7 @@ if current_step == 0:
                         "unit": clean_text(new_area),
                         "description": clean_text(new_desc),
                         "order": len(st.session_state.mid_assessments) + 1,
-                        "use": bool(new_use),
+                        "use": True,
                     })
                     sanitize_mid_state()
                     st.success("수행평가/관찰내용을 추가했습니다.")
@@ -3067,6 +3067,7 @@ if current_step == 0:
                         value=assessment.get("use", True),
                         key=f"mid_assess_use_{aid}",
                     )
+                    st.caption("사용 해제 시 이 수행평가/관찰내용은 학생별 입력표, API 입력 자료, 생기부 생성에서 제외됩니다.")
                     if st.button("수행평가/관찰내용 삭제", key=f"mid_delete_assessment_{aid}"):
                         item_ids = [item.get("item_id", "") for item in get_items_for_assessment(aid)]
                         st.session_state.mid_assessments = [a for a in st.session_state.mid_assessments if a.get("assessment_id", "") != aid]
