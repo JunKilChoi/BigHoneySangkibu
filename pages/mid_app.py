@@ -23,17 +23,17 @@ except Exception:
 
 
 # =========================
-# 중학교 간편 생기부 v21
+# 개꿀 생기부 간단 버전 v24
 # =========================
 st.set_page_config(
-    page_title="중학교 간편 생기부",
+    page_title="개꿀 생기부 (간단 버전)",
     page_icon="🍯",
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v22"
-MID_APP_SUBTITLE = "수행평가/관찰내용·평가 요소 기반 중학교 생기부 간편 작성 도우미 · patched-20260624-mid-v22"
-MID_APP_VERSION = "patched-20260624-mid-v22"
+MID_APP_TITLE = "🍯 개꿀 생기부 (간단 버전)"
+MID_APP_SUBTITLE = "중학교 생기부 작성에 적합 · patched-20260624-mid-v24"
+MID_APP_VERSION = "patched-20260624-mid-v24"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -852,7 +852,7 @@ def mid_project_to_json() -> str:
         "records": st.session_state.mid_records,
         "results": st.session_state.mid_results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
-        "app": "개꿀 생기부 - 중학교 간편",
+        "app": "개꿀 생기부",
         "version": MID_APP_VERSION,
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
@@ -1958,8 +1958,8 @@ def build_mid_sample_project_data():
   },
   "results": {},
   "saved_at": "__NOW__",
-  "app": "개꿀 생기부 - 중학교 간편",
-  "version": "sample-mid-v20"
+  "app": "개꿀 생기부",
+  "version": "sample-mid-v24"
 }""")
     data["saved_at"] = datetime.now().isoformat(timespec="seconds")
     return data
@@ -2766,7 +2766,7 @@ with st.sidebar:
     uploaded_project = st.file_uploader(
         "프로젝트 JSON 불러오기",
         type=["json"],
-        help="중학교 간편 생기부 프로젝트 파일을 다시 불러옵니다.",
+        help="개꿀 생기부 간단 버전 프로젝트 파일을 다시 불러옵니다.",
     )
     if uploaded_project and st.button("프로젝트 불러오기"):
         load_mid_project_json(uploaded_project)
@@ -2782,7 +2782,7 @@ with st.sidebar:
 
     st.divider()
 
-    if st.button("샘플 데이터 불러오기", help="중학교 간편 생기부 샘플 프로젝트를 불러옵니다."):
+    if st.button("샘플 데이터 불러오기", help="개꿀 생기부 간단 버전 샘플 프로젝트를 불러옵니다."):
         load_mid_sample_data()
         st.success("샘플 데이터를 불러왔습니다.")
         st.rerun()
@@ -3359,7 +3359,7 @@ if current_step == 2:
             GENERATION_MODE_OPTIONS,
             index=0,
             horizontal=True,
-            key="mid_generation_mode_selector_v22",
+            key="mid_generation_mode_selector_v24",
             help="실제 AI API 생성과 API 없이 입력 자료를 재조합하는 테스트 생성을 명확히 구분합니다.",
         )
         if generation_mode == GENERATION_MODE_INTERNAL:
