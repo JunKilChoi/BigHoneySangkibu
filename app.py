@@ -32,8 +32,9 @@ st.set_page_config(
     layout="wide",
 )
 
-APP_TITLE = "🍯 개꿀 생기부 (고급 버전)"
-APP_SUBTITLE = "고등학교 생기부 작성에 적합 · patched-20260624-v65"
+APP_TITLE = "🍯 개꿀 생기부"
+APP_TITLE_VERSION = "(고급 버전)"
+APP_SUBTITLE = "고등학교 생기부 작성에 적합 · patched-20260624-v66"
 
 
 DEFAULT_RULES = """- 명사형 종결을 사용한다. 예: 분석함, 정리함, 제시함, 탐색함.
@@ -854,7 +855,7 @@ def project_to_json() -> str:
         "results": st.session_state.results,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "app": "개꿀 생기부",
-        "version": "patched-20260624-v65",
+        "version": "patched-20260624-v66",
     }
     return json.dumps(json_safe(data), ensure_ascii=False, indent=2, default=str)
 
@@ -3517,10 +3518,10 @@ def build_sample_project_data():
   "results": {},
   "saved_at": "2026-06-23T07:35:00",
   "app": "개꿀 생기부",
-  "version": "sample-project-v65"
+  "version": "sample-project-v66"
 }''')
     data["saved_at"] = datetime.now().isoformat(timespec="seconds")
-    data["version"] = "sample-project-v65"
+    data["version"] = "sample-project-v66"
     return data
 
 
@@ -3548,8 +3549,16 @@ def load_sample_data():
 # 앱 UI
 # =========================
 st.markdown('<div id="big-honey-top"></div>', unsafe_allow_html=True)
-st.title(APP_TITLE)
-st.caption(APP_SUBTITLE)
+st.markdown(
+    f"""
+    <div style="display:flex; align-items:baseline; gap:0.65rem; flex-wrap:nowrap; white-space:nowrap; overflow-x:auto; margin:0 0 1.2rem 0; color:#111111;">
+      <span style="font-size:2.55rem; font-weight:850; letter-spacing:-0.03em; color:#111111;">{APP_TITLE}</span>
+      <span style="font-size:1.45rem; font-weight:800; color:#111111;">{APP_TITLE_VERSION}</span>
+      <span style="font-size:1.08rem; font-weight:650; color:#111111;">고등학교 생기부 작성에 적합</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 with st.sidebar:
     st.header("작업 관리")
@@ -4643,7 +4652,7 @@ if current_step == 5:
             GENERATION_MODE_OPTIONS,
             index=0,
             horizontal=True,
-            key="generation_mode_selector_v65",
+            key="generation_mode_selector_v66",
             help="실제 AI API 생성과 API 없이 입력 자료를 재조합하는 테스트 생성을 명확히 구분합니다.",
         )
         if generation_mode == GENERATION_MODE_INTERNAL:
