@@ -31,9 +31,9 @@ st.set_page_config(
     layout="wide",
 )
 
-MID_APP_TITLE = "🍯 중학교 간편 생기부 v21"
-MID_APP_SUBTITLE = "수행평가/관찰내용·평가 요소 기반 중학교 생기부 간편 작성 도우미 · patched-20260624-mid-v21"
-MID_APP_VERSION = "patched-20260624-mid-v21"
+MID_APP_TITLE = "🍯 중학교 간편 생기부 v22"
+MID_APP_SUBTITLE = "수행평가/관찰내용·평가 요소 기반 중학교 생기부 간편 작성 도우미 · patched-20260624-mid-v22"
+MID_APP_VERSION = "patched-20260624-mid-v22"
 
 MID_DEFAULT_RULES = """- 중학교 학교생활기록부 교과 세부능력 및 특기사항 문체로 작성한다.
 - 학생 이름, 학년, 반, 번호, 학교명 등 개인정보를 쓰지 않는다.
@@ -67,6 +67,10 @@ AI_SECRET_KEY_NAMES = {
     "Gemini": "GEMINI_API_KEY",
     "Claude": "ANTHROPIC_API_KEY",
 }
+
+GENERATION_MODE_API = "실제 AI API로 생성"
+GENERATION_MODE_INTERNAL = "API 없이 내부 조합 방식으로 테스트 생성"
+GENERATION_MODE_OPTIONS = [GENERATION_MODE_API, GENERATION_MODE_INTERNAL]
 
 VARIATION_GUIDES = {
     "낮음": "평가 내용은 그대로 유지하고 어휘와 문장 순서만 조금씩 바꾼다.",
@@ -701,6 +705,7 @@ def init_mid_state():
             "ai_provider": "ChatGPT",
             "api_key": "",
             "model": "",
+            "generation_mode": GENERATION_MODE_API,
             "variation_level": "보통",
             "started_at": "",
             "loading_started_at": "",
@@ -811,6 +816,7 @@ def sanitize_mid_state():
         "ai_provider": "ChatGPT",
         "api_key": "",
         "model": "",
+        "generation_mode": GENERATION_MODE_API,
         "variation_level": "보통",
         "started_at": "",
         "loading_started_at": "",
@@ -1989,9 +1995,9 @@ def generate_with_openai(prompt, api_key, model):
     except Exception as e:
         msg = clean_text(str(e))
         if has_api_error_text(msg):
-            st.warning("ChatGPT API 할당량/결제 관련 오류가 발생해 내부 조합 방식으로 대신 생성합니다.")
+            st.warning("ChatGPT API 할당량/결제 관련 오류가 발생했습니다. 실제 AI API 생성은 중단됩니다.")
         else:
-            st.warning("ChatGPT API 생성 중 오류가 발생해 내부 조합 방식으로 대신 생성합니다.")
+            st.warning("ChatGPT API 생성 중 오류가 발생했습니다. 실제 AI API 생성은 중단됩니다.")
         return None
 
 
@@ -2010,7 +2016,7 @@ def generate_with_gemini(prompt, api_key, model):
         text = "".join([part.get("text", "") for part in parts if isinstance(part, dict)]).strip()
         return text or None
     except Exception:
-        st.warning("Gemini API 생성 중 오류가 발생해 내부 조합 방식으로 대신 생성합니다.")
+        st.warning("Gemini API 생성 중 오류가 발생했습니다. 실제 AI API 생성은 중단됩니다.")
         return None
 
 
@@ -2041,7 +2047,7 @@ def generate_with_claude(prompt, api_key, model):
         ]).strip()
         return text or None
     except Exception:
-        st.warning("Claude API 생성 중 오류가 발생해 내부 조합 방식으로 대신 생성합니다.")
+        st.warning("Claude API 생성 중 오류가 발생했습니다. 실제 AI API 생성은 중단됩니다.")
         return None
 
 
@@ -3343,10 +3349,27 @@ if current_step == 2:
                 value=get_default_ai_key(ai_provider),
                 type="password",
                 key=f"mid_api_key_{ai_provider}_v06",
-                help=f"Streamlit Secrets에는 {AI_SECRET_KEY_NAMES.get(ai_provider, 'OPENAI_API_KEY')} 이름으로 저장해둘 수 있습니다.",
+                help=f"Streamlit Secrets에는 {AI_SECRET_KEY_NAMES.get(ai_provider, 'OPENAI_API_KEY')} 이름으로 저장해둘 수 있습니다. 실제 AI API 생성에는 API 키가 필요합니다.",
             )
         with col_variation:
             variation_level = st.selectbox("변주 강도", ["낮음", "보통", "높음"], index=1)
+
+        generation_mode = st.radio(
+            "생성 방식",
+            GENERATION_MODE_OPTIONS,
+            index=0,
+            horizontal=True,
+            key="mid_generation_mode_selector_v22",
+            help="실제 AI API 생성과 API 없이 입력 자료를 재조합하는 테스트 생성을 명확히 구분합니다.",
+        )
+        if generation_mode == GENERATION_MODE_INTERNAL:
+            st.info(
+                "현재 생성 방식은 API 없이 내부 조합 방식입니다. ChatGPT/Gemini/Claude API를 사용하지 않고, "
+                "입력된 성취수준 문구와 개별 코멘트를 규칙에 따라 재조합해 빠르게 초안을 만듭니다. "
+                "실제 AI 생성보다 문장 품질과 변주가 제한될 수 있습니다."
+            )
+        else:
+            st.caption("실제 AI API로 생성하려면 API Key 입력칸 또는 Streamlit Secrets에 유효한 API 키가 필요합니다.")
 
         students = st.session_state.mid_students.copy()
         student_labels = {
@@ -3387,13 +3410,19 @@ if current_step == 2:
                 )
                 prompt = build_prompt(material, variation_level=variation_level, variant_no=variant_no)
                 generated = None
-                if api_key:
+                if generation_mode == GENERATION_MODE_API:
+                    if not clean_text(api_key):
+                        st.warning("API 키가 입력되지 않았습니다. 실제 AI API로 생성하려면 API 키를 입력하거나 Streamlit Secrets에 저장하세요. API 없이 테스트하려면 생성 방식을 내부 조합 방식으로 바꾸세요.")
+                        st.stop()
                     generated = generate_with_ai(prompt, ai_provider, api_key, model)
-                if not generated:
+                    if not generated:
+                        st.error("API 호출에 실패해 생성을 중단했습니다. API 키, 모델명, 결제/쿼터 상태를 확인하세요. 내부 조합 방식으로 테스트하려면 생성 방식을 변경하세요.")
+                        st.stop()
+                else:
                     overlay_slot = show_generation_overlay(
                         overlay_slot,
                         "선택 학생 생기부 생성 중",
-                        "API 결과가 없어 내부 조합 방식으로 문장을 구성하고 있습니다.",
+                        "API를 사용하지 않고 내부 조합 방식으로 문장을 구성하고 있습니다.",
                         0.75,
                         ["교사의 평가 문구 추출", "중복 표현 정리", "명사형 종결 적용"],
                         recent_items=recent_preview_items,
@@ -3416,6 +3445,7 @@ if current_step == 2:
                     "edited": generated,
                     "bytes": byte_count(generated),
                     "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "generation_mode": generation_mode,
                 }
                 st.success("생성했습니다.")
                 st.rerun()
@@ -3423,23 +3453,27 @@ if current_step == 2:
             mid_job = st.session_state.mid_generation_job
             if not mid_job.get("active", False):
                 if st.button("전체 학생 생기부 생성 시작", type="primary", use_container_width=True):
-                    now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    st.session_state.mid_generation_job = {
-                        "active": True,
-                        "stop_requested": False,
-                        "student_ids": students["student_id"].astype(str).tolist(),
-                        "index": 0,
-                        "log": [],
-                        "ai_provider": ai_provider,
-                        "api_key": api_key,
-                        "model": model,
-                        "variation_level": variation_level,
-                        "started_at": now_text,
-                        "loading_started_at": now_text,
-                        "finished_at": "",
-                    }
-                    st.success("전체 생성 작업을 시작합니다.")
-                    st.rerun()
+                    if generation_mode == GENERATION_MODE_API and not clean_text(api_key):
+                        st.warning("API 키가 입력되지 않았습니다. 실제 AI API로 전체 생성을 하려면 API 키를 입력하거나 Streamlit Secrets에 저장하세요. API 없이 테스트하려면 생성 방식을 내부 조합 방식으로 바꾸세요.")
+                    else:
+                        now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        st.session_state.mid_generation_job = {
+                            "active": True,
+                            "stop_requested": False,
+                            "student_ids": students["student_id"].astype(str).tolist(),
+                            "index": 0,
+                            "log": [],
+                            "ai_provider": ai_provider,
+                            "api_key": api_key,
+                            "model": model,
+                            "generation_mode": generation_mode,
+                            "variation_level": variation_level,
+                            "started_at": now_text,
+                            "loading_started_at": now_text,
+                            "finished_at": "",
+                        }
+                        st.success("전체 생성 작업을 시작합니다.")
+                        st.rerun()
             else:
                 if st.button("생기부 생성 중지", type="primary", use_container_width=True):
                     mid_job["active"] = False
@@ -3519,7 +3553,14 @@ if current_step == 2:
                 variant_no=index + 1,
             )
             generated = None
-            if mid_job.get("api_key"):
+            job_generation_mode = mid_job.get("generation_mode", GENERATION_MODE_API)
+            if job_generation_mode == GENERATION_MODE_API:
+                if not clean_text(mid_job.get("api_key", "")):
+                    mid_job["active"] = False
+                    mid_job["finished_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    st.session_state.mid_generation_job = mid_job
+                    st.error("API 키가 없어 실제 AI API 전체 생성을 중단했습니다. API 키를 입력하거나, 생성 방식을 내부 조합 방식으로 바꿔 테스트하세요.")
+                    st.stop()
                 overlay_slot = show_generation_overlay(
                     overlay_slot,
                     "전체 학생 생기부 생성 중",
@@ -3535,7 +3576,13 @@ if current_step == 2:
                     mid_job.get("api_key", ""),
                     mid_job.get("model", model),
                 )
-            if not generated:
+                if not generated:
+                    mid_job["active"] = False
+                    mid_job["finished_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    st.session_state.mid_generation_job = mid_job
+                    st.error("API 호출 실패로 전체 생성을 중단했습니다. API 키, 모델명, 결제/쿼터 상태를 확인하세요. 내부 조합 방식으로 테스트하려면 생성 방식을 변경하세요.")
+                    st.stop()
+            else:
                 overlay_slot = show_generation_overlay(
                     overlay_slot,
                     "전체 학생 생기부 생성 중",
@@ -3555,6 +3602,7 @@ if current_step == 2:
                 "edited": generated,
                 "bytes": byte_count(generated),
                 "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "generation_mode": job_generation_mode,
             }
             mid_job.setdefault("log", []).append({
                 "순서": index + 1,
@@ -3565,6 +3613,7 @@ if current_step == 2:
                 "생성 문구": generated,
                 "byte": byte_count(generated),
                 "상태": "저장 완료",
+                "생성 방식": job_generation_mode,
             })
             mid_job["index"] = index + 1
 
